@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kixonair — Live Sports Schedule</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css" />
+<link rel="icon" href="/logo.svg" type="image/svg+xml" />
+</head>
+<body>
+<header class="header">
+  <div class="bar">
+    <a class="brand" href="/"><img src="/logo.svg" alt="Kixonair" height="28"/></a>
+    <div class="controls">
+      <input id="q" type="text" placeholder="Search team…" aria-label="Search team"/>
+      <div class="filters" role="tablist">
+        <button class="pill active" data-sport="all">All</button>
+        <button class="pill" data-sport="Soccer">Soccer</button>
+        <button class="pill" data-sport="NBA">NBA</button>
+        <button class="pill" data-sport="NFL">NFL</button>
+      </div>
+      <div class="datepick">
+        <input id="date" type="date" aria-label="Pick a date"/>
+        <button id="today" class="ghost">Today</button>
+        <button id="tomorrow" class="ghost">Tomorrow</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <h1>Today’s Games, Zero Noise.</h1>
+    <p>Pick a game → quick access → match center.</p>
+  </section>
+
+  <div id="counts" class="counts">Loading…</div><div id="errs" class="errline"></div>
+
+  <section class="grid" id="grid">
+    <div class="section" data-sport="Soccer">
+      <h2>⚽ Soccer</h2>
+      <div id="soccer" class="list"></div>
+    </div>
+    <div class="section" data-sport="NBA">
+      <h2>🏀 NBA</h2>
+      <div id="nba" class="list"></div>
+    </div>
+    <div class="section" data-sport="NFL">
+      <h2>🏈 NFL</h2>
+      <div id="nfl" class="list"></div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="inner">
+    <span>© <span id="yy"></span> Kixonair</span>
+    <span class="muted">Fixtures only — no streams hosted.</span>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('yy').textContent = new Date().getFullYear();
+  const fmtTime = d => new Date(d).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+  const pills = [...document.querySelectorAll('.pill')];
+  const grid = document.getElementById('grid');
+  let activeSport = 'all';
+
+  pills.forEach(p => p.addEventListener('click', () => {
+    pills.forEach(x => x.classList.remove('active'));
+    p.classList.add('active'); activeSport = p.dataset.sport;
+    filterUI();
+  }));
+
+  const dateEl = document.getElementById('date');
+  function ymd(ts){ const d = new Date(ts); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
+  dateEl.value = ymd(Date.now());
+  document.getElementById('today').onclick = ()=>{ dateEl.value = ymd(Date.now()); load(dateEl.value); };
+  document.getElementById('tomorrow').onclick = ()=>{ dateEl.value = ymd(Date.now()+86400000); load(dateEl.value); };
+  dateEl.addEventListener('change', ()=> load(dateEl.value));
+
+  const q = document.getElementById('q');
+  q.addEventListener('input', filterUI);
+
+  function card(fx){
+    const a = document.createElement('a');
+    a.className = 'item';
+    a.dataset.sport = fx.sport;
+    a.dataset.teams = `${fx.home.name} ${fx.away.name}`.toLowerCase();
+    const s = slug(`${fx.home.name}-vs-${fx.away.name}`);
+    a.href = `/go/${fx.id}?slug=${encodeURIComponent(s)}`;
+    a.innerHTML = `
+      <div class="time">${fmtTime(fx.start_utc)}</div>
+      <div class="teams"><div class="h">${fx.home.name}</div><div class="vs">vs</div><div class="a">${fx.away.name}</div></div>
+      <div class="meta"><span class="league">${fx.league?.name || ''}</span><span class="status">${fx.status || 'SCHEDULED'}</span></div>`;
+    return a;
+  }
+
+  function skeleton(){ const d = document.createElement('div'); d.className='skeleton'; return d; }
+  function setEmpty(el){ el.innerHTML = '<div class="empty">No games for this day.</div>'; }
+
+  function filterUI(){
+    const term = q.value.trim().toLowerCase();
+    const sections = Array.from(document.querySelectorAll('.section'));
+    let visibleCount = 0;
+    sections.forEach(sec => {
+      const sport = sec.dataset.sport;
+      const show = (activeSport==='all' || activeSport===sport);
+      sec.style.display = show ? '' : 'none';
+      if (show) visibleCount++;
+    });
+    grid.classList.toggle('single', visibleCount <= 1);
+    grid.classList.toggle('dense', visibleCount <= 1); // enable 2-column layout for the visible list
+
+    if (term){
+      sections.forEach(sec => {
+        if (sec.style.display === 'none') return;
+        const list = Array.from(sec.querySelectorAll('.item'));
+        let any=false;
+        list.forEach(li => {
+          const ok = li.dataset.teams.includes(term);
+          li.style.display = ok ? '' : 'none';
+          any = any || ok;
+        });
+        if(!any) sec.querySelector('.list').innerHTML = '<div class="empty">No matches found.</div>';
+      });
+    }
+  }
+
+  async function load(dateStr){
+    const ids = ['soccer','nba','nfl'];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      el.innerHTML = ''; for (let i=0;i<4;i++) el.appendChild(skeleton());
+    });
+    try{
+      const r = await fetch(`/api/fixtures?date=${dateStr}`);
+      const j = await r.json();
+      document.getElementById('counts').textContent =
+        `Loaded ${j.counts?.soccer||0} Soccer, ${j.counts?.nba||0} NBA, ${j.counts?.nfl||0} NFL for ${dateStr}`;
+      const errs = j.errors||{};
+      const errBox = document.getElementById('errs');
+      if (errBox){
+        const parts = [];
+        if (errs.soccer) parts.push('Soccer: ' + errs.soccer);
+        if (errs.nba) parts.push('NBA: ' + errs.nba);
+        if (errs.nfl) parts.push('NFL: ' + errs.nfl);
+        errBox.textContent = parts.length ? ('Issues: ' + parts.join(' | ')) : '';
+      }
+    const by = { Soccer:[], NBA:[], NFL:[] };
+      (j.fixtures||[]).forEach(fx => (by[fx.sport]||[]).push(fx));
+
+      [['Soccer','soccer'],['NBA','nba'],['NFL','nfl']].forEach(([sport, id])=>{
+        const el = document.getElementById(id);
+        el.innerHTML='';
+        const list = by[sport] || [];
+        if(!list.length){ setEmpty(el); return; }
+        list.sort((a,b)=>new Date(a.start_utc)-new Date(b.start_utc)).forEach(fx => el.appendChild(card(fx)));
+      });
+
+      filterUI();
+    } catch(e){
+      document.getElementById('counts').textContent = 'Could not load games. Try again shortly.';
+      ids.forEach(id => setEmpty(document.getElementById(id)));
+    }
+  }
+
+  load(dateEl.value);
+</script>
+</body>
+</html>
