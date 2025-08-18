@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#0b0f14" />
 <title>Kixonair — Live Sports Schedule</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -37,7 +38,7 @@
     <p>Pick a game → quick access → match center.</p>
   </section>
 
-  <div id="counts" class="counts">Loading…</div><div id="errs" class="errline"></div>
+  <div id="counts" class="counts">Loading…</div>
 
   <section class="grid" id="grid">
     <div class="section" data-sport="Soccer">
@@ -106,16 +107,19 @@
   function filterUI(){
     const term = q.value.trim().toLowerCase();
     const sections = Array.from(document.querySelectorAll('.section'));
-    let visibleCount = 0;
+    let visibleSections = [];
     sections.forEach(sec => {
       const sport = sec.dataset.sport;
       const show = (activeSport==='all' || activeSport===sport);
       sec.style.display = show ? '' : 'none';
-      if (show) visibleCount++;
+      if (show) visibleSections.push(sec);
     });
-    grid.classList.toggle('single', visibleCount <= 1);
-    grid.classList.toggle('dense', visibleCount <= 1); // enable 2-column layout for the visible list
-
+    grid.classList.toggle('single', visibleSections.length <= 1);
+    sections.forEach(sec => sec.querySelector('.list')?.classList.remove('two-col'));
+    if (visibleSections.length === 1) {
+      const list = visibleSections[0].querySelector('.list');
+      if (list) list.classList.add('two-col');
+    }
     if (term){
       sections.forEach(sec => {
         if (sec.style.display === 'none') return;
@@ -142,18 +146,8 @@
       const j = await r.json();
       document.getElementById('counts').textContent =
         `Loaded ${j.counts?.soccer||0} Soccer, ${j.counts?.nba||0} NBA, ${j.counts?.nfl||0} NFL for ${dateStr}`;
-      const errs = j.errors||{};
-      const errBox = document.getElementById('errs');
-      if (errBox){
-        const parts = [];
-        if (errs.soccer) parts.push('Soccer: ' + errs.soccer);
-        if (errs.nba) parts.push('NBA: ' + errs.nba);
-        if (errs.nfl) parts.push('NFL: ' + errs.nfl);
-        errBox.textContent = parts.length ? ('Issues: ' + parts.join(' | ')) : '';
-      }
-    const by = { Soccer:[], NBA:[], NFL:[] };
+      const by = { Soccer:[], NBA:[], NFL:[] };
       (j.fixtures||[]).forEach(fx => (by[fx.sport]||[]).push(fx));
-
       [['Soccer','soccer'],['NBA','nba'],['NFL','nfl']].forEach(([sport, id])=>{
         const el = document.getElementById(id);
         el.innerHTML='';
@@ -161,7 +155,6 @@
         if(!list.length){ setEmpty(el); return; }
         list.sort((a,b)=>new Date(a.start_utc)-new Date(b.start_utc)).forEach(fx => el.appendChild(card(fx)));
       });
-
       filterUI();
     } catch(e){
       document.getElementById('counts').textContent = 'Could not load games. Try again shortly.';
