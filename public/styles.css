@@ -48,3 +48,47 @@ main{max-width:1100px;margin:0 auto;padding:16px}
 .h1{font-size:22px;margin-bottom:8px}
 .grid2{display:grid;grid-template-columns:1fr;gap:8px}
 @media(min-width:640px){.grid2{grid-template-columns:1fr 1fr 1fr}}
+
+
+/* ===== Mobile + Android Optimizations (v9 drop-in overrides) ===== */
+html { -webkit-text-size-adjust: 100%; }
+body{
+  font-size: clamp(15px, 2vw, 17px);
+  -webkit-tap-highlight-color: rgba(255,255,255,0.05);
+}
+
+/* Bigger tap targets + prevent input zoom on Android */
+button, .pill, .ghost, .item { touch-action: manipulation; }
+.controls input[type="text"],
+.controls input[type="date"]{
+  font-size: 16px;         /* >=16px avoids zoom on focus */
+  padding: 12px 14px;
+}
+
+/* Stack header controls on phones; make search full-width */
+.bar{ gap:10px; flex-wrap:wrap }
+.controls{ width:100%; gap:8px; flex-wrap:wrap; justify-content:stretch }
+.controls input[type="text"]{ flex:1 1 100%; min-width:0 }
+.pill{ padding:10px 14px; font-weight:600 }
+.ghost{ padding:10px 12px }
+
+/* Swipeable sport tabs on small screens */
+.filters{ width:100%; overflow-x:auto; white-space:nowrap; scrollbar-width:thin; -webkit-overflow-scrolling:touch; padding-bottom:4px }
+
+/* Card layout: two-row on phones, classic on wider screens */
+.item{ grid-template-columns:64px 1fr; padding:12px; min-height:64px }
+@media (min-width:720px){ .item{ grid-template-columns:70px 1fr auto } }
+.item .meta{ grid-column:1 / -1; display:flex; justify-content:space-between; gap:10px; margin-top:6px }
+@media (min-width:720px){ .item .meta{ grid-column:auto; margin-top:0; justify-content:flex-end } }
+.time{ font-size:14px }
+
+/* When a single sport is active, switch to responsive grid earlier */
+.list.two-col{ display:grid; grid-template-columns:1fr; gap:10px }
+@media (min-width:420px){ .list.two-col{ grid-template-columns:1fr 1fr } }   /* phones → 2 cols sooner */
+@media (min-width:900px){ .list.two-col{ grid-template-columns:1fr 1fr 1fr } } /* wide screens → 3 cols */
+
+/* Keep the main sections in 3 columns only on true desktops */
+@media (min-width:980px){ .grid{ grid-template-columns:repeat(3, 1fr) } }
+
+/* Smooth scroll on Android */
+*{ scroll-behavior: smooth }
