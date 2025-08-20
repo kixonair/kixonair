@@ -92,6 +92,7 @@ button, .pill, .ghost, .item { touch-action: manipulation; }
 
 /* Smooth scroll on Android */
 *{ scroll-behavior: smooth }
+
 /* ==== Football league dropdown ==== */
 .league-wrap{ position:relative; display:flex; align-items:center; gap:6px }
 .league-menu{
@@ -112,4 +113,44 @@ button, .pill, .ghost, .item { touch-action: manipulation; }
   .league-wrap{ width:100% }
   .league-menu{ width:100% }
 }
+
+/* ===== v11 League dropdown polish ===== */
+.hidden{ display:none !important }
+
+.league-wrap{
+  position:relative; display:flex; align-items:center; gap:8px;
+  flex-wrap:wrap;
+}
+#leagueToggle.pill{ font-weight:700 }
+
+.league-menu{
+  position:absolute; top:112%; left:0; z-index:50;
+  width:min(92vw, 720px);
+  background:var(--card);
+  border:1px solid var(--edge);
+  border-radius:14px;
+  padding:10px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.45);
+  display:grid; grid-template-columns:1fr 1fr; gap:8px;
+  max-height:60vh; overflow:auto;
+}
+@media (min-width:900px){
+  .league-menu{ grid-template-columns:repeat(3,1fr) }
+}
+.league-menu .menuitem{
+  display:block; width:100%; text-align:left;
+  padding:10px 12px; border-radius:10px;
+  border:1px solid transparent; background:transparent; color:var(--text);
+  cursor:pointer; font-size:14px;
+}
+.league-menu .menuitem:hover{
+  background:rgba(255,255,255,0.06); border-color:var(--edge);
+}
+
+/* Keep things tidy on phones */
+@media (max-width:600px){
+  .league-wrap{ width:100% }
+  .league-menu{ width:100% }
+}
+
 
