@@ -92,3 +92,24 @@ button, .pill, .ghost, .item { touch-action: manipulation; }
 
 /* Smooth scroll on Android */
 *{ scroll-behavior: smooth }
+/* ==== Football league dropdown ==== */
+.league-wrap{ position:relative; display:flex; align-items:center; gap:6px }
+.league-menu{
+  position:absolute; top:110%; left:0; min-width:260px;
+  background:var(--card); border:1px solid var(--edge); border-radius:12px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.35); padding:6px; z-index:20;
+  max-height:320px; overflow:auto;
+}
+.league-menu.hidden{ display:none }
+.league-menu .menuitem{
+  display:block; width:100%; text-align:left; border:1px solid transparent;
+  background:transparent; color:var(--text); padding:8px 10px; border-radius:8px; cursor:pointer;
+}
+.league-menu .menuitem:hover{ background:rgba(255,255,255,0.06) }
+
+/* Keep controls usable on phones */
+@media (max-width:600px){
+  .league-wrap{ width:100% }
+  .league-menu{ width:100% }
+}
+
