@@ -1,3 +1,4 @@
+/* Kixonair styles v13 (dropdown polished + major-only toggle) */
 :root{
   --bg:#0b0f14;--card:#0f1622;--edge:#1a2331;--text:#e8eef6;--muted:#a0aec0;
   --accent1:#06B6D4;--accent2:#8B5CF6;--pill:#111827
@@ -49,7 +50,7 @@ main{max-width:1100px;margin:0 auto;padding:16px}
 .grid2{display:grid;grid-template-columns:1fr;gap:8px}
 @media(min-width:640px){.grid2{grid-template-columns:1fr 1fr 1fr}}
 
-/* ===== Mobile + Android Optimizations ===== */
+/* Mobile + Android */
 html { -webkit-text-size-adjust: 100%; }
 body{ font-size: clamp(15px, 2vw, 17px); -webkit-tap-highlight-color: rgba(255,255,255,0.05); }
 button, .pill, .ghost, .item { touch-action: manipulation; }
@@ -71,7 +72,7 @@ button, .pill, .ghost, .item { touch-action: manipulation; }
 @media (min-width:980px){ .grid{ grid-template-columns:repeat(3, 1fr) } }
 *{ scroll-behavior: smooth }
 
-/* ===== v11 League dropdown polish (single source of truth) ===== */
+/* v11 League dropdown polish */
 .hidden{ display:none !important }
 .league-wrap{ position:relative; display:flex; align-items:center; gap:8px; flex-wrap:wrap }
 #leagueToggle.pill{ font-weight:700 }
@@ -99,3 +100,21 @@ button, .pill, .ghost, .item { touch-action: manipulation; }
   .league-wrap{ width:100% }
   .league-menu{ width:100% }
 }
+
+/* Major-only switch */
+.switch{ display:flex; align-items:center; gap:8px }
+.switch span{ color:var(--muted); font-size:12px; font-weight:600 }
+.switch input{
+  appearance:none; -webkit-appearance:none;
+  width:38px; height:22px; border-radius:999px;
+  background:var(--edge); position:relative; cursor:pointer; outline:0;
+}
+.switch input:checked{
+  background:linear-gradient(120deg,var(--accent1),var(--accent2));
+}
+.switch input::after{
+  content:""; position:absolute; top:3px; left:4px;
+  width:16px; height:16px; border-radius:50%; background:#0b0f14;
+  transition:left .18s ease;
+}
+.switch input:checked::after{ left:18px; }

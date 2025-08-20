@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -9,8 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=12" />
-
+<link rel="stylesheet" href="/styles.css?v=13" />
 <link rel="icon" href="/logo.svg" type="image/svg+xml" />
 </head>
 <body>
@@ -28,14 +26,17 @@
         <button class="pill" data-sport="NFL">NFL</button>
       </div>
 
-      <!-- League dropdown (shows only when Football tab is active) -->
+      <!-- Football league dropdown + Major toggle -->
       <div class="league-wrap" id="leagueWrap" hidden>
         <button class="pill" id="leagueToggle" aria-expanded="false" aria-controls="leagueMenu">Leagues ▾</button>
-        <div class="league-menu hidden" id="leagueMenu" role="menu" aria-label="Choose league">
-          <!-- injected by JS -->
-        </div>
+        <div class="league-menu hidden" id="leagueMenu" role="menu" aria-label="Choose league"></div>
         <span class="muted small" id="leagueChosen" style="margin-left:6px;"></span>
       </div>
+
+      <label class="switch" title="Hide youth / reserves / friendlies">
+        <input type="checkbox" id="majorOnly" checked>
+        <span>Major only</span>
+      </label>
 
       <div class="datepick">
         <input id="date" type="date" aria-label="Pick a date"/>
@@ -92,14 +93,16 @@
 
   let activeSport = 'all';
   let leagueKey = 'all'; // active league within Football
+  let ALL = []; // fixtures cache for the picked date
 
-  // League definitions (robust to different provider names/codes)
+  // --- League definitions (robust across providers) ---
+  function nameOf(fx){ return (fx.league && (fx.league.name || fx.league.code)) || ''; }
+  function codeIs(fx, code){ return fx.league && (fx.league.code||'').toUpperCase() === code.toUpperCase(); }
   const LEAGUES = [
     { key:'all', label:'All Leagues', test: () => true },
     { key:'ucl', label:'UEFA Champions League', test: fx => codeIs(fx,'CL') || /champions league/i.test(nameOf(fx)) },
     { key:'uel', label:'UEFA Europa League', test: fx => codeIs(fx,'EL') || /europa league/i.test(nameOf(fx)) },
     { key:'uecl', label:'UEFA Europa Conference League', test: fx => codeIs(fx,'ECL') || /conference league/i.test(nameOf(fx)) },
-
     { key:'pl',  label:'Premier League (England)', test: fx => codeIs(fx,'PL') || /premier league/i.test(nameOf(fx)) },
     { key:'laliga', label:'La Liga (Spain)', test: fx => codeIs(fx,'PD') || /(la\s*liga|primera division)/i.test(nameOf(fx)) },
     { key:'bundes', label:'Bundesliga (Germany)', test: fx => codeIs(fx,'BL1') || /bundesliga/i.test(nameOf(fx)) },
@@ -111,12 +114,10 @@
     { key:'bel', label:'Belgian Pro League', test: fx => /(jupiler|belgian pro league|pro league)/i.test(nameOf(fx)) },
     { key:'tur', label:'Süper Lig (Turkey)', test: fx => /(super lig|süper lig)/i.test(nameOf(fx)) }
   ];
-  function nameOf(fx){ return (fx.league && (fx.league.name || fx.league.code)) || ''; }
-  function codeIs(fx, code){ return fx.league && (fx.league.code||'').toUpperCase() === code.toUpperCase(); }
 
   // Build league menu
   leagueMenu.innerHTML = LEAGUES.map(L =>
-    `<button class="menuitem" role="menuitem" data-league="${L.key}">${L.label}</button>`
+    `<button class="menuitem" role="menuitem" data-league="\${L.key}">\${L.label}</button>`
   ).join('');
 
   // Toggle dropdown
@@ -142,12 +143,36 @@
     renderLists(); // re-filter Football immediately
   });
 
+  // --- Minor (youth/reserves/friendlies) filters ---
+  const MINOR_LEAGUE_PATTERNS = [
+    /\bu\s?-?\s?(?:13|14|15|16|17|18|19|20|21|23)\b/i,
+    /\b(youth|academy|primavera|reserves?)\b/i,
+    /\b(friendly|friendlies|club friendly|pre[-\s]?season|amistoso|testspiel)\b/i,
+    /\b(premier league 2|professional development league|u23 premier league)\b/i
+  ];
+  const MINOR_TEAM_PATTERNS = [
+    /\bu\s?-?\s?(?:13|14|15|16|17|18|19|20|21|23)\b/i,
+    /\b(reserves?)\b/i,
+    /\b(ii|b)\b$/i,
+    /\bacademy\b/i
+  ];
+  function isMinor(fx){
+    const lname = ((fx.league?.name || '') + ' ' + (fx.league?.code || '')).toLowerCase();
+    if (MINOR_LEAGUE_PATTERNS.some(rx => rx.test(lname))) return true;
+    const h = (fx.home?.name || '').toLowerCase();
+    const a = (fx.away?.name || '').toLowerCase();
+    return MINOR_TEAM_PATTERNS.some(rx => rx.test(h)) || MINOR_TEAM_PATTERNS.some(rx => rx.test(a));
+  }
+  const QS = new URLSearchParams(location.search);
+  const majorOnlyEl = document.getElementById('majorOnly');
+  if (QS.get('all') === '1') majorOnlyEl.checked = false;
+  majorOnlyEl.addEventListener('change', () => renderLists());
+
   // Sport pills
   pills.forEach(p => p.addEventListener('click', () => {
     pills.forEach(x => x.classList.remove('active'));
     p.classList.add('active');
     activeSport = p.dataset.sport;
-    // Show league control only on Football
     leagueWrap.hidden = activeSport !== 'Football';
     renderVisibility();
   }));
@@ -173,16 +198,14 @@
     const s = slug(`${fx.home.name}-vs-${fx.away.name}`);
     a.href = `/go/${fx.id}?slug=${encodeURIComponent(s)}`;
     a.innerHTML = `
-      <div class="time">${fmtTime(fx.start_utc)}</div>
-      <div class="teams"><div class="h">${fx.home.name}</div><div class="vs">vs</div><div class="a">${fx.away.name}</div></div>
-      <div class="meta"><span class="league">${fx.league?.name || ''}</span><span class="status">${fx.status || 'SCHEDULED'}</span></div>`;
+      <div class="time">\${fmtTime(fx.start_utc)}</div>
+      <div class="teams"><div class="h">\${fx.home.name}</div><div class="vs">vs</div><div class="a">\${fx.away.name}</div></div>
+      <div class="meta"><span class="league">\${fx.league?.name || ''}</span><span class="status">\${fx.status || 'SCHEDULED'}</span></div>`;
     return a;
   }
 
   function skeleton(){ const d = document.createElement('div'); d.className='skeleton'; return d; }
   function setEmpty(el){ el.innerHTML = '<div class="empty">No games for this day.</div>'; }
-
-  let ALL = []; // fixtures cache for the picked date
 
   function renderVisibility(){
     const sections = Array.from(document.querySelectorAll('.section'));
@@ -209,9 +232,11 @@
     const nba = ALL.filter(fx => fx.sport === 'NBA');
     const nfl = ALL.filter(fx => fx.sport === 'NFL');
 
-    // Apply league filter within Football
+    // Apply league + major-only filter within Football
     const league = LEAGUES.find(x => x.key === leagueKey) || LEAGUES[0];
-    const football = footballAll.filter(fx => league.test(fx));
+    const football = footballAll
+      .filter(fx => league.test(fx))
+      .filter(fx => !majorOnlyEl.checked || !isMinor(fx));
 
     // Fill helper
     const fill = (arr, id) => {
@@ -219,9 +244,7 @@
       el.innerHTML='';
       if (!arr.length) { setEmpty(el); return; }
       let final = arr.slice();
-      if (term) {
-        final = final.filter(fx => (`${fx.home.name} ${fx.away.name}`.toLowerCase()).includes(term));
-      }
+      if (term) final = final.filter(fx => (`${fx.home.name} ${fx.away.name}`.toLowerCase()).includes(term));
       final.sort((a,b)=>new Date(a.start_utc)-new Date(b.start_utc)).forEach(fx => el.appendChild(card(fx)));
       if (!final.length) setEmpty(el);
     };
@@ -256,12 +279,8 @@
   // Init
   leagueChosen.textContent = 'All Leagues';
   load(dateEl.value);
-  // Show league control only on Football
-  leagueWrap.hidden = true;
-  // When Football tab becomes active, show dropdown control
-  pills.find(p=>p.dataset.sport==='Football').addEventListener('click', ()=>{
-    leagueWrap.hidden = false;
-  });
+  leagueWrap.hidden = true; // show only when Football tab active
+  pills.find(p=>p.dataset.sport==='Football').addEventListener('click', ()=>{ leagueWrap.hidden = false; });
 </script>
 </body>
 </html>
