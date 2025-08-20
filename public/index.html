@@ -117,7 +117,7 @@
 
   // Build league menu
   leagueMenu.innerHTML = LEAGUES.map(L =>
-    `<button class="menuitem" role="menuitem" data-league="\${L.key}">\${L.label}</button>`
+    `<button class="menuitem" role="menuitem" data-league="${L.key}">${L.label}</button>`
   ).join('');
 
   // Toggle dropdown
@@ -198,9 +198,9 @@
     const s = slug(`${fx.home.name}-vs-${fx.away.name}`);
     a.href = `/go/${fx.id}?slug=${encodeURIComponent(s)}`;
     a.innerHTML = `
-      <div class="time">\${fmtTime(fx.start_utc)}</div>
-      <div class="teams"><div class="h">\${fx.home.name}</div><div class="vs">vs</div><div class="a">\${fx.away.name}</div></div>
-      <div class="meta"><span class="league">\${fx.league?.name || ''}</span><span class="status">\${fx.status || 'SCHEDULED'}</span></div>`;
+      <div class="time">${fmtTime(fx.start_utc)}</div>
+      <div class="teams"><div class="h">${fx.home.name}</div><div class="vs">vs</div><div class="a">${fx.away.name}</div></div>
+      <div class="meta"><span class="league">${fx.league?.name || ''}</span><span class="status">${fx.status || 'SCHEDULED'}</span></div>`;
     return a;
   }
 
