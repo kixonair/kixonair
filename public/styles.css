@@ -49,80 +49,32 @@ main{max-width:1100px;margin:0 auto;padding:16px}
 .grid2{display:grid;grid-template-columns:1fr;gap:8px}
 @media(min-width:640px){.grid2{grid-template-columns:1fr 1fr 1fr}}
 
-
-/* ===== Mobile + Android Optimizations (v9 drop-in overrides) ===== */
+/* ===== Mobile + Android Optimizations ===== */
 html { -webkit-text-size-adjust: 100%; }
-body{
-  font-size: clamp(15px, 2vw, 17px);
-  -webkit-tap-highlight-color: rgba(255,255,255,0.05);
-}
-
-/* Bigger tap targets + prevent input zoom on Android */
+body{ font-size: clamp(15px, 2vw, 17px); -webkit-tap-highlight-color: rgba(255,255,255,0.05); }
 button, .pill, .ghost, .item { touch-action: manipulation; }
-.controls input[type="text"],
-.controls input[type="date"]{
-  font-size: 16px;         /* >=16px avoids zoom on focus */
-  padding: 12px 14px;
-}
-
-/* Stack header controls on phones; make search full-width */
+.controls input[type="text"], .controls input[type="date"]{ font-size:16px; padding:12px 14px }
 .bar{ gap:10px; flex-wrap:wrap }
 .controls{ width:100%; gap:8px; flex-wrap:wrap; justify-content:stretch }
 .controls input[type="text"]{ flex:1 1 100%; min-width:0 }
 .pill{ padding:10px 14px; font-weight:600 }
 .ghost{ padding:10px 12px }
-
-/* Swipeable sport tabs on small screens */
 .filters{ width:100%; overflow-x:auto; white-space:nowrap; scrollbar-width:thin; -webkit-overflow-scrolling:touch; padding-bottom:4px }
-
-/* Card layout: two-row on phones, classic on wider screens */
 .item{ grid-template-columns:64px 1fr; padding:12px; min-height:64px }
 @media (min-width:720px){ .item{ grid-template-columns:70px 1fr auto } }
 .item .meta{ grid-column:1 / -1; display:flex; justify-content:space-between; gap:10px; margin-top:6px }
 @media (min-width:720px){ .item .meta{ grid-column:auto; margin-top:0; justify-content:flex-end } }
 .time{ font-size:14px }
-
-/* When a single sport is active, switch to responsive grid earlier */
 .list.two-col{ display:grid; grid-template-columns:1fr; gap:10px }
-@media (min-width:420px){ .list.two-col{ grid-template-columns:1fr 1fr } }   /* phones → 2 cols sooner */
-@media (min-width:900px){ .list.two-col{ grid-template-columns:1fr 1fr 1fr } } /* wide screens → 3 cols */
-
-/* Keep the main sections in 3 columns only on true desktops */
+@media (min-width:420px){ .list.two-col{ grid-template-columns:1fr 1fr } }
+@media (min-width:900px){ .list.two-col{ grid-template-columns:1fr 1fr 1fr } }
 @media (min-width:980px){ .grid{ grid-template-columns:repeat(3, 1fr) } }
-
-/* Smooth scroll on Android */
 *{ scroll-behavior: smooth }
 
-/* ==== Football league dropdown ==== */
-.league-wrap{ position:relative; display:flex; align-items:center; gap:6px }
-.league-menu{
-  position:absolute; top:110%; left:0; min-width:260px;
-  background:var(--card); border:1px solid var(--edge); border-radius:12px;
-  box-shadow:0 10px 30px rgba(0,0,0,0.35); padding:6px; z-index:20;
-  max-height:320px; overflow:auto;
-}
-.league-menu.hidden{ display:none }
-.league-menu .menuitem{
-  display:block; width:100%; text-align:left; border:1px solid transparent;
-  background:transparent; color:var(--text); padding:8px 10px; border-radius:8px; cursor:pointer;
-}
-.league-menu .menuitem:hover{ background:rgba(255,255,255,0.06) }
-
-/* Keep controls usable on phones */
-@media (max-width:600px){
-  .league-wrap{ width:100% }
-  .league-menu{ width:100% }
-}
-
-/* ===== v11 League dropdown polish ===== */
+/* ===== v11 League dropdown polish (single source of truth) ===== */
 .hidden{ display:none !important }
-
-.league-wrap{
-  position:relative; display:flex; align-items:center; gap:8px;
-  flex-wrap:wrap;
-}
+.league-wrap{ position:relative; display:flex; align-items:center; gap:8px; flex-wrap:wrap }
 #leagueToggle.pill{ font-weight:700 }
-
 .league-menu{
   position:absolute; top:112%; left:0; z-index:50;
   width:min(92vw, 720px);
@@ -134,23 +86,16 @@ button, .pill, .ghost, .item { touch-action: manipulation; }
   display:grid; grid-template-columns:1fr 1fr; gap:8px;
   max-height:60vh; overflow:auto;
 }
-@media (min-width:900px){
-  .league-menu{ grid-template-columns:repeat(3,1fr) }
-}
+@media (min-width:900px){ .league-menu{ grid-template-columns:repeat(3,1fr) } }
 .league-menu .menuitem{
+  appearance:none; -webkit-appearance:none;
   display:block; width:100%; text-align:left;
   padding:10px 12px; border-radius:10px;
   border:1px solid transparent; background:transparent; color:var(--text);
   cursor:pointer; font-size:14px;
 }
-.league-menu .menuitem:hover{
-  background:rgba(255,255,255,0.06); border-color:var(--edge);
-}
-
-/* Keep things tidy on phones */
+.league-menu .menuitem:hover{ background:rgba(255,255,255,0.06); border-color:var(--edge) }
 @media (max-width:600px){
   .league-wrap{ width:100% }
   .league-menu{ width:100% }
 }
-
-
