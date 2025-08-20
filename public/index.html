@@ -15,14 +15,26 @@
 <header class="header">
   <div class="bar">
     <a class="brand" href="/"><img src="/logo.svg" alt="Kixonair" height="28"/></a>
+
     <div class="controls">
       <input id="q" type="text" placeholder="Search team…" aria-label="Search team"/>
+
       <div class="filters" role="tablist">
         <button class="pill active" data-sport="all">All</button>
-        <button class="pill" data-sport="Soccer">Soccer</button>
+        <button class="pill" data-sport="Football">Football</button>
         <button class="pill" data-sport="NBA">NBA</button>
         <button class="pill" data-sport="NFL">NFL</button>
       </div>
+
+      <!-- League dropdown (shows only when Football tab is active) -->
+      <div class="league-wrap" id="leagueWrap" hidden>
+        <button class="pill" id="leagueToggle" aria-expanded="false" aria-controls="leagueMenu">Leagues ▾</button>
+        <div class="league-menu hidden" id="leagueMenu" role="menu" aria-label="Choose league">
+          <!-- injected by JS -->
+        </div>
+        <span class="muted small" id="leagueChosen" style="margin-left:6px;"></span>
+      </div>
+
       <div class="datepick">
         <input id="date" type="date" aria-label="Pick a date"/>
         <button id="today" class="ghost">Today</button>
@@ -41,9 +53,9 @@
   <div id="counts" class="counts">Loading…</div>
 
   <section class="grid" id="grid">
-    <div class="section" data-sport="Soccer">
-      <h2>⚽ Soccer</h2>
-      <div id="soccer" class="list"></div>
+    <div class="section" data-sport="Football">
+      <h2>⚽ Football</h2>
+      <div id="football" class="list"></div>
     </div>
     <div class="section" data-sport="NBA">
       <h2>🏀 NBA</h2>
@@ -65,18 +77,80 @@
 
 <script>
   document.getElementById('yy').textContent = new Date().getFullYear();
+
+  // Utilities
   const fmtTime = d => new Date(d).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
-  const pills = [...document.querySelectorAll('.pill')];
+  const pills = [...document.querySelectorAll('.pill[data-sport]')];
   const grid = document.getElementById('grid');
-  let activeSport = 'all';
+  const leagueWrap = document.getElementById('leagueWrap');
+  const leagueMenu = document.getElementById('leagueMenu');
+  const leagueToggle = document.getElementById('leagueToggle');
+  const leagueChosen = document.getElementById('leagueChosen');
 
+  let activeSport = 'all';
+  let leagueKey = 'all'; // active league within Football
+
+  // League definitions (robust to different provider names/codes)
+  const LEAGUES = [
+    { key:'all', label:'All Leagues', test: () => true },
+    { key:'ucl', label:'UEFA Champions League', test: fx => codeIs(fx,'CL') || /champions league/i.test(nameOf(fx)) },
+    { key:'uel', label:'UEFA Europa League', test: fx => codeIs(fx,'EL') || /europa league/i.test(nameOf(fx)) },
+    { key:'uecl', label:'UEFA Europa Conference League', test: fx => codeIs(fx,'ECL') || /conference league/i.test(nameOf(fx)) },
+
+    { key:'pl',  label:'Premier League (England)', test: fx => codeIs(fx,'PL') || /premier league/i.test(nameOf(fx)) },
+    { key:'laliga', label:'La Liga (Spain)', test: fx => codeIs(fx,'PD') || /(la\s*liga|primera division)/i.test(nameOf(fx)) },
+    { key:'bundes', label:'Bundesliga (Germany)', test: fx => codeIs(fx,'BL1') || /bundesliga/i.test(nameOf(fx)) },
+    { key:'seriea', label:'Serie A (Italy)', test: fx => codeIs(fx,'SA') || /serie\s*a/i.test(nameOf(fx)) },
+    { key:'ligue1', label:'Ligue 1 (France)', test: fx => codeIs(fx,'FL1') || /ligue\s*1/i.test(nameOf(fx)) },
+    { key:'eredivisie', label:'Eredivisie (Netherlands)', test: fx => /eredivisie/i.test(nameOf(fx)) },
+    { key:'primeira', label:'Primeira Liga (Portugal)', test: fx => codeIs(fx,'PPL') || /(primeira liga|liga portugal|liga nos)/i.test(nameOf(fx)) },
+    { key:'sco', label:'Scottish Premiership', test: fx => /(scottish premiership|premiership \(?scotland\)?)/i.test(nameOf(fx)) },
+    { key:'bel', label:'Belgian Pro League', test: fx => /(jupiler|belgian pro league|pro league)/i.test(nameOf(fx)) },
+    { key:'tur', label:'Süper Lig (Turkey)', test: fx => /(super lig|süper lig)/i.test(nameOf(fx)) }
+  ];
+  function nameOf(fx){ return (fx.league && (fx.league.name || fx.league.code)) || ''; }
+  function codeIs(fx, code){ return fx.league && (fx.league.code||'').toUpperCase() === code.toUpperCase(); }
+
+  // Build league menu
+  leagueMenu.innerHTML = LEAGUES.map(L =>
+    `<button class="menuitem" role="menuitem" data-league="${L.key}">${L.label}</button>`
+  ).join('');
+
+  // Toggle dropdown
+  leagueToggle.addEventListener('click', () => {
+    const open = leagueToggle.getAttribute('aria-expanded') === 'true';
+    leagueToggle.setAttribute('aria-expanded', String(!open));
+    leagueMenu.classList.toggle('hidden', open);
+  });
+  // Close on outside click
+  document.addEventListener('click', e => {
+    if (!leagueWrap.contains(e.target)) {
+      leagueToggle.setAttribute('aria-expanded','false');
+      leagueMenu.classList.add('hidden');
+    }
+  });
+  // Choose league
+  leagueMenu.addEventListener('click', e => {
+    const b = e.target.closest('button[data-league]'); if (!b) return;
+    leagueKey = b.dataset.league;
+    leagueChosen.textContent = LEAGUES.find(x=>x.key===leagueKey)?.label || '';
+    leagueToggle.setAttribute('aria-expanded','false');
+    leagueMenu.classList.add('hidden');
+    renderLists(); // re-filter Football immediately
+  });
+
+  // Sport pills
   pills.forEach(p => p.addEventListener('click', () => {
     pills.forEach(x => x.classList.remove('active'));
-    p.classList.add('active'); activeSport = p.dataset.sport;
-    filterUI();
+    p.classList.add('active');
+    activeSport = p.dataset.sport;
+    // Show league control only on Football
+    leagueWrap.hidden = activeSport !== 'Football';
+    renderVisibility();
   }));
 
+  // Date controls
   const dateEl = document.getElementById('date');
   function ymd(ts){ const d = new Date(ts); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
   dateEl.value = ymd(Date.now());
@@ -84,13 +158,15 @@
   document.getElementById('tomorrow').onclick = ()=>{ dateEl.value = ymd(Date.now()+86400000); load(dateEl.value); };
   dateEl.addEventListener('change', ()=> load(dateEl.value));
 
+  // Search
   const q = document.getElementById('q');
-  q.addEventListener('input', filterUI);
+  q.addEventListener('input', ()=> renderLists());
 
+  // Card builder
   function card(fx){
     const a = document.createElement('a');
     a.className = 'item';
-    a.dataset.sport = fx.sport;
+    a.dataset.sport = (fx.sport === 'Soccer') ? 'Football' : fx.sport;
     a.dataset.teams = `${fx.home.name} ${fx.away.name}`.toLowerCase();
     const s = slug(`${fx.home.name}-vs-${fx.away.name}`);
     a.href = `/go/${fx.id}?slug=${encodeURIComponent(s)}`;
@@ -104,8 +180,9 @@
   function skeleton(){ const d = document.createElement('div'); d.className='skeleton'; return d; }
   function setEmpty(el){ el.innerHTML = '<div class="empty">No games for this day.</div>'; }
 
-  function filterUI(){
-    const term = q.value.trim().toLowerCase();
+  let ALL = []; // fixtures cache for the picked date
+
+  function renderVisibility(){
     const sections = Array.from(document.querySelectorAll('.section'));
     let visibleSections = [];
     sections.forEach(sec => {
@@ -120,49 +197,69 @@
       const list = visibleSections[0].querySelector('.list');
       if (list) list.classList.add('two-col');
     }
-    if (term){
-      sections.forEach(sec => {
-        if (sec.style.display === 'none') return;
-        const list = Array.from(sec.querySelectorAll('.item'));
-        let any=false;
-        list.forEach(li => {
-          const ok = li.dataset.teams.includes(term);
-          li.style.display = ok ? '' : 'none';
-          any = any || ok;
-        });
-        if(!any) sec.querySelector('.list').innerHTML = '<div class="empty">No matches found.</div>';
-      });
-    }
+  }
+
+  function renderLists(){
+    const term = q.value.trim().toLowerCase();
+
+    // Split fixtures
+    const footballAll = ALL.filter(fx => fx.sport === 'Soccer');
+    const nba = ALL.filter(fx => fx.sport === 'NBA');
+    const nfl = ALL.filter(fx => fx.sport === 'NFL');
+
+    // Apply league filter within Football
+    const league = LEAGUES.find(x => x.key === leagueKey) || LEAGUES[0];
+    const football = footballAll.filter(fx => league.test(fx));
+
+    // Fill helper
+    const fill = (arr, id) => {
+      const el = document.getElementById(id);
+      el.innerHTML='';
+      if (!arr.length) { setEmpty(el); return; }
+      let final = arr.slice();
+      if (term) {
+        final = final.filter(fx => (`${fx.home.name} ${fx.away.name}`.toLowerCase()).includes(term));
+      }
+      final.sort((a,b)=>new Date(a.start_utc)-new Date(b.start_utc)).forEach(fx => el.appendChild(card(fx)));
+      if (!final.length) setEmpty(el);
+    };
+
+    fill(football, 'football');
+    fill(nba, 'nba');
+    fill(nfl, 'nfl');
+
+    // Counts line
+    document.getElementById('counts').textContent =
+      `Loaded ${football.length} ${leagueKey==='all' ? 'Football' : league.label}, ${nba.length} NBA, ${nfl.length} NFL for ${dateEl.value}`;
+
+    renderVisibility();
   }
 
   async function load(dateStr){
-    const ids = ['soccer','nba','nfl'];
-    ids.forEach(id => {
+    ['football','nba','nfl'].forEach(id => {
       const el = document.getElementById(id);
       el.innerHTML = ''; for (let i=0;i<4;i++) el.appendChild(skeleton());
     });
     try{
       const r = await fetch(`/api/fixtures?date=${dateStr}`);
       const j = await r.json();
-      document.getElementById('counts').textContent =
-        `Loaded ${j.counts?.soccer||0} Soccer, ${j.counts?.nba||0} NBA, ${j.counts?.nfl||0} NFL for ${dateStr}`;
-      const by = { Soccer:[], NBA:[], NFL:[] };
-      (j.fixtures||[]).forEach(fx => (by[fx.sport]||[]).push(fx));
-      [['Soccer','soccer'],['NBA','nba'],['NFL','nfl']].forEach(([sport, id])=>{
-        const el = document.getElementById(id);
-        el.innerHTML='';
-        const list = by[sport] || [];
-        if(!list.length){ setEmpty(el); return; }
-        list.sort((a,b)=>new Date(a.start_utc)-new Date(b.start_utc)).forEach(fx => el.appendChild(card(fx)));
-      });
-      filterUI();
+      ALL = j.fixtures || [];
+      renderLists();
     } catch(e){
       document.getElementById('counts').textContent = 'Could not load games. Try again shortly.';
-      ids.forEach(id => setEmpty(document.getElementById(id)));
+      ['football','nba','nfl'].forEach(id => setEmpty(document.getElementById(id)));
     }
   }
 
+  // Init
+  leagueChosen.textContent = 'All Leagues';
   load(dateEl.value);
+  // Show league control only on Football
+  leagueWrap.hidden = true;
+  // When Football tab becomes active, show dropdown control
+  pills.find(p=>p.dataset.sport==='Football').addEventListener('click', ()=>{
+    leagueWrap.hidden = false;
+  });
 </script>
 </body>
 </html>
