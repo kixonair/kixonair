@@ -88,6 +88,64 @@ async function enrich(fixtures){
   return fixtures;
 }
 
+
+// ---------- TheSportsDB UEFA helpers ----------
+const sdbLeagueIdCache = new Map(); // name -> idLeague
+async function sdbFindLeagueIdByName(name){
+  if (!name) return null;
+  if (sdbLeagueIdCache.has(name)) return sdbLeagueIdCache.get(name);
+  try{
+    const url = `https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/searchleagues.php?l=${encodeURIComponent(name)}`;
+    const r = await fetch(url, { timeout: 15000 });
+    const j = await r.json();
+    const id = j?.countries?.[0]?.idLeague || j?.leagues?.[0]?.idLeague || null;
+    sdbLeagueIdCache.set(name, id || null);
+    return id || null;
+  }catch{ sdbLeagueIdCache.set(name, null); return null; }
+}
+function sdbSeasonFor(dateStr){
+  const d = new Date(dateStr + 'T00:00:00Z');
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth() + 1;
+  if (m >= 7) return `${y}-${y+1}`;
+  return `${y-1}-${y}`;
+}
+async function fetchSportsDbUefa(dateStr){
+  const leagues = [
+    'UEFA Champions League',
+    'UEFA Europa League',
+    'UEFA Europa Conference League'
+  ];
+  const season = sdbSeasonFor(dateStr);
+  const out = [];
+  for (const name of leagues){
+    const id = await sdbFindLeagueIdByName(name);
+    if (!id) continue;
+    const url = `https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/eventsseason.php?id=${id}&s=${encodeURIComponent(season)}`;
+    try{
+      const r = await fetch(url, { timeout: 20000 });
+      const j = await r.json();
+      const evs = j?.events || j?.event || [];
+      for (const ev of evs){
+        if ((ev?.dateEvent || '').trim() !== dateStr) continue;
+        const ts = ev?.strTimestamp ? new Date(parseInt(ev.strTimestamp, 10) * 1000).toISOString()
+                                    : new Date(`${ev?.dateEvent}T${(ev?.strTime||'00:00')}:00Z`).toISOString();
+        out.push({
+          sport: 'Soccer',
+          league: { name, code: null },
+          start_utc: ts,
+          status: (ev?.strStatus||'').includes('FT') ? 'FINISHED' : 'SCHEDULED',
+          home: { name: ev?.strHomeTeam || '' },
+          away: { name: ev?.strAwayTeam || '' }
+        });
+      }
+      // polite delay
+      await new Promise(r => setTimeout(r, 120));
+    }catch{ /* ignore per league */ }
+  }
+  return out;
+}
+
 // ---------- ESPN providers (no key) ----------
 // League slugs for ESPN soccer (UCL/UEL/UECL + Top 5)
 const ESPN_SOCCER_LEAGUES = [
