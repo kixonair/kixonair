@@ -1,26 +1,10 @@
-# Kixonair — Premium Match List (v4)
+# Kixonair v16 — ALL MATCHES
+- Soccer from API-FOOTBALL (api-sports.io) when `APISPORTS_KEY` is set. Fallback: TheSportsDB daily (has UEFA).
+- NBA & NFL day schedules via TheSportsDB.
+- Team logos auto-fetched from TheSportsDB (cached).
+- `/health` for keep-alive.
 
-This version adds:
-- **Two-column** layout when a sport tab is selected (Soccer/NBA/NFL).
-- Full-width single-section view + dense grid.
-
-## Local run
-1) Install Node 18+
-2) Create `.env`:
-```
-PUBLIC_HOST=http://localhost:3000
-CPAGRIP_LOCKER_URL=https://rileymarker.com/sportlo
-LOCKER_RETURN_PARAM=r
-FD_KEY=YOUR_FOOTBALLDATA_KEY
-BDL_KEY=YOUR_BALLDONTLIE_KEY
-TSD_KEY=123
-```
-3) `npm i` then `npm start`
-4) Open http://localhost:3000
-
-## Deploy
-- Deploy to Render/Railway; after adding your domain (e.g., kixonair.com), set:
-```
-PUBLIC_HOST=https://kixonair.com
-```
-- Whitelist your domain in your CPA locker provider.
+**Environment (Render)**
+- `APISPORTS_KEY` — your api-sports.io key
+- `SPORTSDB_KEY` — your TheSportsDB key (default `3` demo)
+- `ALLOW_ORIGINS` — `https://kixonair.com,https://www.kixonair.com`
