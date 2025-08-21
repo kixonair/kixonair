@@ -1,216 +1,297 @@
-// Kixonair server v16 — ALL MATCHES
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import fetch from 'node-fetch';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-const ORIGINS = (process.env.ALLOW_ORIGINS || 'https://kixonair.com,https://www.kixonair.com,https://kixonair.onrender.com')
-  .split(',').map(s => s.trim());
-app.use(cors({ origin: (origin, cb) => cb(null, !origin || ORIGINS.includes(origin)), credentials: false }));
-app.use(express.static('public'));
-app.get('/health', (req,res) => res.type('text').send('ok'));
+// ---- ENV
+const SPORTSDB_KEY = process.env.SPORTSDB_KEY || '3';
+const ALLOW_ORIGINS = (process.env.ALLOW_ORIGINS || 'https://kixonair.com,https://www.kixonair.com')
+  .split(',').map(s => s.trim()).filter(Boolean);
+const NODE_ENV = process.env.NODE_ENV || 'production';
 
-const APISPORTS_KEY = process.env.APISPORTS_KEY || '';
-const SPORTSDB_KEY  = process.env.SPORTSDB_KEY  || '3';
+// ---- CORS
+app.use(cors({
+  origin(origin, cb) {
+    if (!origin) return cb(null, true);
+    const allowLocal = NODE_ENV !== 'production' && /^http:\/\/localhost(?::\d+)?$/.test(origin);
+    if (ALLOW_ORIGINS.includes(origin) || allowLocal) return cb(null, true);
+    return cb(new Error('Not allowed by CORS'), false);
+  }
+}));
 
-const respCache = new Map();
-const RESP_TTL_MS = 2 * 60 * 1000;
-async function cachedJson(url, opt={}){
-  const hit = respCache.get(url);
-  if (hit && (Date.now()-hit.ts) < RESP_TTL_MS) return hit.json;
-  const r = await fetch(url, opt);
-  if (!r.ok) throw Object.assign(new Error('fetch '+r.status), { status:r.status });
-  const j = await r.json();
-  respCache.set(url, { json:j, ts:Date.now() });
-  return j;
-}
+// ---- STATIC + HEALTH + VERSION
+app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }));
+app.get('/health', (_, res) => res.type('text/plain').send('ok'));
+app.get('/__/version', (_, res) => res.json({ build: 'espn+sdb+manual', ts: new Date().toISOString() }));
 
-async function fetchSoccerApiSports(dateStr){
-  if (!APISPORTS_KEY) return { list:[], issue:'apisports missing' };
-  let all = [], page = 1, total = 1;
-  try{
-    do{
-      const url = `https://v3.football.api-sports.io/fixtures?date=${encodeURIComponent(dateStr)}&timezone=UTC&page=${page}`;
-      const j = await cachedJson(url, { headers: { 'x-apisports-key': APISPORTS_KEY } });
-      const arr = j?.response || [];
-      total = j?.paging?.total || 1;
-      page++;
-      const mapped = arr.map(x => ({
-        id: 'af:' + x.fixture?.id,
-        sport: 'Soccer',
-        start_utc: x.fixture?.date,
-        status: x.fixture?.status?.long || x.fixture?.status?.short || 'SCHEDULED',
-        league: { name: x.league?.name || '', code: String(x.league?.id || '') },
-        home: { name: x.teams?.home?.name || '', logo: x.teams?.home?.logo || null },
-        away: { name: x.teams?.away?.name || '', logo: x.teams?.away?.logo || null }
-      }));
-      all.push(...mapped);
-      if (page > 6) break;
-    } while (page <= total);
-    return { list: all };
-  }catch(e){ return { list: [], issue: 'apisports '+(e.status||'error') }; }
-}
-
-async function fetchSoccerSportsDB(dateStr){
-  try{
-    const url = `https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/eventsday.php?d=${encodeURIComponent(dateStr)}&s=Soccer`;
-    const j = await cachedJson(url);
-    const arr = j?.events || [];
-    const list = arr.map(e => ({
-      id: 'sdb:' + (e.idEvent || `${e.strEvent}:${e.dateEvent}:${e.strTime}`),
-      sport: 'Soccer',
-      start_utc: e.strTimestamp || (e.dateEvent ? `${e.dateEvent}T${(e.strTime||'00:00:00').slice(0,8)}Z` : null),
-      status: (e.strStatus || e.strStatusShort || e.strResult || 'SCHEDULED').toUpperCase(),
-      league: { name: e.strLeague || '', code: e.strLeagueShort || '' },
-      home: { name: e.strHomeTeam || '' },
-      away: { name: e.strAwayTeam || '' }
-    }));
-    return { list };
-  }catch(e){ return { list: [], issue: 'sportsdb '+(e.status||'error') }; }
-}
-
-async function fetchSportsDBBySport(dateStr, sportName, leagueFilterRegex){
-  try{
-    const url = `https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/eventsday.php?d=${encodeURIComponent(dateStr)}&s=${encodeURIComponent(sportName)}`;
-    const j = await cachedJson(url);
-    const arr = (j?.events || []).filter(e => leagueFilterRegex.test(e.strLeague || ''));
-    const mapped = arr.map(e => ({
-      id: 'sdb:' + (e.idEvent || `${e.strEvent}:${e.dateEvent}:${e.strTime}`),
-      sport: sportName === 'Basketball' ? 'NBA' : 'NFL',
-      start_utc: e.strTimestamp || (e.dateEvent ? `${e.dateEvent}T${(e.strTime||'00:00:00').slice(0,8)}Z` : null),
-      status: (e.strStatus || e.strStatusShort || e.strResult || 'SCHEDULED').toUpperCase(),
-      league: { name: e.strLeague || '', code: e.strLeagueShort || '' },
-      home: { name: e.strHomeTeam || '' },
-      away: { name: e.strAwayTeam || '' }
-    }));
-    return { list: mapped };
-  }catch(e){ return { list: [], issue: 'sportsdb-'+sportName+' '+(e.status||'error') }; }
-}
-
+// ---- Helpers
 const logoCache = new Map();
-const LOGO_TTL_MS = 7*24*60*60*1000;
-const keyOf = (sport, team) => (sport||'').toLowerCase()+'|'+(team||'').toLowerCase();
-const sportLabel = sport => sport==='NBA' ? 'Basketball' : sport==='NFL' ? 'American Football' : 'Soccer';
+const yyyymmdd = d => d.replace(/-/g, '');
+const statusFromEspn = ev => {
+  const s = ev?.competitions?.[0]?.status?.type?.state || '';
+  if (s === 'in') return 'LIVE';
+  if (s === 'post') return 'FINISHED';
+  return 'SCHEDULED';
+};
+const takeLogo = t => t?.logo || t?.logos?.[0]?.href || null;
+const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 
-async function fetchTeamLogoFromSportsDB(sport, team){
-  if (!team) return null;
-  const key = keyOf(sport, team);
-  const hit = logoCache.get(key);
-  if (hit && (Date.now()-hit.ts)<LOGO_TTL_MS) return hit.url;
-  try{
-    const sName = sportLabel(sport);
-    const url = `https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/searchteams.php?t=${encodeURIComponent(team)}&s=${encodeURIComponent(sName)}`;
-    const j = await cachedJson(url);
-    const list = j?.teams || [];
-    let teamObj = null;
-    const want = (team||'').toLowerCase();
-    for (const t of list){
-      const nm=(t.strTeam||'').toLowerCase();
-      const alt=(t.strAlternate||'').toLowerCase();
-      const altArr = alt? alt.split(',').map(x=>x.trim().toLowerCase()):[];
-      const sOK = !sName || (t.strSport||'').toLowerCase()===sName.toLowerCase();
-      if (sOK && (nm===want || altArr.includes(want) || nm.includes(want))){ teamObj=t; break; }
-    }
-    if (!teamObj) teamObj = list[0];
-    const badge = teamObj?.strTeamBadge || teamObj?.strTeamLogo || null;
-    if (badge) logoCache.set(key, { url: badge, ts: Date.now() });
-    return badge || null;
-  }catch{ return null; }
+function fixtureOf({ sport, leagueName, leagueCode, startISO, status, home, away }) {
+  return {
+    sport,
+    league: { name: leagueName || '', code: leagueCode || null },
+    start_utc: startISO,
+    status: status || 'SCHEDULED',
+    home: { name: home?.name || '', logo: home?.logo || null },
+    away: { name: away?.name || '', logo: away?.logo || null }
+  };
+}
+function keyForFixture(fx) {
+  const t = fx.start_utc ? new Date(fx.start_utc) : new Date();
+  const hourBucket = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate(), t.getUTCHours())).toISOString();
+  return `${fx.sport}:${norm(fx.home.name)}-vs-${norm(fx.away.name)}@${hourBucket}`;
+}
+function choosePreferred(a, b) {
+  const aScore = (a.league?.code ? 2 : 0) + (a.league?.name ? 1 : 0);
+  const bScore = (b.league?.code ? 2 : 0) + (b.league?.name ? 1 : 0);
+  return aScore >= bScore ? a : b;
 }
 
-async function enrichWithLogos(fixtures){
-  const wants = new Map();
-  for (const fx of fixtures){
-    if (fx.home?.name && !fx.home?.logo) wants.set(keyOf(fx.sport, fx.home.name), { sport: fx.sport, name: fx.home.name });
-    if (fx.away?.name && !fx.away?.logo) wants.set(keyOf(fx.sport, fx.away.name), { sport: fx.sport, name: fx.away.name });
-  }
-  const items = Array.from(wants.values());
-  const CHUNK = 6;
-  for (let i=0;i<items.length;i+=CHUNK){
-    const slice = items.slice(i,i+CHUNK);
-    await Promise.all(slice.map(it => fetchTeamLogoFromSportsDB(it.sport, it.name)));
-  }
-  for (const fx of fixtures){
-    fx.home.logo = fx.home.logo || logoCache.get(keyOf(fx.sport, fx.home.name||''))?.url || null;
-    fx.away.logo = fx.away.logo || logoCache.get(keyOf(fx.sport, fx.away.name||''))?.url || null;
+async function badgeFromSportsDB(name) {
+  if (!name) return null;
+  const k = name.toLowerCase();
+  if (logoCache.has(k)) return logoCache.get(k);
+  try {
+    const r = await fetch(`https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/searchteams.php?t=${encodeURIComponent(name)}`);
+    const j = await r.json();
+    const t = j?.teams?.[0];
+    const url = t?.strTeamBadge || t?.strTeamLogo || null;
+    logoCache.set(k, url || null);
+    return url || null;
+  } catch { logoCache.set(k, null); return null; }
+}
+async function enrich(fixtures) {
+  const names = [...new Set(fixtures.flatMap(f => [f.home?.name, f.away?.name].filter(Boolean)))];
+  for (let i=0; i<names.length; i+=10) await Promise.all(names.slice(i,i+10).map(n => badgeFromSportsDB(n)));
+  for (const f of fixtures) {
+    if (!f.home.logo) f.home.logo = logoCache.get((f.home.name||'').toLowerCase()) || null;
+    if (!f.away.logo) f.away.logo = logoCache.get((f.away.name||'').toLowerCase()) || null;
   }
   return fixtures;
 }
 
-app.get('/api/fixtures', async (req, res) => {
-  const dateStr = String(req.query.date || '').slice(0,10) || new Date().toISOString().slice(0,10);
-  const issues = [];
-  const sourceCounts = {};
-  let soccer = [];
-  const a = await fetchSoccerApiSports(dateStr);
-  if (a.issue) issues.push(a.issue);
-  if (a.list.length){ soccer = a.list; sourceCounts.apisports = a.list.length; }
-  const b = await fetchSoccerSportsDB(dateStr);
-  if (b.issue) issues.push(b.issue);
-  if (b.list.length){ soccer = soccer.concat(b.list); sourceCounts.sportsdb_soccer = b.list.length; }
+// ---- ESPN (no key)
+async function espnScoreboard(pathSeg, dateStr) {
+  const url = `https://site.api.espn.com/apis/v2/sports/${pathSeg}/scoreboard?dates=${yyyymmdd(dateStr)}`;
+  const r = await fetch(url, { timeout: 15000 }); if (!r.ok) return { events: [] };
+  return r.json();
+}
+async function fetchEspnNBA(d){ try {
+  const j = await espnScoreboard('basketball/nba', d);
+  return (j?.events||[]).map(ev => {
+    const c = ev?.competitions?.[0];
+    const home = (c?.competitors||[]).find(x => x.homeAway==='home')||{};
+    const away = (c?.competitors||[]).find(x => x.homeAway==='away')||{};
+    return fixtureOf({ sport:'NBA', leagueName:'NBA', leagueCode:'NBA', startISO: ev?.date,
+      status: statusFromEspn(ev),
+      home:{ name: home?.team?.displayName||home?.team?.name, logo: takeLogo(home?.team) },
+      away:{ name: away?.team?.displayName||away?.team?.name, logo: takeLogo(away?.team) }
+    });
+  });
+} catch { return []; } }
+async function fetchEspnNFL(d){ try {
+  const j = await espnScoreboard('football/nfl', d);
+  return (j?.events||[]).map(ev => {
+    const c = ev?.competitions?.[0];
+    const home = (c?.competitors||[]).find(x => x.homeAway==='home')||{};
+    const away = (c?.competitors||[]).find(x => x.homeAway==='away')||{};
+    return fixtureOf({ sport:'NFL', leagueName:'NFL', leagueCode:'NFL', startISO: ev?.date,
+      status: statusFromEspn(ev),
+      home:{ name: home?.team?.displayName||home?.team?.name, logo: takeLogo(home?.team) },
+      away:{ name: away?.team?.displayName||away?.team?.name, logo: takeLogo(away?.team) }
+    });
+  });
+} catch { return []; } }
+async function fetchEspnSoccer(d){ try {
+  const j = await espnScoreboard('soccer', d);
+  return (j?.events||[]).map(ev => {
+    const c = ev?.competitions?.[0];
+    const home = (c?.competitors||[]).find(x => x.homeAway==='home')||{};
+    const away = (c?.competitors||[]).find(x => x.homeAway==='away')||{};
+    const leagueName = ev?.league?.name || ev?.name || 'Football';
+    return fixtureOf({ sport:'Soccer', leagueName, leagueCode:null, startISO: ev?.date,
+      status: statusFromEspn(ev),
+      home:{ name: home?.team?.displayName||home?.team?.name, logo: takeLogo(home?.team) },
+      away:{ name: away?.team?.displayName||away?.team?.name, logo: takeLogo(away?.team) }
+    });
+  });
+} catch { return []; } }
 
-  const nbaRes = await fetchSportsDBBySport(dateStr, 'Basketball', /NBA/i);
-  if (nbaRes.issue) issues.push(nbaRes.issue);
-  const nflRes = await fetchSportsDBBySport(dateStr, 'American Football', /NFL/i);
-  if (nflRes.issue) issues.push(nflRes.issue);
+// ---- TheSportsDB daily fallbacks
+async function sdbDay(d, sport, tag) {
+  const url = `https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/eventsday.php?d=${d}&s=${encodeURIComponent(sport)}`;
+  try {
+    const r = await fetch(url, { timeout: 15000 });
+    const j = await r.json();
+    const evs = j?.events || [];
+    return evs.map(ev => ({
+      sport: tag,
+      league: { name: ev?.strLeague || '', code: null },
+      start_utc: ev?.strTimestamp ? new Date(parseInt(ev.strTimestamp,10)*1000).toISOString()
+                                  : new Date(`${ev?.dateEvent}T${(ev?.strTime||'00:00')}:00Z`).toISOString(),
+      status: (ev?.strStatus||'').match(/(FT|Finish|Final)/i) ? 'FINISHED' : 'SCHEDULED',
+      home: { name: ev?.strHomeTeam || '' },
+      away: { name: ev?.strAwayTeam || '' }
+    }));
+  } catch { return []; }
+}
 
-  const all = [...soccer, ...nbaRes.list, ...nflRes.list];
-  const seen = new Set();
-  const merged = [];
-  for (const fx of all){
-    const k = [fx.sport, fx.home?.name, fx.away?.name, fx.start_utc].join('|').toLowerCase();
-    if (!seen.has(k)){ seen.add(k); merged.push(fx); }
-  }
-  await enrichWithLogos(merged);
-  res.json({ date: dateStr, fixtures: merged, meta: { issues, sourceCounts } });
-});
-
-app.get('/api/fixture/:id', async (req,res) => {
-  res.json({ fixture: null });
-});
-
-app.get('*', (req,res) => res.sendFile(process.cwd() + '/public/index.html'));
-app.listen(PORT, () => console.log('Kixonair v16 running on :'+PORT));
-
-async function fetchSportsDbUefaQualifiers(dateStr){
-  const names = [
-    'UEFA Champions League Qualifying',
-    'UEFA Champions League Qualification',
-    'UEFA Champions League Play-offs',
-    'UEFA Europa League Qualifying',
-    'UEFA Europa League Qualification',
-    'UEFA Europa League Play-offs',
-    'UEFA Europa Conference League Qualifying',
-    'UEFA Europa Conference League Qualification',
-    'UEFA Europa Conference League Play-offs'
-  ];
+// ---- UEFA season fetch (UCL/UEL/UECL + qualifiers)
+const SDB_UEFA_IDS = { CL:'4480', EL:'4481', ECL:'5071' };
+const sdbLeagueIdCache = new Map();
+async function sdbFindLeagueIdByName(name){
+  if (!name) return null;
+  if (sdbLeagueIdCache.has(name)) return sdbLeagueIdCache.get(name);
+  try {
+    const r = await fetch(`https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/searchleagues.php?l=${encodeURIComponent(name)}`);
+    const j = await r.json();
+    const id = (j?.countries?.[0]?.idLeague || j?.countrys?.[0]?.idLeague || j?.leagues?.[0]?.idLeague) || null;
+    sdbLeagueIdCache.set(name, id); return id;
+  } catch { sdbLeagueIdCache.set(name, null); return null; }
+}
+function sdbSeasonFor(d){
+  const dt = new Date(d + 'T00:00:00Z'); const y = dt.getUTCFullYear(); const m = dt.getUTCMonth()+1;
+  return (m>=7) ? `${y}-${y+1}` : `${y-1}-${y}`;
+}
+async function fetchSdbUefa(dateStr){
   const season = sdbSeasonFor(dateStr);
+  const names = [
+    { name: 'UEFA Champions League', id: SDB_UEFA_IDS.CL },
+    { name: 'UEFA Europa League', id: SDB_UEFA_IDS.EL },
+    { name: 'UEFA Europa Conference League', id: SDB_UEFA_IDS.ECL }
+  ];
   const out = [];
-  for (const name of names){
-    const id = await sdbFindLeagueIdByName(name);
+  for (const L of names){
+    const id = L.id || await sdbFindLeagueIdByName(L.name);
     if (!id) continue;
-    const url = `https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/eventsseason.php?id=${id}&s=${encodeURIComponent(season)}`;
-    try{
-      const r = await fetch(url, { timeout: 20000 });
+    try {
+      const r = await fetch(`https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/eventsseason.php?id=${id}&s=${encodeURIComponent(season)}`);
       const j = await r.json();
       const evs = j?.events || j?.event || [];
       for (const ev of evs){
-        if ((ev?.dateEvent || '').trim() !== dateStr) continue;
-        const ts = ev?.strTimestamp ? new Date(parseInt(ev.strTimestamp, 10) * 1000).toISOString()
-                                    : new Date(`${ev?.dateEvent}T${(ev?.strTime||'00:00')}:00Z`).toISOString();
+        if ((ev?.dateEvent||'').trim() !== dateStr) continue;
         out.push({
           sport: 'Soccer',
-          league: { name, code: null },
-          start_utc: ts,
+          league: { name: L.name, code: null },
+          start_utc: ev?.strTimestamp ? new Date(parseInt(ev.strTimestamp,10)*1000).toISOString()
+                                      : new Date(`${ev?.dateEvent}T${(ev?.strTime||'00:00')}:00Z`).toISOString(),
           status: (ev?.strStatus||'').match(/(FT|Finish|Final)/i) ? 'FINISHED' : 'SCHEDULED',
           home: { name: ev?.strHomeTeam || '' },
           away: { name: ev?.strAwayTeam || '' }
         });
       }
-      await new Promise(r => setTimeout(r, 80));
-    }catch{ /* ignore */ }
+    } catch {}
   }
   return out;
 }
+async function fetchSdbUefaQual(dateStr){
+  const season = sdbSeasonFor(dateStr);
+  const names = [
+    'UEFA Champions League Qualifying','UEFA Champions League Qualification','UEFA Champions League Play-offs',
+    'UEFA Europa League Qualifying','UEFA Europa League Qualification','UEFA Europa League Play-offs',
+    'UEFA Europa Conference League Qualifying','UEFA Europa Conference League Qualification','UEFA Europa Conference League Play-offs'
+  ];
+  const out = [];
+  for (const name of names){
+    const id = await sdbFindLeagueIdByName(name);
+    if (!id) continue;
+    try {
+      const r = await fetch(`https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/eventsseason.php?id=${id}&s=${encodeURIComponent(season)}`);
+      const j = await r.json();
+      const evs = j?.events || j?.event || [];
+      for (const ev of evs){
+        if ((ev?.dateEvent||'').trim() !== dateStr) continue;
+        out.push({
+          sport: 'Soccer',
+          league: { name, code: null },
+          start_utc: ev?.strTimestamp ? new Date(parseInt(ev.strTimestamp,10)*1000).toISOString()
+                                      : new Date(`${ev?.dateEvent}T${(ev?.strTime||'00:00')}:00Z`).toISOString(),
+          status: (ev?.strStatus||'').match(/(FT|Finish|Final)/i) ? 'FINISHED' : 'SCHEDULED',
+          home: { name: ev?.strHomeTeam || '' },
+          away: { name: ev?.strAwayTeam || '' }
+        });
+      }
+    } catch {}
+  }
+  return out;
+}
+
+// ---- Manual fixtures
+const MANUAL_PATH = path.join(__dirname, 'data', 'manual-fixtures.json');
+let MANUAL = {};
+try { if (fs.existsSync(MANUAL_PATH)) MANUAL = JSON.parse(fs.readFileSync(MANUAL_PATH, 'utf-8')); } catch {}
+async function fetchManual(dateStr){
+  const items = Array.isArray(MANUAL?.[dateStr]) ? MANUAL[dateStr] : [];
+  return items.map(it => ({
+    sport: it.sport || 'Soccer',
+    league: { name: (it.league && (it.league.name || it.league)) || '', code: it.league?.code || null },
+    start_utc: it.start_utc || `${dateStr}T00:00:00Z`,
+    status: it.status || 'SCHEDULED',
+    home: { name: it.home?.name || it.home || '' },
+    away: { name: it.away?.name || it.away || '' }
+  }));
+}
+
+// ---- Merge
+function mergeDedup(list) {
+  const m = new Map();
+  for (const fx of list) {
+    const k = keyForFixture(fx);
+    if (!m.has(k)) m.set(k, fx);
+    else m.set(k, choosePreferred(m.get(k), fx));
+  }
+  return [...m.values()];
+}
+
+// ---- API
+app.get('/api/fixtures', async (req, res) => {
+  const dateStr = (req.query.date || '').toString();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return res.status(400).json({ error: 'Invalid date. Use YYYY-MM-DD' });
+
+  const [espnSoccer, espnNba, espnNfl] = await Promise.all([
+    fetchEspnSoccer(dateStr),
+    fetchEspnNBA(dateStr),
+    fetchEspnNFL(dateStr)
+  ]);
+
+  const [sdbSoccer, sdbNba, sdbNfl, sdbUefa, sdbUefaQual, manualFx] = await Promise.all([
+    sdbDay(dateStr, 'Soccer', 'Soccer'),
+    sdbDay(dateStr, 'Basketball', 'NBA'),
+    sdbDay(dateStr, 'American Football', 'NFL'),
+    fetchSdbUefa(dateStr),
+    fetchSdbUefaQual(dateStr),
+    fetchManual(dateStr)
+  ]);
+
+  const sourceCounts = {
+    espn_soccer: espnSoccer.length, espn_nba: espnNba.length, espn_nfl: espnNfl.length,
+    sportsdb_soccer: sdbSoccer.length, sportsdb_nba: sdbNba.length, sportsdb_nfl: sdbNfl.length,
+    sportsdb_uefa: sdbUefa.length, sportsdb_uefa_qual: sdbUefaQual.length, manual: manualFx.length
+  };
+
+  let merged = mergeDedup([...espnSoccer, ...espnNba, ...espnNfl, ...sdbSoccer, ...sdbNba, ...sdbNfl, ...sdbUefa, ...sdbUefaQual, ...manualFx]);
+  merged = await enrich(merged);
+
+  res.json({ meta: { date: dateStr, sourceCounts }, fixtures: merged });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log('kixonair listening on :' + PORT));
