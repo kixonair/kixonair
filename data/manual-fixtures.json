@@ -1,0 +1,85 @@
+{
+  "2025-08-21": [
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "UEFA Europa League Qualifying"
+      },
+      "start_utc": "2025-08-21T18:30:00Z",
+      "home": {
+        "name": "Slovan Bratislava"
+      },
+      "away": {
+        "name": "Young Boys"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "UEFA Europa League Qualifying"
+      },
+      "start_utc": "2025-08-21T19:00:00Z",
+      "home": {
+        "name": "Rijeka"
+      },
+      "away": {
+        "name": "PAOK Thessaloniki"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "UEFA Europa Conference League Qualifying"
+      },
+      "start_utc": "2025-08-21T18:45:00Z",
+      "home": {
+        "name": "Shelbourne"
+      },
+      "away": {
+        "name": "Linfield"
+      }
+    },
+    {
+      "sport": "NFL",
+      "league": {
+        "name": "NFL Preseason",
+        "code": "NFL"
+      },
+      "start_utc": "2025-08-21T23:00:00Z",
+      "home": {
+        "name": "Carolina Panthers"
+      },
+      "away": {
+        "name": "Pittsburgh Steelers"
+      }
+    },
+    {
+      "sport": "NFL",
+      "league": {
+        "name": "NFL Preseason",
+        "code": "NFL"
+      },
+      "start_utc": "2025-08-22T01:00:00Z",
+      "home": {
+        "name": "New York Giants"
+      },
+      "away": {
+        "name": "New England Patriots"
+      }
+    },
+    {
+      "sport": "NFL",
+      "league": {
+        "name": "NFL Preseason",
+        "code": "NFL"
+      },
+      "start_utc": "2025-08-22T03:00:00Z",
+      "home": {
+        "name": "New York Jets"
+      },
+      "away": {
+        "name": "Philadelphia Eagles"
+      }
+    }
+  ]
+}
