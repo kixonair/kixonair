@@ -89,6 +89,28 @@ async function enrich(fixtures){
 }
 
 // ---------- ESPN providers (no key) ----------
+// League slugs for ESPN soccer (UCL/UEL/UECL + Top 5)
+const ESPN_SOCCER_LEAGUES = [
+  'soccer/uefa.champions',      // UEFA Champions League
+  'soccer/uefa.europa',         // UEFA Europa League
+  'soccer/uefa.europa.conf',    // UEFA Europa Conference League
+  'soccer/eng.1',               // Premier League
+  'soccer/esp.1',               // LaLiga
+  'soccer/ger.1',               // Bundesliga
+  'soccer/ita.1',               // Serie A
+  'soccer/fra.1'                // Ligue 1
+];
+
+async function espnLeagueScoreboard(leagueSlug, dateStr){
+  const url = `https://site.api.espn.com/apis/v2/sports/${leagueSlug}/scoreboard?dates=${yyyymmdd(dateStr)}`;
+  const r = await fetch(url, { timeout: 15000 });
+  if (!r.ok) return { events: [], _status: r.status, _url: url };
+  const j = await r.json();
+  j._status = r.status;
+  j._url = url;
+  return j;
+}
+
 async function espnScoreboard(path, dateStr){
   const url = `https://site.api.espn.com/apis/v2/sports/${path}/scoreboard?dates=${yyyymmdd(dateStr)}`;
   const r = await fetch(url, { timeout: 15000 });
@@ -140,16 +162,21 @@ async function fetchEspnNFL(dateStr){
   }catch{ return []; }
 }
 
+
 async function fetchEspnSoccer(dateStr){
+  const out = [];
+  const debug = { base: null, perLeague: [] };
   try{
-    const j = await espnScoreboard('soccer', dateStr); // all soccer comps (incl. UEFA days)
-    const events = j?.events || [];
-    return events.map(ev => {
+    // Base "all soccer" board
+    const base = await espnScoreboard('soccer', dateStr);
+    const baseEvents = base?.events || [];
+    debug.base = { count: baseEvents.length };
+    for (const ev of baseEvents){
       const comp = ev?.competitions?.[0];
       const home = (comp?.competitors || []).find(c => c?.homeAway === 'home') || {};
       const away = (comp?.competitors || []).find(c => c?.homeAway === 'away') || {};
       const leagueName = ev?.league?.name || ev?.name || 'Football';
-      return fixtureOf({
+      out.push(fixtureOf({
         sport: 'Soccer',
         leagueName,
         leagueCode: null,
@@ -157,6 +184,35 @@ async function fetchEspnSoccer(dateStr){
         status: statusFromEspn(ev),
         home: { name: home?.team?.displayName || home?.team?.name, logo: takeLogo(home?.team) },
         away: { name: away?.team?.displayName || away?.team?.name, logo: takeLogo(away?.team) }
+      }));
+    }
+    // Per-league boards for UCL/UEL/UECL + Top 5
+    const boards = await Promise.all(ESPN_SOCCER_LEAGUES.map(slug => espnLeagueScoreboard(slug, dateStr)));
+    for (let i=0;i<boards.length;i++){
+      const b = boards[i];
+      const events = b?.events || [];
+      debug.perLeague.push({ slug: ESPN_SOCCER_LEAGUES[i], count: events.length, status: b?._status || 0 });
+      for (const ev of events){
+        const comp = ev?.competitions?.[0];
+        const home = (comp?.competitors || []).find(c => c?.homeAway === 'home') || {};
+        const away = (comp?.competitors || []).find(c => c?.homeAway === 'away') || {};
+        const leagueName = ev?.league?.name || ev?.name || 'Football';
+        out.push(fixtureOf({
+          sport: 'Soccer',
+          leagueName,
+          leagueCode: null,
+          startISO: ev?.date || new Date().toISOString(),
+          status: statusFromEspn(ev),
+          home: { name: home?.team?.displayName || home?.team?.name, logo: takeLogo(home?.team) },
+          away: { name: away?.team?.displayName || away?.team?.name, logo: takeLogo(away?.team) }
+        }));
+      }
+    }
+  }catch{ /* ignore */ }
+  // Attach debug for /api?debug=1 via global sidecar
+  globalThis.__ESPN_SOCCER_DEBUG__ = debug;
+  return out;
+}
       });
     });
   }catch{ return []; }
@@ -248,7 +304,9 @@ app.get('/api/fixtures', async (req, res) => {
   ]);
   merged = await enrich(merged);
 
-  res.json({ meta: { date: dateStr, sourceCounts }, fixtures: merged });
+  const debugFlag = String(req.query.debug||'0')==='1';
+  const extra = debugFlag ? { espn_soccer_debug: globalThis.__ESPN_SOCCER_DEBUG__ || null } : {};
+  res.json({ meta: { date: dateStr, sourceCounts, ...extra }, fixtures: merged });
 });
 
 const PORT = process.env.PORT || 3000;
