@@ -1,3 +1,10 @@
 .navbar { background:#111; padding:10px; display:flex; align-items:center; }
 .logo { height:48px; }
 body { margin:0; font-family:sans-serif; background:#000; color:#fff; }
+h1 { text-align:center; margin:20px 0; }
+#fixtures { display:grid; gap:15px; padding:15px; max-width:600px; margin:0 auto; }
+.card { background:#1a1a1a; padding:15px; border-radius:12px; box-shadow:0 0 10px rgba(0,0,0,0.5); }
+.meta { font-size:0.9em; color:#aaa; margin-bottom:8px; display:flex; justify-content:space-between; }
+.teams { font-size:1.2em; margin-bottom:8px; }
+.time { font-size:0.9em; color:#ccc; margin-bottom:10px; }
+.watch { display:inline-block; padding:8px 12px; background:#6200ea; color:#fff; text-decoration:none; border-radius:8px; }

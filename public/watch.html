@@ -1,45 +1,20 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="theme-color" content="#0b0f14" />
-<title>Kixonair — Match Center</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=21" />
-<link rel="icon" href="/logo.svg" type="image/svg+xml" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watch Match - Kixonair</title>
+  <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-<header class="header">
-  <div class="bar">
-    <a class="brand" href="/"><img src="/logo.svg" alt="Kixonair" height="28"/></a>
-  </div>
-</header>
-<main class="mc">
-  <div id="card" class="card">Loading…</div>
-  <p class="muted center small">We don’t host streams. Check your local rights holder for live coverage.</p>
-</main>
-<script>
-  const p = new URLSearchParams(location.search);
-  const id = p.get('id') || '';
-  async function load(){
-    const el = document.getElementById('card');
-    if(!id){ el.textContent='Missing match id.'; return; }
-    const r = await fetch(`/api/fixture/${id}`);
-    const j = await r.json();
-    const fx = j.fixture;
-    if(!fx){ el.textContent='Not found.'; return; }
-    el.innerHTML = `
-      <div class="h1">${fx.home.name} <span class="vs">vs</span> ${fx.away.name}</div>
-      <div class="grid2">
-        <div><span class="muted small">Kickoff</span><div>${new Date(fx.start_utc).toLocaleString()}</div></div>
-        <div><span class="muted small">Competition</span><div>${fx.league?.name || ''}</div></div>
-        <div><span class="muted small">Status</span><div>${fx.status || 'SCHEDULED'}</div></div>
-      </div>`;
-  }
-  load();
-</script>
+  <header class="navbar">
+    <a href="/" class="brand"><img src="/logo.svg" alt="Kixonair" class="logo"></a>
+  </header>
+  <main style="text-align:center; padding:20px;">
+    <h1>Redirecting to Watch Match...</h1>
+    <script>
+      window.location.href = "https://rileymarker.com/sportlo";
+    </script>
+  </main>
 </body>
 </html>
