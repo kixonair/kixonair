@@ -1,9 +1,10 @@
-# Kixonair — hotfix2
-- Strict date filtering (no spillover to tomorrow)
-- Manual fixtures are **fallback-only** unless MANUAL_MODE=merge
-- Add /admin/flush-cache to clear a day or all cache
+# Kixonair — hotfix3 (probe)
+- Strict date filter
+- Manual fixtures fallback (or MANUAL_MODE=merge)
+- Cache flush endpoint
+- New /__/probe?date=YYYY-MM-DD shows upstream status & counts
 
-## Env
+ENV:
 SPORTSDB_KEY=3
 ADMIN_TOKEN=mysecret123
 MANUAL_MODE=fallback
@@ -11,8 +12,3 @@ EU_LEAGUES=soccer/uefa.champions,soccer/uefa.europa,soccer/uefa.europa.conf,socc
 
 Build: npm install
 Start: node server.js
-
-Flush bad cache:
-POST /admin/flush-cache?all=true&token=YOUR_TOKEN
-or
-POST /admin/flush-cache?date=YYYY-MM-DD&token=YOUR_TOKEN
