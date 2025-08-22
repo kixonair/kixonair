@@ -34,7 +34,7 @@ async function httpGet(url, extra={}){
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }));
 app.get('/health', (_, res) => res.type('text/plain').send('ok'));
-app.get('/__/version', (_, res) => res.json({ build: 'hotfix5-date-normalize+paths', ts: new Date().toISOString() }));
+app.get('/__/version', (_, res) => res.json({ build: 'hotfix6-espn-path-fix', ts: new Date().toISOString() }));
 
 // ---- Date parsing helpers ----
 function normalizeDateParam(raw){
@@ -45,14 +45,10 @@ function normalizeDateParam(raw){
   if (lower === 'today') return new Date().toISOString().slice(0,10);
   if (lower === 'tomorrow'){ const d = new Date(Date.now()+86400000); return d.toISOString().slice(0,10); }
   if (lower === 'yesterday'){ const d = new Date(Date.now()-86400000); return d.toISOString().slice(0,10); }
-  // Replace dots/slashes with dashes
   s = s.replace(/[\.\/]/g, '-').replace(/\s+/g, '-');
-  // If matches YYYY-MM-DD already
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  // If DD-MM-YYYY -> convert
   const m1 = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
   if (m1) return `${m1[3]}-${m1[2]}-${m1[1]}`;
-  // If YYYY-M-D -> pad
   const m2 = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if (m2){ const y=m2[1], mo=m2[2].padStart(2,'0'), d=m2[3].padStart(2,'0'); return `${y}-${mo}-${d}`; }
   return null;
@@ -100,9 +96,9 @@ async function enrich(list){
   return list;
 }
 
-// ESPN
+// ESPN (fixed path: /apis/site/v2/sports/.../scoreboard)
 async function espnBoard(seg, d){
-  const url = `https://site.api.espn.com/apis/v2/sports/${seg}/scoreboard?dates=${yyyymmdd(d)}`;
+  const url = `https://site.api.espn.com/apis/site/v2/sports/${seg}/scoreboard?dates=${yyyymmdd(d)}`;
   const r = await httpGet(url);
   if (!r.ok) return { ok:false, status:r.status, events: [] };
   const j = await r.json(); j.ok = true; j.status = r.status; return j;
@@ -126,34 +122,8 @@ async function espnSoccerEU(d){
   const lists = boards.map(j => mapSoccerEvents(j,d));
   return lists.flat();
 }
-async function espnNBA(d){
-  const j = await espnBoard('basketball/nba', d);
-  const out=[];
-  for (const ev of (j?.events||[])){
-    const iso = ev?.date; if (!iso || dayOf(iso)!==d) continue;
-    const c=ev?.competitions||[]; const c0=(c[0]||{});
-    const H=(c0?.competitors||[]).find(x=>x.homeAway==='home')||{};
-    const A=(c0?.competitors||[]).find(x=>x.homeAway==='away')||{};
-    out.push(fx({ sport:'NBA', league:'NBA', startISO: iso, status: statusFromEspn(ev),
-      home:{name:H?.team?.displayName||H?.team?.name, logo: takeLogo(H?.team)},
-      away:{name:A?.team?.displayName||A?.team?.name, logo: takeLogo(A?.team)} }));
-  }
-  return out;
-}
-async function espnNFL(d){
-  const j = await espnBoard('football/nfl', d);
-  const out=[];
-  for (const ev of (j?.events||[])){
-    const iso = ev?.date; if (!iso || dayOf(iso)!==d) continue;
-    const c=ev?.competitions||[]; const c0=(c[0]||{});
-    const H=(c0?.competitors||[]).find(x=>x.homeAway==='home')||{};
-    const A=(c0?.competitors||[]).find(x=>x.homeAway==='away')||{};
-    out.push(fx({ sport:'NFL', league:'NFL', startISO: iso, status: statusFromEspn(ev),
-      home:{name:H?.team?.displayName||H?.team?.name, logo: takeLogo(H?.team)},
-      away:{name:A?.team?.displayName||A?.team?.name, logo: takeLogo(A?.team)} }));
-  }
-  return out;
-}
+async function espnNBA(d){ const j = await espnBoard('basketball/nba', d); const out=[]; for(const ev of (j?.events||[])){ const iso=ev?.date; if(!iso||dayOf(iso)!==d) continue; const c=ev?.competitions?.[0]||{}; const H=(c?.competitors||[]).find(x=>x.homeAway==='home')||{}; const A=(c?.competitors||[]).find(x=>x.homeAway==='away')||{}; out.push(fx({ sport:'NBA', league:'NBA', startISO: iso, status: statusFromEspn(ev), home:{name:H?.team?.displayName||H?.team?.name, logo: takeLogo(H?.team)}, away:{name:A?.team?.displayName||A?.team?.name, logo: takeLogo(A?.team)} })); } return out; }
+async function espnNFL(d){ const j = await espnBoard('football/nfl', d); const out=[]; for(const ev of (j?.events||[])){ const iso=ev?.date; if(!iso||dayOf(iso)!==d) continue; const c=ev?.competitions?.[0]||{}; const H=(c?.competitors||[]).find(x=>x.homeAway==='home')||{}; const A=(c?.competitors||[]).find(x=>x.homeAway==='away')||{}; out.push(fx({ sport:'NFL', league:'NFL', startISO: iso, status: statusFromEspn(ev), home:{name:H?.team?.displayName||H?.team?.name, logo: takeLogo(H?.team)}, away:{name:A?.team?.displayName||A?.team?.name, logo: takeLogo(A?.team)} })); } return out; }
 
 // SportsDB day
 async function sdbDay(d, sportQuery, tag){
@@ -215,7 +185,7 @@ function dedup(list){
   return [...m.values()];
 }
 
-// Core fetch+merge for a given date
+// Core assemble
 async function assembleFor(d){
   const [eu, all, nba, nfl, sdbS, sdbN, sdbF] = await Promise.all([
     espnSoccerEU(d), espnSoccer(d), espnNBA(d), espnNFL(d),
@@ -227,28 +197,20 @@ async function assembleFor(d){
   else if (mergedPrimary.length === 0) manual = await manualFor(d);
   let merged = dedup([...mergedPrimary, ...manual]);
   merged = await enrich(merged);
-  return {
-    meta: { date: d, sourceCounts: {
+  return { meta: { date: d, sourceCounts: {
       espn_soccer_eu: eu.length, espn_soccer_all: all.length, espn_nba: nba.length, espn_nfl: nfl.length,
       sportsdb_soccer: sdbS.length, sportsdb_nba: sdbN.length, sportsdb_nfl: sdbF.length, manual: manual.length
-    } },
-    fixtures: merged
-  };
+    } }, fixtures: merged };
 }
 
-// API (query param + path param)
-app.get(['/api/fixtures', '/api/fixtures/:date'], async (req, res) => {
-  const raw = req.params.date || req.query.date;
-  const d = normalizeDateParam(raw);
+// Routes (query + path)
+app.get(['/api/fixtures','/api/fixtures/:date'], async (req,res)=>{
+  const raw = req.params.date || req.query.date; const d = normalizeDateParam(raw);
   if (!d) return res.status(400).json({ error: 'Invalid date. Use YYYY-MM-DD' });
-
   const cached = readCache(d); if (cached) return res.json(cached);
-  const payload = await assembleFor(d);
-  writeCache(d, payload);
-  res.json(payload);
+  const payload = await assembleFor(d); writeCache(d, payload); res.json(payload);
 });
 
-// Admin + flush + probe + echo
 function auth(req,res){ const t = req.query.token || req.headers['x-admin-token']; if (!ADMIN_TOKEN || t !== ADMIN_TOKEN){ res.status(401).json({error:'unauthorized'}); return false;} return true; }
 app.get(['/admin/precache','/admin/precache/:date'], async (req,res)=>{
   if(!auth(req,res))return; const raw = req.params.date || req.query.date; const d = normalizeDateParam(raw);
@@ -271,18 +233,20 @@ app.post('/admin/flush-cache', (req,res)=>{
     return res.status(400).json({error:'provide date=YYYY-MM-DD or all=true'});
   }catch(e){ return res.status(500).json({error:'flush failed'}); }
 });
-app.get(['/__/probe','/__/probe/:date'], async (req, res) => {
+
+// Probe + echo
+app.get(['/__/probe','/__/probe/:date'], async (req,res)=>{
   const raw = req.params.date || req.query.date; const d = normalizeDateParam(raw);
   if (!d) return res.status(400).json({ error: 'Invalid date. Use YYYY-MM-DD' });
   const mk = (ok, status, note='') => ({ ok, status, note });
   const resp = {};
-  try { const r = await httpGet(`https://site.api.espn.com/apis/v2/sports/soccer/scoreboard?dates=${yyyymmdd(d)}`); resp.espn_soccer = mk(r.ok, r.status); const j = r.ok ? await r.json() : {events:[]}; resp.espn_soccer_events=(j.events||[]).length; } catch(e){ resp.espn_soccer = mk(false,0,'fetch failed'); }
-  try { const r = await httpGet(`https://site.api.espn.com/apis/v2/sports/basketball/nba/scoreboard?dates=${yyyymmdd(d)}`); resp.espn_nba = mk(r.ok, r.status); const j = r.ok ? await r.json() : {events:[]}; resp.espn_nba_events=(j.events||[]).length; } catch(e){ resp.espn_nba = mk(false,0,'fetch failed'); }
-  try { const r = await httpGet(`https://site.api.espn.com/apis/v2/sports/football/nfl/scoreboard?dates=${yyyymmdd(d)}`); resp.espn_nfl = mk(r.ok, r.status); const j = r.ok ? await r.json() : {events:[]}; resp.espn_nfl_events=(j.events||[]).length; } catch(e){ resp.espn_nfl = mk(false,0,'fetch failed'); }
+  try { const r = await httpGet(`https://site.api.espn.com/apis/site/v2/sports/soccer/scoreboard?dates=${yyyymmdd(d)}`); resp.espn_soccer = mk(r.ok, r.status); const j = r.ok ? await r.json() : {events:[]}; resp.espn_soccer_events=(j.events||[]).length; } catch(e){ resp.espn_soccer = mk(false,0,'fetch failed'); }
+  try { const r = await httpGet(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${yyyymmdd(d)}`); resp.espn_nba = mk(r.ok, r.status); const j = r.ok ? await r.json() : {events:[]}; resp.espn_nba_events=(j.events||[]).length; } catch(e){ resp.espn_nba = mk(false,0,'fetch failed'); }
+  try { const r = await httpGet(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${yyyymmdd(d)}`); resp.espn_nfl = mk(r.ok, r.status); const j = r.ok ? await r.json() : {events:[]}; resp.espn_nfl_events=(j.events||[]).length; } catch(e){ resp.espn_nfl = mk(false,0,'fetch failed'); }
   try { const r = await httpGet(`https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/eventsday.php?d=${d}&s=Soccer`); resp.sdb_soccer = mk(r.ok, r.status); const j = r.ok ? await r.json() : {events:[]}; resp.sdb_soccer_events=(j.events||[]).length; } catch(e){ resp.sdb_soccer = mk(false,0,'fetch failed'); }
   res.json({ date: d, probe: resp });
 });
-app.get('/__/echo', (req, res) => res.json({ originalUrl: req.originalUrl, query: req.query }));
+app.get('/__/echo', (req,res)=> res.json({ originalUrl: req.originalUrl, query: req.query }));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log('kixonair hotfix5 listening on :' + PORT));
+app.listen(PORT, () => console.log('kixonair hotfix6 listening on :' + PORT));
