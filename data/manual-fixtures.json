@@ -1,84 +1,603 @@
 {
-  "2025-08-21": [
+  "2025-08-22": [
     {
       "sport": "Soccer",
       "league": {
-        "name": "UEFA Europa League Qualifying"
+        "name": "UEFA Champions League"
       },
-      "start_utc": "2025-08-21T18:30:00Z",
+      "start_utc": "2025-08-22T20:00:00Z",
+      "status": "SCHEDULED",
       "home": {
-        "name": "Slovan Bratislava"
+        "name": "Real Madrid"
       },
       "away": {
-        "name": "Young Boys"
-      }
-    },
-    {
-      "sport": "Soccer",
-      "league": {
-        "name": "UEFA Europa League Qualifying"
-      },
-      "start_utc": "2025-08-21T19:00:00Z",
-      "home": {
-        "name": "Rijeka"
-      },
-      "away": {
-        "name": "PAOK Thessaloniki"
+        "name": "Man City"
       }
     },
     {
       "sport": "Soccer",
       "league": {
-        "name": "UEFA Europa Conference League Qualifying"
+        "name": "Premier League"
       },
-      "start_utc": "2025-08-21T18:45:00Z",
+      "start_utc": "2025-08-22T18:30:00Z",
+      "status": "SCHEDULED",
       "home": {
-        "name": "Shelbourne"
+        "name": "Arsenal"
       },
       "away": {
-        "name": "Linfield"
+        "name": "Chelsea"
       }
     },
     {
-      "sport": "NFL",
+      "sport": "Soccer",
       "league": {
-        "name": "NFL Preseason",
-        "code": "NFL"
+        "name": "La Liga"
       },
-      "start_utc": "2025-08-21T23:00:00Z",
+      "start_utc": "2025-08-22T21:00:00Z",
+      "status": "SCHEDULED",
       "home": {
-        "name": "Carolina Panthers"
+        "name": "Barcelona"
       },
       "away": {
-        "name": "Pittsburgh Steelers"
+        "name": "Atletico Madrid"
       }
     },
     {
-      "sport": "NFL",
+      "sport": "Soccer",
       "league": {
-        "name": "NFL Preseason",
-        "code": "NFL"
+        "name": "Serie A"
       },
-      "start_utc": "2025-08-22T01:00:00Z",
+      "start_utc": "2025-08-22T19:45:00Z",
+      "status": "SCHEDULED",
       "home": {
-        "name": "New York Giants"
+        "name": "Inter"
       },
       "away": {
-        "name": "New England Patriots"
+        "name": "Juventus"
       }
     },
     {
-      "sport": "NFL",
+      "sport": "Soccer",
       "league": {
-        "name": "NFL Preseason",
-        "code": "NFL"
+        "name": "Bundesliga"
       },
-      "start_utc": "2025-08-22T03:00:00Z",
+      "start_utc": "2025-08-22T18:30:00Z",
+      "status": "SCHEDULED",
       "home": {
-        "name": "New York Jets"
+        "name": "Bayern Munich"
       },
       "away": {
-        "name": "Philadelphia Eagles"
+        "name": "Borussia Dortmund"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Ligue 1"
+      },
+      "start_utc": "2025-08-22T20:00:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "PSG"
+      },
+      "away": {
+        "name": "Lyon"
+      }
+    }
+  ],
+  "2025-08-23": [
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "UEFA Champions League"
+      },
+      "start_utc": "2025-08-23T20:00:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Real Madrid"
+      },
+      "away": {
+        "name": "Man City"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Premier League"
+      },
+      "start_utc": "2025-08-23T18:30:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Arsenal"
+      },
+      "away": {
+        "name": "Chelsea"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "La Liga"
+      },
+      "start_utc": "2025-08-23T21:00:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Barcelona"
+      },
+      "away": {
+        "name": "Atletico Madrid"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Serie A"
+      },
+      "start_utc": "2025-08-23T19:45:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Inter"
+      },
+      "away": {
+        "name": "Juventus"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Bundesliga"
+      },
+      "start_utc": "2025-08-23T18:30:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Bayern Munich"
+      },
+      "away": {
+        "name": "Borussia Dortmund"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Ligue 1"
+      },
+      "start_utc": "2025-08-23T20:00:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "PSG"
+      },
+      "away": {
+        "name": "Lyon"
+      }
+    }
+  ],
+  "2025-08-24": [
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "UEFA Champions League"
+      },
+      "start_utc": "2025-08-24T20:00:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Real Madrid"
+      },
+      "away": {
+        "name": "Man City"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Premier League"
+      },
+      "start_utc": "2025-08-24T18:30:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Arsenal"
+      },
+      "away": {
+        "name": "Chelsea"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "La Liga"
+      },
+      "start_utc": "2025-08-24T21:00:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Barcelona"
+      },
+      "away": {
+        "name": "Atletico Madrid"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Serie A"
+      },
+      "start_utc": "2025-08-24T19:45:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Inter"
+      },
+      "away": {
+        "name": "Juventus"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Bundesliga"
+      },
+      "start_utc": "2025-08-24T18:30:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Bayern Munich"
+      },
+      "away": {
+        "name": "Borussia Dortmund"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Ligue 1"
+      },
+      "start_utc": "2025-08-24T20:00:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "PSG"
+      },
+      "away": {
+        "name": "Lyon"
+      }
+    }
+  ],
+  "2025-08-25": [
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "UEFA Champions League"
+      },
+      "start_utc": "2025-08-25T20:00:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Real Madrid"
+      },
+      "away": {
+        "name": "Man City"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Premier League"
+      },
+      "start_utc": "2025-08-25T18:30:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Arsenal"
+      },
+      "away": {
+        "name": "Chelsea"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "La Liga"
+      },
+      "start_utc": "2025-08-25T21:00:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Barcelona"
+      },
+      "away": {
+        "name": "Atletico Madrid"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Serie A"
+      },
+      "start_utc": "2025-08-25T19:45:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Inter"
+      },
+      "away": {
+        "name": "Juventus"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Bundesliga"
+      },
+      "start_utc": "2025-08-25T18:30:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Bayern Munich"
+      },
+      "away": {
+        "name": "Borussia Dortmund"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Ligue 1"
+      },
+      "start_utc": "2025-08-25T20:00:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "PSG"
+      },
+      "away": {
+        "name": "Lyon"
+      }
+    }
+  ],
+  "2025-08-26": [
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "UEFA Champions League"
+      },
+      "start_utc": "2025-08-26T20:00:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Real Madrid"
+      },
+      "away": {
+        "name": "Man City"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Premier League"
+      },
+      "start_utc": "2025-08-26T18:30:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Arsenal"
+      },
+      "away": {
+        "name": "Chelsea"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "La Liga"
+      },
+      "start_utc": "2025-08-26T21:00:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Barcelona"
+      },
+      "away": {
+        "name": "Atletico Madrid"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Serie A"
+      },
+      "start_utc": "2025-08-26T19:45:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Inter"
+      },
+      "away": {
+        "name": "Juventus"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Bundesliga"
+      },
+      "start_utc": "2025-08-26T18:30:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Bayern Munich"
+      },
+      "away": {
+        "name": "Borussia Dortmund"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Ligue 1"
+      },
+      "start_utc": "2025-08-26T20:00:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "PSG"
+      },
+      "away": {
+        "name": "Lyon"
+      }
+    }
+  ],
+  "2025-08-27": [
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "UEFA Champions League"
+      },
+      "start_utc": "2025-08-27T20:00:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Real Madrid"
+      },
+      "away": {
+        "name": "Man City"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Premier League"
+      },
+      "start_utc": "2025-08-27T18:30:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Arsenal"
+      },
+      "away": {
+        "name": "Chelsea"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "La Liga"
+      },
+      "start_utc": "2025-08-27T21:00:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Barcelona"
+      },
+      "away": {
+        "name": "Atletico Madrid"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Serie A"
+      },
+      "start_utc": "2025-08-27T19:45:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Inter"
+      },
+      "away": {
+        "name": "Juventus"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Bundesliga"
+      },
+      "start_utc": "2025-08-27T18:30:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Bayern Munich"
+      },
+      "away": {
+        "name": "Borussia Dortmund"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Ligue 1"
+      },
+      "start_utc": "2025-08-27T20:00:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "PSG"
+      },
+      "away": {
+        "name": "Lyon"
+      }
+    }
+  ],
+  "2025-08-28": [
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "UEFA Champions League"
+      },
+      "start_utc": "2025-08-28T20:00:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Real Madrid"
+      },
+      "away": {
+        "name": "Man City"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Premier League"
+      },
+      "start_utc": "2025-08-28T18:30:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Arsenal"
+      },
+      "away": {
+        "name": "Chelsea"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "La Liga"
+      },
+      "start_utc": "2025-08-28T21:00:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Barcelona"
+      },
+      "away": {
+        "name": "Atletico Madrid"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Serie A"
+      },
+      "start_utc": "2025-08-28T19:45:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Inter"
+      },
+      "away": {
+        "name": "Juventus"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Bundesliga"
+      },
+      "start_utc": "2025-08-28T18:30:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "Bayern Munich"
+      },
+      "away": {
+        "name": "Borussia Dortmund"
+      }
+    },
+    {
+      "sport": "Soccer",
+      "league": {
+        "name": "Ligue 1"
+      },
+      "start_utc": "2025-08-28T20:00:00Z",
+      "status": "SCHEDULED",
+      "home": {
+        "name": "PSG"
+      },
+      "away": {
+        "name": "Lyon"
       }
     }
   ]
