@@ -4,15 +4,11 @@
       <stop offset="0%" stop-color="#06B6D4"/>
       <stop offset="100%" stop-color="#8B5CF6"/>
     </linearGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="2.2" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
   </defs>
   <rect width="300" height="64" rx="12" fill="#0b0f14"/>
   <g transform="translate(10,10)">
-    <circle cx="22" cy="22" r="18" fill="none" stroke="url(#g)" stroke-width="3" filter="url(#glow)"/>
-    <polygon points="16,12 32,22 16,32" fill="url(#g)" filter="url(#glow)"/>
+    <circle cx="22" cy="22" r="18" fill="none" stroke="url(#g)" stroke-width="3"/>
+    <polygon points="16,12 32,22 16,32" fill="url(#g)"/>
     <text x="56" y="30" font-family="Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="28" fill="#E8EEF6" letter-spacing="1.2">Kixonair</text>
   </g>
 </svg>
