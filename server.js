@@ -1,8 +1,8 @@
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
-import fetch from "node-fetch";
 import dotenv from "dotenv";
+import fs from "fs";
 
 dotenv.config();
 const app = express();
@@ -12,31 +12,25 @@ const __dirname = path.dirname(__filename);
 
 app.use(express.static(path.join(__dirname, "public")));
 
-// Health route
+// Health
 app.get("/health", (req, res) => res.send("ok"));
 
-// Fixtures route with fallback
+// Fixtures route
 app.get("/api/fixtures", async (req, res) => {
   const date = req.query.date;
   try {
-    // TODO: Replace with real ESPN/TheSportsDB fetch
-    // Fallback static fixtures
-    const fixtures = require("./data/fallback.json");
-    res.json({ fixtures, meta: { sourceCounts: { fallback: fixtures.length } } });
+    const data = JSON.parse(fs.readFileSync(path.join(__dirname, "data", "fallback.json")));
+    res.json({ fixtures: data, meta: { sourceCounts: { fallback: data.length } } });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch fixtures" });
+    res.json({ fixtures: [] });
   }
 });
 
 // Admin precache
 app.post("/admin/precache", (req, res) => {
   const { token, date } = req.query;
-  if (token !== process.env.ADMIN_TOKEN) {
-    return res.status(403).send("Forbidden: Invalid token");
-  }
-  console.log("Pre-caching fixtures for", date);
-  res.send(`Precache successful for ${date}`);
+  if (token !== process.env.ADMIN_TOKEN) return res.status(403).send("Forbidden");
+  res.send(`Precache for ${date} complete`);
 });
 
-app.listen(PORT, () => console.log("Kixonair running on port", PORT));
+app.listen(PORT, () => console.log("Kixonair running on", PORT));

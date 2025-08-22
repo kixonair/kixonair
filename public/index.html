@@ -9,18 +9,22 @@
 </head>
 <body>
   <header class="navbar">
-    <a href="/" class="brand">
-      <img src="/logo.svg" alt="Kixonair" class="logo">
-    </a>
+    <a href="/" class="brand"><img src="/logo.png" alt="Kixonair" class="logo"></a>
   </header>
-  <main id="app">
-    <h1>Today’s Games, Zero Noise.</h1>
-    <div id="fixtures"></div>
+  <main>
+    <div class="controls">
+      <button onclick="loadFixtures('today')">Today</button>
+      <button onclick="loadFixtures('tomorrow')">Tomorrow</button>
+    </div>
+    <div id="fixtures" class="fixtures"></div>
   </main>
+  <footer>© 2025 Kixonair — Fixtures only, no streams hosted.</footer>
   <script>
-    async function loadFixtures() {
-      const today = new Date().toISOString().split('T')[0];
-      const res = await fetch(`/api/fixtures?date=${today}`);
+    async function loadFixtures(which) {
+      const today = new Date();
+      if (which === 'tomorrow') today.setDate(today.getDate() + 1);
+      const date = today.toISOString().split('T')[0];
+      const res = await fetch(`/api/fixtures?date=${date}`);
       const data = await res.json();
       const container = document.getElementById('fixtures');
       if (!data.fixtures || !data.fixtures.length) {
@@ -29,16 +33,18 @@
       }
       container.innerHTML = data.fixtures.map(m => `
         <div class="card">
-          <div class="meta">${m.competition} — <span class="tag">${m.sport}</span></div>
+          <div class="meta"><span>${m.competition}</span><span class="tag">${m.sport}</span></div>
           <div class="teams">
-            <span>${m.home}</span> vs <span>${m.away}</span>
+            <img src="${m.homeLogo || ''}" class="badge"/> ${m.home}
+            <span class="vs">vs</span>
+            <img src="${m.awayLogo || ''}" class="badge"/> ${m.away}
           </div>
           <div class="time">${m.time}</div>
-          <a class="watch" target="_blank" href="https://rileymarker.com/sportlo">Watch Match</a>
+          <a class="watch" href="watch.html" target="_blank">Watch Match</a>
         </div>
       `).join('');
     }
-    loadFixtures();
+    loadFixtures('today');
   </script>
 </body>
 </html>
