@@ -1,8 +1,8 @@
-# Kixonair — hotfix3 (probe)
-- Strict date filter
-- Manual fixtures fallback (or MANUAL_MODE=merge)
-- Cache flush endpoint
-- New /__/probe?date=YYYY-MM-DD shows upstream status & counts
+# Kixonair — hotfix5
+- Accepts dates as query **or** path: `/api/fixtures?date=2025-08-22` **or** `/api/fixtures/2025-08-22`
+- Normalizes formats: `YYYY-MM-DD`, `YYYY/MM/DD`, `YYYY.MM.DD`, `DD-MM-YYYY`, `today`, `tomorrow`, `yesterday`
+- Adds `/__/echo` to show what the server received
+- Keeps `/__/probe` with UA header to avoid upstream blocks
 
 ENV:
 SPORTSDB_KEY=3

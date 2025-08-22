@@ -23,19 +23,42 @@ const EU_LEAGUES = (process.env.EU_LEAGUES || [
   'soccer/por.1','soccer/ned.1','soccer/tur.1','soccer/bel.1','soccer/sco.1'
 ]).toString().split(',').map(s => s.trim()).filter(Boolean);
 
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 KixonairBot/1.0';
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36 KixonairBot/1.0';
 async function httpGet(url, extra={}){
   try{
     const r = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'application/json,text/plain,*/*' }, timeout: 20000, ...extra });
     return r;
-  }catch(e){ return { ok:false, status:0, json: async ()=>({}), arrayBuffer: async()=>new ArrayBuffer(0) }; }
+  }catch{ return { ok:false, status:0, json: async ()=>({}), arrayBuffer: async()=>new ArrayBuffer(0) }; }
 }
 
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }));
 app.get('/health', (_, res) => res.type('text/plain').send('ok'));
-app.get('/__/version', (_, res) => res.json({ build: 'hotfix4-UA+probe', ts: new Date().toISOString() }));
+app.get('/__/version', (_, res) => res.json({ build: 'hotfix5-date-normalize+paths', ts: new Date().toISOString() }));
 
+// ---- Date parsing helpers ----
+function normalizeDateParam(raw){
+  if (!raw) return null;
+  let s = decodeURIComponent(String(raw)).trim();
+  if (!s) return null;
+  const lower = s.toLowerCase();
+  if (lower === 'today') return new Date().toISOString().slice(0,10);
+  if (lower === 'tomorrow'){ const d = new Date(Date.now()+86400000); return d.toISOString().slice(0,10); }
+  if (lower === 'yesterday'){ const d = new Date(Date.now()-86400000); return d.toISOString().slice(0,10); }
+  // Replace dots/slashes with dashes
+  s = s.replace(/[\.\/]/g, '-').replace(/\s+/g, '-');
+  // If matches YYYY-MM-DD already
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // If DD-MM-YYYY -> convert
+  const m1 = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (m1) return `${m1[3]}-${m1[2]}-${m1[1]}`;
+  // If YYYY-M-D -> pad
+  const m2 = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m2){ const y=m2[1], mo=m2[2].padStart(2,'0'), d=m2[3].padStart(2,'0'); return `${y}-${mo}-${d}`; }
+  return null;
+}
+
+// ---- Other helpers ----
 function fixLogo(u){ return u ? u.replace(/^http:/,'https:') : null; }
 const logoCache = new Map();
 const yyyymmdd = d => d.replace(/-/g, '');
@@ -77,6 +100,7 @@ async function enrich(list){
   return list;
 }
 
+// ESPN
 async function espnBoard(seg, d){
   const url = `https://site.api.espn.com/apis/v2/sports/${seg}/scoreboard?dates=${yyyymmdd(d)}`;
   const r = await httpGet(url);
@@ -107,7 +131,7 @@ async function espnNBA(d){
   const out=[];
   for (const ev of (j?.events||[])){
     const iso = ev?.date; if (!iso || dayOf(iso)!==d) continue;
-    const c=ev?.competitions||[]; const c0 = (c[0]||{});
+    const c=ev?.competitions||[]; const c0=(c[0]||{});
     const H=(c0?.competitors||[]).find(x=>x.homeAway==='home')||{};
     const A=(c0?.competitors||[]).find(x=>x.homeAway==='away')||{};
     out.push(fx({ sport:'NBA', league:'NBA', startISO: iso, status: statusFromEspn(ev),
@@ -121,7 +145,7 @@ async function espnNFL(d){
   const out=[];
   for (const ev of (j?.events||[])){
     const iso = ev?.date; if (!iso || dayOf(iso)!==d) continue;
-    const c=ev?.competitions||[]; const c0 = (c[0]||{});
+    const c=ev?.competitions||[]; const c0=(c[0]||{});
     const H=(c0?.competitors||[]).find(x=>x.homeAway==='home')||{};
     const A=(c0?.competitors||[]).find(x=>x.homeAway==='away')||{};
     out.push(fx({ sport:'NFL', league:'NFL', startISO: iso, status: statusFromEspn(ev),
@@ -191,43 +215,65 @@ function dedup(list){
   return [...m.values()];
 }
 
-// API
-app.get('/api/fixtures', async (req, res) => {
-  const d = (req.query.date || '').toString();
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(d)) return res.status(400).json({ error: 'Invalid date. Use YYYY-MM-DD' });
-
-  const cached = readCache(d); if (cached) return res.json(cached);
-
+// Core fetch+merge for a given date
+async function assembleFor(d){
   const [eu, all, nba, nfl, sdbS, sdbN, sdbF] = await Promise.all([
     espnSoccerEU(d), espnSoccer(d), espnNBA(d), espnNFL(d),
     sdbDay(d,'Soccer','Soccer'), sdbDay(d,'Basketball','NBA'), sdbDay(d,'American Football','NFL')
   ]);
-
   let mergedPrimary = dedup([...eu, ...all, ...sdbS, ...nba, ...nfl, ...sdbN, ...sdbF]);
-
   let manual = [];
   if (MANUAL_MODE === 'merge') manual = await manualFor(d);
   else if (mergedPrimary.length === 0) manual = await manualFor(d);
-
   let merged = dedup([...mergedPrimary, ...manual]);
   merged = await enrich(merged);
-  const payload = { meta: { date: d, sourceCounts: {
-    espn_soccer_eu: eu.length, espn_soccer_all: all.length, espn_nba: nba.length, espn_nfl: nfl.length,
-    sportsdb_soccer: sdbS.length, sportsdb_nba: sdbN.length, sportsdb_nfl: sdbF.length, manual: manual.length
-  } }, fixtures: merged };
+  return {
+    meta: { date: d, sourceCounts: {
+      espn_soccer_eu: eu.length, espn_soccer_all: all.length, espn_nba: nba.length, espn_nfl: nfl.length,
+      sportsdb_soccer: sdbS.length, sportsdb_nba: sdbN.length, sportsdb_nfl: sdbF.length, manual: manual.length
+    } },
+    fixtures: merged
+  };
+}
 
+// API (query param + path param)
+app.get(['/api/fixtures', '/api/fixtures/:date'], async (req, res) => {
+  const raw = req.params.date || req.query.date;
+  const d = normalizeDateParam(raw);
+  if (!d) return res.status(400).json({ error: 'Invalid date. Use YYYY-MM-DD' });
+
+  const cached = readCache(d); if (cached) return res.json(cached);
+  const payload = await assembleFor(d);
   writeCache(d, payload);
   res.json(payload);
 });
 
-// Admin + flush + probe
+// Admin + flush + probe + echo
 function auth(req,res){ const t = req.query.token || req.headers['x-admin-token']; if (!ADMIN_TOKEN || t !== ADMIN_TOKEN){ res.status(401).json({error:'unauthorized'}); return false;} return true; }
-app.get('/admin/precache', async (req,res)=>{ if(!auth(req,res))return; const d=(req.query.date||'').toString(); if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(d)) return res.status(400).json({error:'invalid date'}); const r = await (await httpGet(`${req.protocol}://${req.get('host')}/api/fixtures?date=${d}`)).json().catch(()=>null); res.json(r||{meta:{date:d},fixtures:[]}); });
-app.post('/admin/precache', async (req,res)=>{ if(!auth(req,res))return; const d=(req.query.date||'').toString(); if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(d)) return res.status(400).json({error:'invalid date'}); const r = await (await httpGet(`${req.protocol}://${req.get('host')}/api/fixtures?date=${d}`)).json().catch(()=>null); res.json(r||{meta:{date:d},fixtures:[]}); });
-app.post('/admin/flush-cache', (req,res)=>{ if(!auth(req,res))return; const d=(req.query.date||'').toString(); const all=req.query.all==='true'; try{ if(all){ fs.rmSync(CACHE_DIR,{recursive:true,force:true}); fs.mkdirSync(CACHE_DIR,{recursive:true}); return res.json({ok:true,cleared:'all'});} if(/^\\d{4}-\\d{2}-\\d{2}$/.test(d)){ const p=cpath(d); if(fs.existsSync(p)) fs.unlinkSync(p); return res.json({ok:true,cleared:d}); } return res.status(400).json({error:'provide date or all=true'});}catch(e){ return res.status(500).json({error:'flush failed'});} });
-app.get('/__/probe', async (req, res) => {
-  const d = (req.query.date || '').toString();
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(d)) return res.status(400).json({ error: 'Invalid date. Use YYYY-MM-DD' });
+app.get(['/admin/precache','/admin/precache/:date'], async (req,res)=>{
+  if(!auth(req,res))return; const raw = req.params.date || req.query.date; const d = normalizeDateParam(raw);
+  if(!d) return res.status(400).json({error:'invalid date'});
+  const r = await (await httpGet(`${req.protocol}://${req.get('host')}/api/fixtures/${d}`)).json().catch(()=>null);
+  res.json(r||{meta:{date:d},fixtures:[]});
+});
+app.post(['/admin/precache','/admin/precache/:date'], async (req,res)=>{
+  if(!auth(req,res))return; const raw = req.params.date || req.query.date; const d = normalizeDateParam(raw);
+  if(!d) return res.status(400).json({error:'invalid date'});
+  const r = await (await httpGet(`${req.protocol}://${req.get('host')}/api/fixtures/${d}`)).json().catch(()=>null);
+  res.json(r||{meta:{date:d},fixtures:[]});
+});
+app.post('/admin/flush-cache', (req,res)=>{
+  if(!auth(req,res))return; const raw = req.query.date; const d = normalizeDateParam(raw); const all=req.query.all==='true';
+  try{
+    const CACHE_DIR = path.join(__dirname, 'data', 'cache');
+    if (all){ fs.rmSync(CACHE_DIR,{recursive:true,force:true}); fs.mkdirSync(CACHE_DIR,{recursive:true}); return res.json({ok:true,cleared:'all'}); }
+    if (d){ const p=path.join(CACHE_DIR, `${d}.json`); if(fs.existsSync(p)) fs.unlinkSync(p); return res.json({ok:true,cleared:d}); }
+    return res.status(400).json({error:'provide date=YYYY-MM-DD or all=true'});
+  }catch(e){ return res.status(500).json({error:'flush failed'}); }
+});
+app.get(['/__/probe','/__/probe/:date'], async (req, res) => {
+  const raw = req.params.date || req.query.date; const d = normalizeDateParam(raw);
+  if (!d) return res.status(400).json({ error: 'Invalid date. Use YYYY-MM-DD' });
   const mk = (ok, status, note='') => ({ ok, status, note });
   const resp = {};
   try { const r = await httpGet(`https://site.api.espn.com/apis/v2/sports/soccer/scoreboard?dates=${yyyymmdd(d)}`); resp.espn_soccer = mk(r.ok, r.status); const j = r.ok ? await r.json() : {events:[]}; resp.espn_soccer_events=(j.events||[]).length; } catch(e){ resp.espn_soccer = mk(false,0,'fetch failed'); }
@@ -236,6 +282,7 @@ app.get('/__/probe', async (req, res) => {
   try { const r = await httpGet(`https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/eventsday.php?d=${d}&s=Soccer`); resp.sdb_soccer = mk(r.ok, r.status); const j = r.ok ? await r.json() : {events:[]}; resp.sdb_soccer_events=(j.events||[]).length; } catch(e){ resp.sdb_soccer = mk(false,0,'fetch failed'); }
   res.json({ date: d, probe: resp });
 });
+app.get('/__/echo', (req, res) => res.json({ originalUrl: req.originalUrl, query: req.query }));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log('kixonair hotfix4 listening on :' + PORT));
+app.listen(PORT, () => console.log('kixonair hotfix5 listening on :' + PORT));
