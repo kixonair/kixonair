@@ -1,10 +1,6 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta name="theme-color" content="#0b0f14">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="theme-color" content="#0b0f14" />
@@ -82,6 +78,7 @@
 
   const fmtTime = d => new Date(d).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+  function norm(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(); }
   const pills = [].slice.call(document.querySelectorAll('.pill[data-sport]'));
   const gridSections = [].slice.call(document.querySelectorAll('.section'));
 
@@ -89,7 +86,10 @@
   let leagueKey = 'all';
   let ALL = [];
 
-  function nameOf(fx){ return (fx.league && (fx.league.name || fx.league.code)) || ''; }
+  function nameOf(fx){ return (fx.league && (fx.league.name || fx.league.code)) || '';
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || ''; }
   function codeIs(fx, code){ return fx.league && (fx.league.code||'').toUpperCase() === code.toUpperCase(); }
   const LEAGUES = [
     { key:'all', label:'All Leagues', test: function(){ return true; } },
@@ -97,10 +97,19 @@
     { key:'uel', label:'UEFA Europa League', test: fx => codeIs(fx,'EL') || /europa league/i.test(nameOf(fx)) },
     { key:'uecl', label:'UEFA Europa Conference League', test: fx => codeIs(fx,'ECL') || /conference league/i.test(nameOf(fx)) },
     { key:'pl',  label:'Premier League (England)', test: fx => codeIs(fx,'PL') || /premier league/i.test(nameOf(fx)) },
-    { key:'laliga', label:'La Liga (Spain)', test: fx => codeIs(fx,'PD') || /(la\s*liga|primera division)/i.test(nameOf(fx)) },
+    { key:'laliga', label:'La Liga (Spain)', test: fx => codeIs(fx,'PD') || /(la\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';s*liga|primera division)/i.test(nameOf(fx)) },
     { key:'bundes', label:'Bundesliga (Germany)', test: fx => codeIs(fx,'BL1') || /bundesliga/i.test(nameOf(fx)) },
-    { key:'seriea', label:'Serie A (Italy)', test: fx => codeIs(fx,'SA') || /serie\s*a/i.test(nameOf(fx)) },
-    { key:'ligue1', label:'Ligue 1 (France)', test: fx => codeIs(fx,'FL1') || /ligue\s*1/i.test(nameOf(fx)) }
+    { key:'seriea', label:'Serie A (Italy)', test: fx => codeIs(fx,'SA') || /serie\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';s*a/i.test(nameOf(fx)) },
+    { key:'ligue1', label:'Ligue 1 (France)', test: fx => codeIs(fx,'FL1') || /ligue\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';s*1/i.test(nameOf(fx)) }
   ];
   const leagueWrap = document.getElementById('leagueWrap');
   const leagueMenu = document.getElementById('leagueMenu');
@@ -126,22 +135,88 @@
     leagueKey = b.dataset.league;
     var found = LEAGUES.find(function(x){ return x.key===leagueKey; });
     leagueChosen.textContent = (found && found.label) ? found.label : '';
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';
     leagueToggle.setAttribute('aria-expanded','false');
     leagueMenu.classList.add('hidden');
     renderLists();
   });
 
   const MINOR_LEAGUE_PATTERNS = [
-    /\bu\s?-?\s?(?:13|14|15|16|17|18|19|20|21|23)\b/i,
-    /\b(youth|academy|primavera|reserves?)\b/i,
-    /\b(friendly|friendlies|club friendly|pre[-\s]?season|amistoso|testspiel)\b/i,
-    /\b(premier league 2|professional development league|u23 premier league)\b/i
+    /\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';bu\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';s?-?\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';s?(?:13|14|15|16|17|18|19|20|21|23)\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';b/i,
+    /\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';b(youth|academy|primavera|reserves?)\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';b/i,
+    /\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';b(friendly|friendlies|club friendly|pre[-\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';s]?season|amistoso|testspiel)\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';b/i,
+    /\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';b(premier league 2|professional development league|u23 premier league)\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';b/i
   ];
   const MINOR_TEAM_PATTERNS = [
-    /\bu\s?-?\s?(?:13|14|15|16|17|18|19|20|21|23)\b/i,
-    /\b(reserves?)\b/i,
-    /\b(ii|b)\b$/i,
-    /\bacademy\b/i
+    /\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';bu\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';s?-?\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';s?(?:13|14|15|16|17|18|19|20|21|23)\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';b/i,
+    /\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';b(reserves?)\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';b/i,
+    /\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';b(ii|b)\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';b$/i,
+    /\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';bacademy\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';b/i
   ];
   function isMinor(fx){
     const lname = ((fx.league && fx.league.name ? fx.league.name : '') + ' ' + (fx.league && fx.league.code ? fx.league.code : '')).toLowerCase();
@@ -182,13 +257,22 @@
   dateEl.value = ymd(Date.now());
   document.getElementById('today').onclick = function(){ dateEl.value = ymd(Date.now()); load(dateEl.value); };
   document.getElementById('tomorrow').onclick = function(){ dateEl.value = ymd(Date.now()+86400000); load(dateEl.value); };
-  dateEl.addEventListener('change', function(){ load(dateEl.value); });
+  dateEl.addEventListener('change', function(){ load(dateEl.value); setTimeout(startScorePolling, 500); });
 
   const q = document.getElementById('q');
   q.addEventListener('input', function(){ renderLists(); });
 
   function imgTag(url, alt){
-    return url ? '<img class="badge" src="'+url+'" alt="'+(alt||'')+'" onerror="this.style.display=\'none\'"/>' : '';
+    return url ? '<img class="badge" src="'+url+'" alt="'+(alt||'')+'" onerror="this.style.display=\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';'none\
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';'"/>' : '';
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';
   }
   function statusLabel(fx){
     const st = (fx.status || '').toUpperCase();
@@ -196,28 +280,43 @@
     if (/FINISH|FT|ENDED/.test(st)) return 'FINISHED';
     return 'SCHEDULED';
   }
-  function compName(fx){ return fx.league && (fx.league.name || fx.league.code) || ''; }
+  function compName(fx){ return fx.league && (fx.league.name || fx.league.code) || '';
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || ''; }
 
   function card(fx){
-    var a = document.createElement('div');
-    a.className = 'game-card';
-    var s = slug((fx.home.name || '') + '-vs-' + (fx.away.name || ''));
-    var watchHref = WATCH_URL + (WATCH_URL.indexOf('?') === -1 ? '?m=' : '&m=') + encodeURIComponent(s);
-    a.innerHTML =
-      '<div class="gc-head">' +
-        '<div class="left"><span class="dot '+(statusLabel(fx)==='LIVE'?'live':'')+'"></span>' +
-        '<span class="state">'+ statusLabel(fx) +'</span>' +
-        '<div class="comp">'+ compName(fx) +'</div></div>' +
-        '<div class="sport-tag">'+ ((fx.sport==='Soccer')?'Football':fx.sport) +'</div>' +
-      '</div>' +
-      '<div class="gc-main">' +
-        '<div class="team left">'+ imgTag(fx.home.logo, fx.home.name) + '<span class="name">'+ (fx.home.name||'') +'</span></div>' +
-        '<div class="score"><span class="num">0</span><span class="sep"> - </span><span class="num">0</span><div class="when">'+ fmtTime(fx.start_utc) +'</div></div>' +
-        '<div class="team right"><span class="name">'+ (fx.away.name||'') +'</span>' + imgTag(fx.away.logo, fx.away.name) + '</div>' +
-      '</div>' +
-      '<div class="gc-foot"><a class="watch-btn" '+(OPEN_IN_NEW_TAB?'target="_blank"':'')+' href="'+watchHref+'"><span class="play"></span>Watch Match</a></div>';
-    return a;
-  }
+  var a = document.createElement('div');
+  a.className = 'game-card';
+  // data attributes used by timers
+  a.dataset.startUtc = fx.start_utc || '';
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || '';
+  a.dataset.status = (fx.status || 'Scheduled');
+  var s = slug((fx.home.name || '') + '-vs-' + (fx.away.name || ''));
+  var watchHref = WATCH_URL + (WATCH_URL.indexOf('?') === -1 ? '?m=' : '&m=') + encodeURIComponent(s);
+  a.innerHTML = [
+    '<div class="gc-head">',
+      '<div class="left">',
+        '<span class="dot ' + (statusLabel(fx)==='LIVE'?'live':'') + '"></span>',
+        '<span class="state ' + (statusLabel(fx)==='LIVE'?'live':(statusLabel(fx)==='Finished'?'finished':'scheduled')) + '">' + statusLabel(fx) + '</span>',
+        '<div class="comp">' + ((fx.league && (fx.league.name||fx.league.code)) || '') + '</div>',
+      '</div>',
+      '<div class="sport-tag">' + ((fx.sport==='Soccer')?'Football':fx.sport) + '</div>',
+    '</div>',
+    '<div class="gc-main">',
+      '<div class="team left">' + imgTag(fx.home.logo, fx.home.name) + '<span class="name">' + (fx.home.name||'') + '</span></div>',
+      '<div class="score"><span class="num home-score">-</span><span class="sep"> - </span><span class="num away-score">-</span>',
+        '<div class="when">' + fmtTime(fx.start_utc) + '</div>',
+        '<div class="countdown"></div>',
+      '</div>',
+      '<div class="team right"><span class="name">' + (fx.away.name||'') + '</span>' + imgTag(fx.away.logo, fx.away.name) + '</div>',
+    '</div>',
+    '<div class="gc-foot"><a class="watch-btn' + (OPEN_IN_NEW_TAB?'" target="_blank"':'') + ' href="' + watchHref + '"><span class="play"></span>Watch Match</a></div>'
+  ].join('');
+  return a;
+}
 
   function skeleton(){ const d = document.createElement('div'); d.className='game-card skeleton'; return d; }
   function setEmpty(el){ el.innerHTML = '<div class="empty">No games for this day.</div>'; }
@@ -257,13 +356,17 @@
   async function load(dateStr){
     ['football','nba','nfl'].forEach(function(id){
       const el = document.getElementById(id);
-      el.innerHTML = ''; for (let i=0;i<3;i++) el.appendChild(skeleton());
+      el.innerHTML = '';
+  a.dataset.home = norm(fx.home && fx.home.name);
+  a.dataset.away = norm(fx.away && fx.away.name);
+  a.dataset.start = fx.start_utc || ''; for (let i=0;i<3;i++) el.appendChild(skeleton());
     });
     try{
       const r = await fetch('/api/fixtures?date=' + dateStr);
       const j = await r.json();
       ALL = j.fixtures || [];
       renderLists();
+      startScorePolling();
     }catch(e){
       document.getElementById('counts').textContent = 'Could not load games. Try again shortly.';
       ['football','nba','nfl'].forEach(function(id){ setEmpty(document.getElementById(id)); });
@@ -271,6 +374,63 @@
   }
 
   load((function(){ const d = new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); })());
+
+// === Live score polling (client-side via ESPN) ============================
+async function updateLiveScores(){
+  const dateStr = dateEl.value;
+  const yyyymmdd = dateStr.replace(/-/g,'');
+  const endpoints = [
+    ['soccer', 'https://site.api.espn.com/apis/site/v2/sports/soccer/scoreboard?dates='+yyyymmdd],
+    ['nba',    'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates='+yyyymmdd],
+    ['nfl',    'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates='+yyyymmdd],
+  ];
+  const all = [];
+  for (const [sport,url] of endpoints){
+    try{
+      const r = await fetch(url, {headers:{'Accept':'application/json'}});
+      const j = await r.json();
+      (j.events||[]).forEach(ev=>{
+        const c = ev.competitions && ev.competitions[0];
+        if(!c) return;
+        const comps = c.competitors || [];
+        const home = comps.find(x=>x.homeAway==='home') || comps[0] || {};
+        const away = comps.find(x=>x.homeAway==='away') || comps[1] || {};
+        const hname = (home.team && (home.team.shortDisplayName||home.team.abbreviation||home.team.name)) || home.displayName || '';
+        const aname = (away.team && (away.team.shortDisplayName||away.team.abbreviation||away.team.name)) || away.displayName || '';
+        const state = (ev.status && ev.status.type && ev.status.type.state) || (c.status && c.status.type && c.status.type.state) || '';
+        all.push({
+          sport,
+          home: { name: hname, score: Number(home.score) },
+          away: { name: aname, score: Number(away.score) },
+          status: state,
+          start: ev.date || c.date
+        });
+      });
+    }catch(e){/* ignore */}
+  }
+  for (const fx of all){
+    const sel = '.game-card[data-home="'+norm(fx.home.name)+'"][data-away="'+norm(fx.away.name)+'"]';
+    document.querySelectorAll(sel).forEach(card=>{
+      const hs = card.querySelector('.home-score');
+      const as = card.querySelector('.away-score');
+      if (hs && !Number.isNaN(fx.home.score)) hs.textContent = fx.home.score;
+      if (as && !Number.isNaN(fx.away.score)) as.textContent = fx.away.score;
+      const st = (fx.status||'').toUpperCase();
+      const stateEl = card.querySelector('.state'); const dotEl = card.querySelector('.dot');
+      if (/IN|LIVE/.test(st)){ stateEl.textContent='LIVE'; stateEl.classList.add('live'); stateEl.classList.remove('finished','scheduled'); if (dotEl) dotEl.classList.add('live'); }
+      else if (/POST|FINAL|END/.test(st)){ stateEl.textContent='Finished'; stateEl.classList.add('finished'); stateEl.classList.remove('live','scheduled'); if (dotEl) dotEl.classList.remove('live'); }
+    });
+  }
+}
+function startScorePolling(){
+  const today = new Date(Date.now() - new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const isToday = (dateEl && dateEl.value === today);
+  if (!isToday) return;
+  updateLiveScores();
+  clearInterval(window.__scorePoll);
+  window.__scorePoll = setInterval(updateLiveScores, 20000);
+}
+
 </script>
 </body>
 </html>
