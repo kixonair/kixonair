@@ -1,6 +1,10 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <meta name="theme-color" content="#0b0f14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="theme-color" content="#0b0f14" />
@@ -195,34 +199,25 @@
   function compName(fx){ return fx.league && (fx.league.name || fx.league.code) || ''; }
 
   function card(fx){
-  var a = document.createElement('div');
-  a.className = 'game-card';
-  // data attributes used by timers
-  a.dataset.startUtc = fx.start_utc || '';
-  a.dataset.status = (fx.status || 'Scheduled');
-  var s = slug((fx.home.name || '') + '-vs-' + (fx.away.name || ''));
-  var watchHref = WATCH_URL + (WATCH_URL.indexOf('?') === -1 ? '?m=' : '&m=') + encodeURIComponent(s);
-  a.innerHTML = [
-    '<div class="gc-head">',
-      '<div class="left">',
-        '<span class="dot ' + (statusLabel(fx)==='LIVE'?'live':'') + '"></span>',
-        '<span class="state ' + (statusLabel(fx)==='LIVE'?'live':(statusLabel(fx)==='Finished'?'finished':'scheduled')) + '">' + statusLabel(fx) + '</span>',
-        '<div class="comp">' + ((fx.league && (fx.league.name||fx.league.code)) || '') + '</div>',
-      '</div>',
-      '<div class="sport-tag">' + ((fx.sport==='Soccer')?'Football':fx.sport) + '</div>',
-    '</div>',
-    '<div class="gc-main">',
-      '<div class="team left">' + imgTag(fx.home.logo, fx.home.name) + '<span class="name">' + (fx.home.name||'') + '</span></div>',
-      '<div class="score"><span class="num">0</span><span class="sep"> - </span><span class="num">0</span>',
-        '<div class="when">' + fmtTime(fx.start_utc) + '</div>',
-        '<div class="countdown"></div>',
-      '</div>',
-      '<div class="team right"><span class="name">' + (fx.away.name||'') + '</span>' + imgTag(fx.away.logo, fx.away.name) + '</div>',
-    '</div>',
-    '<div class="gc-foot"><a class="watch-btn' + (OPEN_IN_NEW_TAB?'" target="_blank"':'') + ' href="' + watchHref + '"><span class="play"></span>Watch Match</a></div>'
-  ].join('');
-  return a;
-}
+    var a = document.createElement('div');
+    a.className = 'game-card';
+    var s = slug((fx.home.name || '') + '-vs-' + (fx.away.name || ''));
+    var watchHref = WATCH_URL + (WATCH_URL.indexOf('?') === -1 ? '?m=' : '&m=') + encodeURIComponent(s);
+    a.innerHTML =
+      '<div class="gc-head">' +
+        '<div class="left"><span class="dot '+(statusLabel(fx)==='LIVE'?'live':'')+'"></span>' +
+        '<span class="state">'+ statusLabel(fx) +'</span>' +
+        '<div class="comp">'+ compName(fx) +'</div></div>' +
+        '<div class="sport-tag">'+ ((fx.sport==='Soccer')?'Football':fx.sport) +'</div>' +
+      '</div>' +
+      '<div class="gc-main">' +
+        '<div class="team left">'+ imgTag(fx.home.logo, fx.home.name) + '<span class="name">'+ (fx.home.name||'') +'</span></div>' +
+        '<div class="score"><span class="num">0</span><span class="sep"> - </span><span class="num">0</span><div class="when">'+ fmtTime(fx.start_utc) +'</div></div>' +
+        '<div class="team right"><span class="name">'+ (fx.away.name||'') +'</span>' + imgTag(fx.away.logo, fx.away.name) + '</div>' +
+      '</div>' +
+      '<div class="gc-foot"><a class="watch-btn" '+(OPEN_IN_NEW_TAB?'target="_blank"':'')+' href="'+watchHref+'"><span class="play"></span>Watch Match</a></div>';
+    return a;
+  }
 
   function skeleton(){ const d = document.createElement('div'); d.className='game-card skeleton'; return d; }
   function setEmpty(el){ el.innerHTML = '<div class="empty">No games for this day.</div>'; }
