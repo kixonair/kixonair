@@ -1,10 +1,6 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta name="theme-color" content="#0b0f14">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="theme-color" content="#0b0f14" />
@@ -14,7 +10,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css?v=21" />
 <link rel="icon" href="/logo.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/scoreless.css">
 </head>
 <body>
 <header class="header">
@@ -81,7 +76,7 @@
   const WATCH_URL = 'https://rileymarker.com/sportlo';
   const OPEN_IN_NEW_TAB = true;
 
-  const fmtTime = d => new Date(d).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false});
+  const fmtTime = d => new Date(d).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
   const pills = [].slice.call(document.querySelectorAll('.pill[data-sport]'));
   const gridSections = [].slice.call(document.querySelectorAll('.section'));
@@ -92,16 +87,29 @@
 
   function nameOf(fx){ return (fx.league && (fx.league.name || fx.league.code)) || ''; }
   function codeIs(fx, code){ return fx.league && (fx.league.code||'').toUpperCase() === code.toUpperCase(); }
-  const LEAGUES = [
+  
+  function leagueKeyFor(fx){
+    const n = (nameOf(fx)||'').toLowerCase();
+    if (/champions/.test(n)) return 'ucl';
+    if (/conference/.test(n)) return 'uecl';
+    if (/europa(?!.*conference)/.test(n)) return 'uel';
+    if (/premier\s*league/.test(n) && !/scottish|scotland/.test(n)) return 'pl';
+    if (/(la\s*liga|laliga|primera división|primera division)/.test(n)) return 'laliga';
+    if (/bundesliga/.test(n) && !/austria|österreich|austrian/.test(n)) return 'bundes';
+    if (/serie\s*a/.test(n) && /ital/.test(n)) return 'seriea';
+    if (/ligue\s*1|ligue1/.test(n)) return 'ligue1';
+    return 'other';
+  }
+const LEAGUES = [
     { key:'all', label:'All Leagues', test: function(){ return true; } },
-    { key:'ucl', label:'UEFA Champions League', test: fx => codeIs(fx,'CL') || /champions league/i.test(nameOf(fx)) },
-    { key:'uel', label:'UEFA Europa League', test: fx => codeIs(fx,'EL') || /europa league/i.test(nameOf(fx)) },
-    { key:'uecl', label:'UEFA Europa Conference League', test: fx => codeIs(fx,'ECL') || /conference league/i.test(nameOf(fx)) },
-    { key:'pl',  label:'Premier League (England)', test: fx => codeIs(fx,'PL') || /premier league/i.test(nameOf(fx)) },
-    { key:'laliga', label:'La Liga (Spain)', test: fx => codeIs(fx,'PD') || /(la\s*liga|primera division)/i.test(nameOf(fx)) },
-    { key:'bundes', label:'Bundesliga (Germany)', test: fx => codeIs(fx,'BL1') || /bundesliga/i.test(nameOf(fx)) },
-    { key:'seriea', label:'Serie A (Italy)', test: fx => codeIs(fx,'SA') || /serie\s*a/i.test(nameOf(fx)) },
-    { key:'ligue1', label:'Ligue 1 (France)', test: fx => codeIs(fx,'FL1') || /ligue\s*1/i.test(nameOf(fx)) }
+    { key:'ucl', label:'UEFA Champions League', test: fx => leagueKeyFor(fx)==='ucl' },
+    { key:'uel', label:'UEFA Europa League', test: fx => leagueKeyFor(fx)==='uel' },
+    { key:'uecl', label:'UEFA Europa Conference League', test: fx => leagueKeyFor(fx)==='uecl' },
+    { key:'pl',  label:'Premier League (England)', test: fx => leagueKeyFor(fx)==='pl' },
+    { key:'laliga', label:'La Liga (Spain)', test: fx => leagueKeyFor(fx)==='laliga' },
+    { key:'bundes', label:'Bundesliga (Germany)', test: fx => leagueKeyFor(fx)==='bundes' },
+    { key:'seriea', label:'Serie A (Italy)', test: fx => leagueKeyFor(fx)==='seriea' },
+    { key:'ligue1', label:'Ligue 1 (France)', test: fx => leagueKeyFor(fx)==='ligue1' }
   ];
   const leagueWrap = document.getElementById('leagueWrap');
   const leagueMenu = document.getElementById('leagueMenu');
@@ -202,8 +210,6 @@
   function card(fx){
     var a = document.createElement('div');
     a.className = 'game-card';
-    a.dataset.startUtc = fx.start_utc || '';
-    a.dataset.status = (fx.status || 'SCHEDULED');
     var s = slug((fx.home.name || '') + '-vs-' + (fx.away.name || ''));
     var watchHref = WATCH_URL + (WATCH_URL.indexOf('?') === -1 ? '?m=' : '&m=') + encodeURIComponent(s);
     a.innerHTML =
@@ -215,7 +221,7 @@
       '</div>' +
       '<div class="gc-main">' +
         '<div class="team left">'+ imgTag(fx.home.logo, fx.home.name) + '<span class="name">'+ (fx.home.name||'') +'</span></div>' +
-        '<div class="score"><span class="num">0</span><span class="sep"> - </span><span class="num">0</span><div class="when">'+ fmtTime(fx.start_utc) +'</div><div class="countdown"></div></div>' +
+        '<div class="score"><span class="num">0</span><span class="sep"> - </span><span class="num">0</span><div class="when">'+ fmtTime(fx.start_utc) +'</div></div>' +
         '<div class="team right"><span class="name">'+ (fx.away.name||'') +'</span>' + imgTag(fx.away.logo, fx.away.name) + '</div>' +
       '</div>' +
       '<div class="gc-foot"><a class="watch-btn" '+(OPEN_IN_NEW_TAB?'target="_blank"':'')+' href="'+watchHref+'"><span class="play"></span>Watch Match</a></div>';
@@ -274,62 +280,6 @@
   }
 
   load((function(){ const d = new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); })());
-
-
-// === Kixonair timers: 24h kickoff, countdown, LIVE/Finished pill ===
-(function(){
-  const H=3600*1000, M=60*1000, S=1000;
-  const pad = n => String(n).padStart(2,'0');
-  const fmtCountdown = ms => {
-    if (ms < 0) ms = 0;
-    const h = Math.floor(ms/H), m = Math.floor((ms%H)/M), s = Math.floor((ms%M)/S);
-    return pad(h)+':'+pad(m)+':'+pad(s);
-  };
-  function updateCard(el){
-    const iso = el.dataset.startUtc || '';
-    if(!iso) return;
-    const start = Date.parse(iso);
-    if(!isFinite(start)) return;
-    const now = Date.now();
-    const diff = start - now;
-
-    const dot = el.querySelector('.dot');
-    const state = el.querySelector('.state');
-    const when = el.querySelector('.when');
-    const cd   = el.querySelector('.countdown');
-    if (when) when.textContent = fmtTime(iso);
-
-    // derive status: prefer dataset, otherwise by time
-    let st = String(el.dataset.status||'').toUpperCase();
-    if (!st || st==='SCHEDULED'){
-      if (diff <= 0 && diff > -6*H) st='LIVE';
-      else if (diff <= -6*H) st='FINISHED';
-      else st='SCHEDULED';
-    }
-
-    if (st==='SCHEDULED'){
-      if (cd){ cd.textContent = 'Starts in '+fmtCountdown(diff); cd.style.display='block'; }
-      if (state){ state.textContent = 'SCHEDULED'; state.classList.remove('live','finished'); state.classList.add('scheduled'); }
-      if (dot) dot.classList.remove('live');
-    }else if (st==='LIVE'){
-      if (cd) cd.style.display='none';
-      if (state){ state.textContent = 'LIVE'; state.classList.remove('finished','scheduled'); state.classList.add('live'); }
-      if (dot) dot.classList.add('live');
-    }else{
-      if (cd) cd.style.display='none';
-      if (state){ state.textContent = 'FINISHED'; state.classList.remove('live','scheduled'); state.classList.add('finished'); }
-      if (dot) dot.classList.remove('live');
-    }
-  }
-  function tick(){ document.querySelectorAll('.game-card').forEach(updateCard); }
-
-  // Hook after renders
-  const _rl = window.renderLists;
-  window.renderLists = function(){ _rl(); setTimeout(tick, 30); }
-  setInterval(tick, 1000);
-  tick();
-})();
-
 </script>
 </body>
 </html>
