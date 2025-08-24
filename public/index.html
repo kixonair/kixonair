@@ -336,10 +336,10 @@
 
 </script>
 
-<!-- patch: minimal client-side fixes for finished badge + league filter -->
+
+<!-- patch: minimal client-side fixes for finished badge + league filter (v2) -->
 <script>
 (function(){
-  // Ensure LIVE badges switch to FINISHED after games end, even if original dataset.status stays "LIVE".
   function fixFinishedBadges(){
     var H6 = 6 * 60 * 60 * 1000;
     var now = Date.now();
@@ -353,8 +353,6 @@
       var dot = el.querySelector('.dot');
       var st = String(el.dataset.status || '').toUpperCase();
       var txt = state ? String(state.textContent || '').toUpperCase() : '';
-
-      // If it still says LIVE but kickoff was long ago, force FINISHED UI + data
       if ((st === 'LIVE' || txt === 'LIVE') && diff <= -H6){
         if (state){
           state.textContent = 'FINISHED';
@@ -367,27 +365,22 @@
     });
   }
 
-  // Robust client-side filter so "Leagues" menu (UCL/PL/etc.) actually shows matches.
   function applyLeagueFilter(){
     var chosenEl = document.getElementById('leagueChosen');
     if (!chosenEl) return;
     var chosen = (chosenEl.textContent || '').trim();
-    if (!chosen || /^All\s+Leagues$/i.test(chosen)) return; // nothing to do
+    if (!chosen || /^All\s+Leagues$/i.test(chosen)) return;
 
-    // Pick a regex that matches the comp/league name text inside each card.
     var rx;
     if (/champions/i.test(chosen)) rx = /champions\s*league/i;
+    else if (/europa\s+league/i.test(chosen) && /conference/i.test(chosen)) rx = /conference\s+league/i;
     else if (/europa\s+league/i.test(chosen)) rx = /europa\s+league/i;
-    else if (/conference/i.test(chosen)) rx = /conference\s+league/i;
     else if (/premier/i.test(chosen)) rx = /premier\s+league/i;
     else if (/(la\s*liga|primera)/i.test(chosen)) rx = /(la\s*liga|primera\s+division)/i;
     else if (/bundes/i.test(chosen)) rx = /bundesliga/i;
     else if (/serie\s*a/i.test(chosen)) rx = /serie\s*a/i;
     else if (/ligue\s*1/i.test(chosen)) rx = /ligue\s*1/i;
-    else {
-      // Fallback: case-insensitive contains
-      rx = new RegExp(chosen.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    }
+    else rx = new RegExp(chosen.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 
     var container = document.getElementById('football');
     if (!container) return;
@@ -402,7 +395,6 @@
       if (show) shownCount++;
     });
 
-    // Toggle "empty" message appropriately
     var empty = container.querySelector('.empty');
     if (shownCount === 0){
       if (!empty){
@@ -413,20 +405,22 @@
     }
   }
 
-  // Wrap existing renderLists so our fixes run after DOM updates.
   var _origRender = window.renderLists;
   window.renderLists = function(){
+    var _saved = window.leagueKey;
+    window.leagueKey = 'all';
     if (typeof _origRender === 'function') _origRender();
+    window.leagueKey = _saved;
     setTimeout(function(){
-      fixFinishedBadges();
       applyLeagueFilter();
+      fixFinishedBadges();
     }, 50);
   };
 
-  // Also periodically ensure LIVE -> FINISHED transitions are reflected.
   setInterval(fixFinishedBadges, 60000);
 })();
 </script>
+
 
 </body>
 </html>
