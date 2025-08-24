@@ -1,37 +1,5 @@
 
-/* Scoreless add-on: hide non-live scores and show a clean "VS" center line */
-
-:root{
-  --vs-color:#c7d2fe;
-}
-
-/* Hide numbers + dash entirely */
-.score .num,
-.score .sep { display:none !important; }
-
-/* Insert a subtle "VS" marker in the middle */
-.score::before{
-  content:'VS';
-  display:block;
-  font-weight:700;
-  letter-spacing:1px;
-  font-size:14px;
-  color:var(--vs-color);
-  text-align:center;
-  margin-bottom:2px;
-  opacity:.8;
-}
-
-/* Make the kickoff time more prominent now that scores are hidden */
-.score .when{
-  margin-top:2px;
-  font-size:13px;
-  font-weight:600;
-}
-
-/* Optional: if you use the countdown line from the timers add-on */
-.countdown{
-  margin-top:4px;
-  font-size:12px;
-  color:#9fb3d1;
-}
+/* Scoreless view: replace static score with VS and keep time/countdown */
+.score .num, .score .sep { display:none !important; }
+.score::before{ content:'VS'; display:block; text-align:center; font-weight:800; letter-spacing:1px; font-size:14px; color:#c7d2fe; opacity:.9; }
+.score .when{ margin-top:2px; font-size:13px; font-weight:600; }
