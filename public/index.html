@@ -90,7 +90,11 @@
   let leagueKey = 'all';
   let ALL = [];
 
-  function nameOf(fx){ return (fx.league && (fx.league.name || fx.league.code)) || ''; }
+  function nameOf(fx){
+      if (!fx.league) return '';
+      if (typeof fx.league === 'string') return fx.league;
+      return (fx.league.name || fx.league.code || '');
+    }
   function codeIs(fx, code){ return fx.league && (fx.league.code||'').toUpperCase() === code.toUpperCase(); }
   const LEAGUES = [
     { key:'all', label:'All Leagues', test: function(){ return true; } },
