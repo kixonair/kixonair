@@ -331,5 +331,98 @@
 })();
 
 </script>
+
+<!-- patch: minimal client-side fixes for finished badge + league filter -->
+<script>
+(function(){
+  // Ensure LIVE badges switch to FINISHED after games end, even if original dataset.status stays "LIVE".
+  function fixFinishedBadges(){
+    var H6 = 6 * 60 * 60 * 1000;
+    var now = Date.now();
+    document.querySelectorAll('.game-card').forEach(function(el){
+      var iso = el.dataset.startUtc || '';
+      if (!iso) return;
+      var start = Date.parse(iso);
+      if (!isFinite(start)) return;
+      var diff = start - now;
+      var state = el.querySelector('.state');
+      var dot = el.querySelector('.dot');
+      var st = String(el.dataset.status || '').toUpperCase();
+      var txt = state ? String(state.textContent || '').toUpperCase() : '';
+
+      // If it still says LIVE but kickoff was long ago, force FINISHED UI + data
+      if ((st === 'LIVE' || txt === 'LIVE') && diff <= -H6){
+        if (state){
+          state.textContent = 'FINISHED';
+          state.classList.remove('live','scheduled');
+          state.classList.add('finished');
+        }
+        if (dot) dot.classList.remove('live');
+        el.dataset.status = 'FINISHED';
+      }
+    });
+  }
+
+  // Robust client-side filter so "Leagues" menu (UCL/PL/etc.) actually shows matches.
+  function applyLeagueFilter(){
+    var chosenEl = document.getElementById('leagueChosen');
+    if (!chosenEl) return;
+    var chosen = (chosenEl.textContent || '').trim();
+    if (!chosen || /^All\s+Leagues$/i.test(chosen)) return; // nothing to do
+
+    // Pick a regex that matches the comp/league name text inside each card.
+    var rx;
+    if (/champions/i.test(chosen)) rx = /champions\s*league/i;
+    else if (/europa\s+league/i.test(chosen)) rx = /europa\s+league/i;
+    else if (/conference/i.test(chosen)) rx = /conference\s+league/i;
+    else if (/premier/i.test(chosen)) rx = /premier\s+league/i;
+    else if (/(la\s*liga|primera)/i.test(chosen)) rx = /(la\s*liga|primera\s+division)/i;
+    else if (/bundes/i.test(chosen)) rx = /bundesliga/i;
+    else if (/serie\s*a/i.test(chosen)) rx = /serie\s*a/i;
+    else if (/ligue\s*1/i.test(chosen)) rx = /ligue\s*1/i;
+    else {
+      // Fallback: case-insensitive contains
+      rx = new RegExp(chosen.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    }
+
+    var container = document.getElementById('football');
+    if (!container) return;
+    var cards = Array.prototype.slice.call(container.querySelectorAll('.game-card'));
+    var shownCount = 0;
+
+    cards.forEach(function(card){
+      var comp = card.querySelector('.comp');
+      var name = (comp && comp.textContent || '').trim();
+      var show = rx.test(name);
+      card.style.display = show ? '' : 'none';
+      if (show) shownCount++;
+    });
+
+    // Toggle "empty" message appropriately
+    var empty = container.querySelector('.empty');
+    if (shownCount === 0){
+      if (!empty){
+        container.insertAdjacentHTML('beforeend','<div class="empty">No games for this day.</div>');
+      }
+    }else{
+      if (empty) empty.remove();
+    }
+  }
+
+  // Wrap existing renderLists so our fixes run after DOM updates.
+  var _origRender = window.renderLists;
+  window.renderLists = function(){
+    if (typeof _origRender === 'function') _origRender();
+    setTimeout(function(){
+      fixFinishedBadges();
+      applyLeagueFilter();
+    }, 50);
+  };
+
+  // Also periodically ensure LIVE -> FINISHED transitions are reflected.
+  setInterval(fixFinishedBadges, 60000);
+})();
+</script>
+
 </body>
 </html>
