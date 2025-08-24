@@ -337,7 +337,8 @@
 </script>
 
 
-<!-- patch: minimal client-side fixes for finished badge + league filter (v2) -->
+
+<!-- patch: minimal client-side fixes for finished badge + league filter (v3: team-based league detection) -->
 <script>
 (function(){
   function fixFinishedBadges(){
@@ -365,22 +366,69 @@
     });
   }
 
+  // Normalize names so "AFC Bournemouth" ~ "Bournemouth", "Wolves" ~ "Wolverhampton Wanderers", etc.
+  function N(x){
+    return String(x||'').toLowerCase()
+      .replace(/&/g,'and')
+      .replace(/fc|afc|sc|cf|ac|cd|deportivo|ud|rcd|real|club|sporting|athletic|atletico|u\.?d\.?|s\.?c\.?/g,'')
+      .replace(/\s+town|\s+city|\s+united|\s+cf|\s+ac|\s+bc|\s+saint\s*/g,'')
+      .replace(/[^a-z]+/g,'')
+      .trim();
+  }
+
+  // League rosters (broad; good enough for filtering).
+  var PL = new Set([
+    'arsenal','astonvilla','bournemouth','brentford','brightonandhovealbion','chelsea','crystalpalace',
+    'everton','fulham','ipswich','ipswichtown','leicester','leicestercity','liverpool','manchestercity',
+    'manchesterunited','newcastle','newcastleunited','nottinghamforest','southampton','tottenham','tottenhamhotspur',
+    'westham','westhamunited','wolverhampton','wolverhamptonwanderers','wolves'
+  ]);
+  var LALIGA = new Set([
+    'realmadrid','barcelona','atleticomadrid','athleticbilbao','realsociedad','villarreal','valencia','osasuna','realbetis',
+    'sevilla','getafe','girona','rayovallecano','laspalmas','mallorca','celta','celtavigo','alaves','deportivoalaves',
+    'leganes','valladolid','realvalladolid','espanyol','cadiz','granada','levante','eibar','huesca','almeria','oviedo','realsporting'
+  ]);
+  var BUND = new Set([
+    'bayernmuenchen','bayernmunich','borussiadortmund','borussiamonchengladbach','rbleipzig','leverkusen','bayerleverkusen',
+    'eintrachtfrankfurt','mainz','augsburg','bochum','stuttgart','werderbremen','heidenheim','freiburg','hoffenheim',
+    'unionberlin','darmstadt','koln','cologne','wolfsburg','hamburg','hamburgsv','hannover96'
+  ]);
+  var SERIEA = new Set([
+    'atalanta','bologna','cagliari','empoli','fiorentina','frosinone','genoa','inter','internazionale','juventus','lazio',
+    'lecce','milano','acmilan','milan','monza','napoli','roma','salernitana','sassuolo','spezia','torino','udinese','como','parma','pisa'
+  ]);
+  var LIGUE1 = new Set([
+    'psg','parissaintgermain','lens','lille','lyon','marseille','monaco','montpellier','nantes','nice','reims','rennes','stadebrestois',
+    'brest','strasbourg','toulouse','angers','lorient','metz','auxerre','lehavre'
+  ]);
+
+  function guessLeagueKeyByTeams(home, away){
+    var h = N(home), a = N(away);
+    function bothIn(set){ return set.has(h) && set.has(a); }
+    if (bothIn(PL)) return 'pl';
+    if (bothIn(LALIGA)) return 'laliga';
+    if (bothIn(BUND)) return 'bundes';
+    if (bothIn(SERIEA)) return 'seriea';
+    if (bothIn(LIGUE1)) return 'ligue1';
+    return null;
+  }
+
   function applyLeagueFilter(){
     var chosenEl = document.getElementById('leagueChosen');
     if (!chosenEl) return;
     var chosen = (chosenEl.textContent || '').trim();
     if (!chosen || /^All\s+Leagues$/i.test(chosen)) return;
 
-    var rx;
-    if (/champions/i.test(chosen)) rx = /champions\s*league/i;
-    else if (/europa\s+league/i.test(chosen) && /conference/i.test(chosen)) rx = /conference\s+league/i;
-    else if (/europa\s+league/i.test(chosen)) rx = /europa\s+league/i;
-    else if (/premier/i.test(chosen)) rx = /premier\s+league/i;
-    else if (/(la\s*liga|primera)/i.test(chosen)) rx = /(la\s*liga|primera\s+division)/i;
-    else if (/bundes/i.test(chosen)) rx = /bundesliga/i;
-    else if (/serie\s*a/i.test(chosen)) rx = /serie\s*a/i;
-    else if (/ligue\s*1/i.test(chosen)) rx = /ligue\s*1/i;
-    else rx = new RegExp(chosen.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    // Map menu label -> league key
+    var key =
+      /premier/i.test(chosen) ? 'pl' :
+      /(la\s*liga|primera)/i.test(chosen) ? 'laliga' :
+      /bundes/i.test(chosen) ? 'bundes' :
+      /serie\s*a/i.test(chosen) ? 'seriea' :
+      /ligue\s*1/i.test(chosen) ? 'ligue1' :
+      /champions/i.test(chosen) ? 'ucl' :
+      /europa\s+league/i.test(chosen) && /conference/i.test(chosen) ? 'uecl' :
+      /europa\s+league/i.test(chosen) ? 'uel' : null;
 
     var container = document.getElementById('football');
     if (!container) return;
@@ -388,9 +436,20 @@
     var shownCount = 0;
 
     cards.forEach(function(card){
-      var comp = card.querySelector('.comp');
-      var name = (comp && comp.textContent || '').trim();
-      var show = rx.test(name);
+      var home = card.querySelector('.team.left .name');
+      var away = card.querySelector('.team.right .name');
+      var h = home ? home.textContent : '';
+      var a = away ? away.textContent : '';
+      var g = guessLeagueKeyByTeams(h, a);
+
+      var show;
+      if (key === 'ucl' || key === 'uel' || key === 'uecl'){
+        // Without true comp data, avoid guessing for UEFA cups; hide by default.
+        show = false;
+      } else {
+        show = (g === key);
+      }
+
       card.style.display = show ? '' : 'none';
       if (show) shownCount++;
     });
@@ -420,6 +479,7 @@
   setInterval(fixFinishedBadges, 60000);
 })();
 </script>
+
 
 
 </body>
