@@ -110,7 +110,8 @@ function mapSoccerEvents(j, d){
     const c=ev?.competitions?.[0]||{};
     const H=(c?.competitors||[]).find(x=>x.homeAway==='home')||{};
     const A=(c?.competitors||[]).find(x=>x.homeAway==='away')||{};
-    out.push(fx({ sport:'Soccer', league: ev?.league?.name||ev?.name||'Football', startISO: iso, status: statusFromEspn(ev),
+        const leagueName = (c?.league?.name)|| (ev?.league?.name) || (j?.leagues && j.leagues[0] && j.leagues[0].name) || ev?.name || 'Football';
+    out.push(fx({ sport:'Soccer', league: leagueName, startISO: iso, status: statusFromEspn(ev),
       home:{name:H?.team?.displayName||H?.team?.name, logo: takeLogo(H?.team)},
       away:{name:A?.team?.displayName||A?.team?.name, logo: takeLogo(A?.team)} }));
   }

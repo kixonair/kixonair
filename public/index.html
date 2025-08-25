@@ -90,11 +90,7 @@
   let leagueKey = 'all';
   let ALL = [];
 
-  function nameOf(fx){
-      if (!fx.league) return '';
-      if (typeof fx.league === 'string') return fx.league;
-      return (fx.league.name || fx.league.code || '');
-    }
+  function nameOf(fx){ return (fx.league && (fx.league.name || fx.league.code)) || ''; }
   function codeIs(fx, code){ return fx.league && (fx.league.code||'').toUpperCase() === code.toUpperCase(); }
   const LEAGUES = [
     { key:'all', label:'All Leagues', test: function(){ return true; } },
@@ -335,71 +331,5 @@
 })();
 
 </script>
-
-
-
-
-<!-- patch: minimal client-side fixes (v4: hide leagues UI + faster finished detection) -->
-<script>
-(function(){
-  // Hide leagues UI completely (per your request)
-  var lw = document.getElementById('leagueWrap');
-  if (lw) lw.style.display = 'none';
-  var lc = document.getElementById('leagueChosen');
-  if (lc) lc.textContent = ''; // clear any prior label
-
-  // Mark soccer as finished sooner (about 130 minutes after kickoff)
-  function fixFinishedBadges(){
-    var THRESH = 130 * 60 * 1000; // 2h10m
-    var now = Date.now();
-    document.querySelectorAll('.game-card').forEach(function(el){
-      var iso = el.dataset.startUtc || '';
-      if (!iso) return;
-      var start = Date.parse(iso);
-      if (!isFinite(start)) return;
-      var elapsed = now - start;
-      var state = el.querySelector('.state');
-      var dot = el.querySelector('.dot');
-      var st = String(el.dataset.status || '').toUpperCase();
-      var txt = state ? String(state.textContent || '').toUpperCase() : '';
-
-      // If still marking LIVE but kickoff was long enough ago, flip to FINISHED UI
-      if ((st === 'LIVE' || txt === 'LIVE') && elapsed >= THRESH){
-        if (state){
-          state.textContent = 'FINISHED';
-          state.classList.remove('live','scheduled');
-          state.classList.add('finished');
-        }
-        if (dot) dot.classList.remove('live');
-        el.dataset.status = 'FINISHED';
-      }
-    });
-  }
-
-  // No league filtering anymore (intentionally disabled)
-  function applyLeagueFilter(){ /* no-op */ }
-
-  // Wrap existing render so our fix runs after DOM updates, and leagues UI is ignored.
-  var _origRender = window.renderLists;
-  window.renderLists = function(){
-    var _saved = window.leagueKey;
-    window.leagueKey = 'all';           // force all football to render
-    if (typeof _origRender === 'function') _origRender();
-    window.leagueKey = _saved;
-
-    setTimeout(function(){
-      applyLeagueFilter();
-      fixFinishedBadges();
-    }, 50);
-  };
-
-  // Keep checking while the page is open
-  setInterval(fixFinishedBadges, 60000);
-})();
-</script>
-
-
-
-
 </body>
 </html>
