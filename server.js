@@ -17,10 +17,21 @@ app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }
 // ====== CONFIG ======
 const ADMIN_TOKEN  = process.env.ADMIN_TOKEN || '';
 const SPORTSDB_KEY = process.env.SPORTSDB_KEY || '3';
-const BUILD_TAG    = 'hotfix10-dedupe-tbd';
+const BUILD_TAG    = 'hotfix11-uefa-qual-variants';
 
+// Try multiple ESPN segments for UCL (group + qualifying/playoffs) — ESPN changes these names.
+const UEFA_VARIANTS = [
+  'soccer/uefa.champions',
+  'soccer/uefa.champions.qualifying',
+  'soccer/uefa.champions.qual',
+  'soccer/uefa.champions.playoff',
+  'soccer/uefa.champions.play-offs',
+  'soccer/uefa.champions.league'
+];
+
+// Big-5 domestic + Europa + Conference remain
 const EU_LEAGUES = (process.env.EU_LEAGUES || [
-  'soccer/uefa.champions','soccer/uefa.europa','soccer/uefa.europa.conf',
+  'soccer/uefa.europa','soccer/uefa.europa.conf',
   'soccer/eng.1','soccer/esp.1','soccer/ger.1','soccer/ita.1','soccer/fra.1',
   'soccer/por.1','soccer/ned.1','soccer/tur.1','soccer/bel.1','soccer/sco.1'
 ]).toString().split(',').map(s=>s.trim()).filter(Boolean);
@@ -35,7 +46,7 @@ async function httpGet(url, extra={}){
     return { ok:false, status:0, json:async()=>({ error:String(e) }), text:async()=>String(e) };
   }
 }
-function yyyymmdd(d){ return d.replace(/-/g,''); }
+const yyyymmdd = d => d.replace(/-/g,'');
 function normalizeDateParam(raw){
   if (!raw) return null;
   let s = String(raw).trim();
@@ -53,11 +64,11 @@ const dayOf = iso => {
   const t = new Date(iso);
   const y = t.getUTCFullYear();
   const m = String(t.getUTCMonth()+1).padStart(2,'0');
-  const d = String(t.getUTCDate()).padStart(2,'0');
+  const d = String(t.getUTCDate()).toString().padStart(2,'0');
   return `${y}-${m}-${d}`;
 };
-function fixLogo(u){ return u ? u.replace(/^http:/,'https:') : null; }
-function teamLogo(team){ return fixLogo(team?.logo || team?.logos?.[0]?.href || null); }
+const fixLogo = u => u ? u.replace(/^http:/,'https:') : null;
+const teamLogo = t => fixLogo(t?.logo || t?.logos?.[0]?.href || null);
 function statusFromEspn(ev){
   const s = (ev?.status?.type?.name || ev?.status?.type?.description || '').toUpperCase();
   if (/FINAL|STATUS_FINAL|POSTGAME|FULLTIME|FT/.test(s)) return 'FINISHED';
@@ -104,24 +115,18 @@ function mapBoard(board, d, sport, fallbackLeague){
   }
   return out;
 }
+async function espnSoccerAll(d){
+  const b = await espnBoard('soccer', d);
+  return { mapped: mapBoard(b, d, 'Soccer', 'Football'), board: b };
+}
 async function espnSoccerEU(d){
-  const boards = await Promise.all(EU_LEAGUES.map(seg => espnBoard(seg, d)));
+  const segments = [...UEFA_VARIANTS, ...EU_LEAGUES];
+  const boards = await Promise.all(segments.map(seg => espnBoard(seg, d)));
   const mapped = boards.flatMap(b => mapBoard(b, d, 'Soccer', 'Football'));
   return { mapped, boards };
 }
-async function espnSoccerAll(d){
-  const b = await espnBoard('soccer', d);
-  const mapped = mapBoard(b, d, 'Soccer', 'Football');
-  return { mapped, board: b };
-}
-async function espnNBA(d){
-  const b = await espnBoard('basketball/nba', d);
-  return { mapped: mapBoard(b, d, 'NBA', 'NBA'), board: b };
-}
-async function espnNFL(d){
-  const b = await espnBoard('football/nfl', d);
-  return { mapped: mapBoard(b, d, 'NFL', 'NFL'), board: b };
-}
+async function espnNBA(d){ const b = await espnBoard('basketball/nba', d); return { mapped: mapBoard(b,d,'NBA','NBA'), board:b }; }
+async function espnNFL(d){ const b = await espnBoard('football/nfl', d); return { mapped: mapBoard(b,d,'NFL','NFL'), board:b }; }
 
 // ====== SportsDB fallback (Soccer) ======
 function buildIsoFromSportsDB(e){
@@ -132,7 +137,7 @@ function buildIsoFromSportsDB(e){
   const time = (e?.strTime || '').toUpperCase();
   const hasValidTime = /^\d{2}:\d{2}(:\d{2})?$/.test(time);
   if (hasValidTime) return `${dateOnly}T${time.length===5? time+':00' : time}Z`;
-  return `${dateOnly}T12:00:00Z`; // anchor at noon UTC to avoid day shifts
+  return `${dateOnly}T12:00:00Z`;
 }
 async function sportsdbDay(d){
   const url = `https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/eventsday.php?d=${d}&s=Soccer`;
@@ -168,8 +173,8 @@ function readCache(d){
     const stat = fs.statSync(file);
     const age = now - stat.mtimeMs;
     const today = new Date().toISOString().slice(0,10);
-    let ttl = 24*60*60*1000; // past 24h
-    if (d >= today) ttl = (d === today) ? 2*60*1000 : 10*60*1000; // today 2m, future 10m
+    let ttl = 24*60*60*1000;
+    if (d >= today) ttl = (d === today) ? 2*60*1000 : 10*60*1000;
     if (age > ttl) return null;
     return JSON.parse(fs.readFileSync(file, 'utf-8'));
   }catch{ return null; }
@@ -177,7 +182,7 @@ function readCache(d){
 function writeCache(d, payload){
   try{
     const arr = (payload && payload.fixtures) || [];
-    if (!arr || arr.length === 0) return;  // skip empty-day poisoning
+    if (!arr || arr.length === 0) return;
     fs.writeFileSync(cpath(d), JSON.stringify(payload));
   }catch{}
 }
