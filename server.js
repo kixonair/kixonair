@@ -22,7 +22,7 @@ const UCL_LOOKAHEAD = (process.env.UCL_LOOKAHEAD ?? '0') === '1'; // default OFF
 const SECONDARY_ON_EMPTY = (process.env.SECONDARY_ON_EMPTY ?? '1') === '1'; // fill quiet days with tier-2
 const TZ_DISPLAY = process.env.TZ_DISPLAY || 'Europe/Bucharest';
 const TZ_OFFSET_MINUTES = Number(process.env.TZ_OFFSET_MINUTES || '180'); // fallback if Intl tz fails
-const BUILD_TAG    = 'hotfix16b-tz+tier2+robust-env+debug';
+const BUILD_TAG    = 'hotfix16c-away-logo-fix';
 
 // ====== LEAGUE SEGMENTS ======
 const UEFA_VARIANTS = [
@@ -44,12 +44,13 @@ function parseListEnv(val, fallbackList){
 }
 
 const EU_LEAGUES = parseListEnv(process.env.EU_LEAGUES, [
-  'soccer/uefa.europa','soccer/uefa.europa_qual','soccer/uefa.europa.conf','soccer/uefa.europa.conf_qual',
+  'soccer/uefa.europa','soccer/uefa.europa_qual','soccer/uefa.europa.qualifying','soccer/uefa.europa.playoff','soccer/uefa.europa.play-offs',
+  'soccer/uefa.europa.conf','soccer/uefa.europa.conf_qual','soccer/uefa.europa.conf.qualifying',
   'soccer/eng.1','soccer/esp.1','soccer/ger.1','soccer/ita.1','soccer/fra.1',
   'soccer/por.1','soccer/ned.1','soccer/tur.1','soccer/bel.1','soccer/sco.1'
 ]);
 
-// Secondary-tier leagues for quiet days (now robust parsing: commas or spaces)
+// Secondary-tier leagues for quiet days (robust parsing: commas or spaces)
 const TIER2_LEAGUES = parseListEnv(process.env.TIER2_LEAGUES, [
   'soccer/eng.2','soccer/esp.2','soccer/ger.2','soccer/ita.2','soccer/fra.2',
   'soccer/usa.1','soccer/mex.1','soccer/bra.1','soccer/arg.1',
@@ -67,8 +68,12 @@ function prettyLeagueName(segment){
     'soccer/uefa.champions.league': 'UEFA Champions League',
     'soccer/uefa.europa': 'UEFA Europa League',
     'soccer/uefa.europa_qual': 'UEFA Europa League Qualifying',
+    'soccer/uefa.europa.qualifying': 'UEFA Europa League',
+    'soccer/uefa.europa.playoff': 'UEFA Europa League',
+    'soccer/uefa.europa.play-offs': 'UEFA Europa League',
     'soccer/uefa.europa.conf': 'UEFA Europa Conference League',
     'soccer/uefa.europa.conf_qual': 'UEFA Europa Conference League Qualifying',
+    'soccer/uefa.europa.conf.qualifying': 'UEFA Europa Conference League',
     'soccer/eng.1': 'Premier League',
     'soccer/esp.1': 'LaLiga',
     'soccer/ger.1': 'Bundesliga',
@@ -181,7 +186,8 @@ function fx({ sport, league, tier, startISO, status, home, away }){
     start_utc: startISO,
     status: status || 'SCHEDULED',
     home: { name: home?.name || '', logo: home?.logo || null },
-    away: { name: away?.name || '', logo: home?.logo || null }
+    // FIXED: away uses away.logo (was home.logo)
+    away: { name: away?.name || '', logo: away?.logo || null }
   };
 }
 
