@@ -1,3 +1,4 @@
+
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -17,16 +18,16 @@ app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }
 // ====== CONFIG ======
 const ADMIN_TOKEN  = process.env.ADMIN_TOKEN || '';
 const SPORTSDB_KEY = process.env.SPORTSDB_KEY || '3';
-const BUILD_TAG    = 'hotfix8-soccer-all-fallback';
+const BUILD_TAG    = 'hotfix9-sportsdb-fallback';
 
-// Big 5 + UEFA scoreboards on ESPN (can be overridden by EU_LEAGUES env)
+// ESPN league list (can override with EU_LEAGUES env)
 const EU_LEAGUES = (process.env.EU_LEAGUES || [
   'soccer/uefa.champions',
   'soccer/uefa.europa',
   'soccer/uefa.europa.conf',
-  'soccer/eng.1', 'soccer/esp.1', 'soccer/ger.1', 'soccer/ita.1', 'soccer/fra.1',
-  'soccer/por.1', 'soccer/ned.1', 'soccer/tur.1', 'soccer/bel.1', 'soccer/sco.1'
-]).toString().split(',').map(s => s.trim()).filter(Boolean);
+  'soccer/eng.1','soccer/esp.1','soccer/ger.1','soccer/ita.1','soccer/fra.1',
+  'soccer/por.1','soccer/ned.1','soccer/tur.1','soccer/bel.1','soccer/sco.1'
+]).toString().split(',').map(s=>s.trim()).filter(Boolean);
 
 // ====== HELPERS ======
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome Safari';
@@ -38,7 +39,7 @@ async function httpGet(url, extra={}){
     return { ok:false, status:0, json:async()=>({ error:String(e) }), text:async()=>String(e) };
   }
 }
-
+function yyyymmdd(d){ return d.replace(/-/g,''); }
 function normalizeDateParam(raw){
   if (!raw) return null;
   let s = String(raw).trim();
@@ -52,15 +53,13 @@ function normalizeDateParam(raw){
   if (m) return `${m[3]}-${m[2]}-${m[1]}`;
   return null;
 }
-const YYYYMMDD = d => d.replace(/-/g,'');
 const dayOf = iso => {
   const t = new Date(iso);
   const y = t.getUTCFullYear();
   const m = String(t.getUTCMonth()+1).padStart(2,'0');
-  const dd = String(t.getUTCDate()).padStart(2,'0');
-  return `${y}-${m}-${dd}`;
+  const d = String(t.getUTCDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
 };
-
 function fixLogo(u){ return u ? u.replace(/^http:/,'https:') : null; }
 function teamLogo(team){ return fixLogo(team?.logo || team?.logos?.[0]?.href || null); }
 function statusFromEspn(ev){
@@ -82,7 +81,7 @@ function fx({ sport, league, startISO, status, home, away }){
 
 // ====== ESPN fetch/mappers ======
 async function espnBoard(segment, d){
-  const url = `https://site.api.espn.com/apis/site/v2/sports/${segment}/scoreboard?dates=${YYYYMMDD(d)}`;
+  const url = `https://site.api.espn.com/apis/site/v2/sports/${segment}/scoreboard?dates=${yyyymmdd(d)}`;
   const r = await httpGet(url);
   const j = r.ok ? await r.json() : { error: await r.text() };
   return { ok: r.ok, status: r.status, url, json: j };
@@ -93,8 +92,7 @@ function mapBoard(board, d, sport, fallbackLeague){
   for (const ev of (j?.events || [])){
     const iso = ev?.date;
     if (!iso) continue;
-    const day = dayOf(iso);
-    if (day !== d) continue;
+    if (dayOf(iso) !== d) continue;
     const comp = ev?.competitions?.[0] || {};
     const H = (comp?.competitors || []).find(x => x.homeAway === 'home') || {};
     const A = (comp?.competitors || []).find(x => x.homeAway === 'away') || {};
@@ -129,6 +127,29 @@ async function espnNFL(d){
   return { mapped: mapBoard(b, d, 'NFL', 'NFL'), board: b };
 }
 
+// ====== SportsDB fallback (Soccer) ======
+async function sportsdbDay(d){
+  const url = `https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/eventsday.php?d=${d}&s=Soccer`;
+  const r = await httpGet(url);
+  const j = r.ok ? await r.json() : { error: await r.text() };
+  const evs = j?.events || [];
+  const out = [];
+  for (const e of evs){
+    const leagueName = e?.strLeague || 'Football';
+    const iso = e?.strTimestamp || (e?.dateEvent ? `${e.dateEvent}T${(e.strTime||'00:00:00')}` : null);
+    if (!iso) continue;
+    out.push(fx({
+      sport: 'Soccer',
+      league: leagueName,
+      startISO: /Z$/.test(iso) ? iso : `${iso}Z`,
+      status: 'SCHEDULED',
+      home: { name: e?.strHomeTeam || '', logo: null },
+      away: { name: e?.strAwayTeam || '', logo: null }
+    }));
+  }
+  return { mapped: out, url };
+}
+
 // ====== CACHE ======
 const CACHE_DIR = path.join(__dirname, 'data', 'cache');
 fs.mkdirSync(CACHE_DIR, { recursive: true });
@@ -155,19 +176,17 @@ function writeCache(d, payload){
   }catch{}
 }
 
-// ====== ASSEMBLE ======
-function dedupe(fixtures){
+// ====== assemble & dedupe ======
+function dedupe(list){
   const seen = new Set();
   const out = [];
-  for (const f of fixtures){
+  for (const f of list){
     const key = `${f.sport}|${(f.league?.name||'').toLowerCase()}|${(f.home?.name||'').toLowerCase()}|${(f.away?.name||'').toLowerCase()}|${f.start_utc}`;
     if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(f);
+    seen.add(key); out.push(f);
   }
   return out;
 }
-
 async function assembleFor(d, debug=false){
   const [eu, allSoc, nba, nfl] = await Promise.all([
     espnSoccerEU(d).catch(()=>({ mapped:[], boards:[] })),
@@ -175,7 +194,12 @@ async function assembleFor(d, debug=false){
     espnNBA(d).catch(()=>({ mapped:[], board:null })),
     espnNFL(d).catch(()=>({ mapped:[], board:null }))
   ]);
-  const soccer = dedupe([...(eu.mapped||[]), ...(allSoc.mapped||[])]);
+  let soccer = dedupe([...(eu.mapped||[]), ...(allSoc.mapped||[])]);
+  let sdb = { mapped: [] };
+  if (soccer.length === 0){
+    sdb = await sportsdbDay(d).catch(()=>({ mapped:[] }));
+    soccer = dedupe([...(sdb.mapped||[])]);
+  }
   const fixtures = dedupe([ ...soccer, ...(nba.mapped||[]), ...(nfl.mapped||[]) ])
     .sort((a,b) => (a.start_utc||'').localeCompare(b.start_utc||''));
   const meta = {
@@ -183,6 +207,7 @@ async function assembleFor(d, debug=false){
     sourceCounts: {
       espn_soccer_eu: eu.mapped?.length || 0,
       espn_soccer_all: allSoc.mapped?.length || 0,
+      sportsdb_soccer: sdb.mapped?.length || 0,
       espn_nba: nba.mapped?.length || 0,
       espn_nfl: nfl.mapped?.length || 0
     }
@@ -190,10 +215,9 @@ async function assembleFor(d, debug=false){
   if (debug){
     meta.debug = {
       urls: [
-        ...(eu.boards||[]).map(b=>({url:b.url, ok:b.ok, status:b.status})),
+        ...(eu.boards||[]).map(b=>({ url:b.url, ok:b.ok, status:b.status })),
         allSoc.board ? { url: allSoc.board.url, ok: allSoc.board.ok, status: allSoc.board.status } : null,
-        nba.board ? { url: nba.board.url, ok: nba.board.ok, status: nba.board.status } : null,
-        nfl.board ? { url: nfl.board.url, ok: nfl.board.ok, status: nfl.board.status } : null
+        sdb.url ? { url: sdb.url, ok: true } : null
       ].filter(Boolean)
     };
   }
@@ -202,14 +226,12 @@ async function assembleFor(d, debug=false){
 
 // ====== ROUTES ======
 app.get('/__/version', (req,res)=> res.json({ build: BUILD_TAG, ts: new Date().toISOString() }));
-
 app.get('/__/probe', async (req, res) => {
   const d = normalizeDateParam(req.query.date || new Date().toISOString().slice(0,10)) || new Date().toISOString().slice(0,10);
   const debug = (req.query.debug === '1' || req.query.debug === 'true');
   const r = await assembleFor(d, debug);
   res.json(r.meta);
 });
-
 app.get(['/api/fixtures','/api/fixtures/:date'], async (req, res) => {
   const raw = req.params.date || req.query.date;
   const d = normalizeDateParam(raw);
@@ -223,25 +245,23 @@ app.get(['/api/fixtures','/api/fixtures/:date'], async (req, res) => {
   writeCache(d, payload);
   res.json(payload);
 });
-
 app.post('/admin/flush-cache', (req, res) => {
   const t = String(req.query.token || '');
   if (!ADMIN_TOKEN || t !== ADMIN_TOKEN) return res.status(401).json({ ok:false, error:'unauthorized' });
   const d = normalizeDateParam(req.query.date || '');
   if (req.query.all === 'true' || req.query.all === '1'){
     let removed = 0;
-    if (fs.existsSync(CACHE_DIR)){
-      for (const f of fs.readdirSync(CACHE_DIR)){
-        fs.unlinkSync(path.join(CACHE_DIR, f)); removed++;
-      }
+    const dir = path.join(__dirname, 'data', 'cache');
+    if (fs.existsSync(dir)){
+      for (const f of fs.readdirSync(dir)){ fs.unlinkSync(path.join(dir,f)); removed++; }
     }
     return res.type('text/plain').send(`ok cleared\n-- -------\nTrue all`);
   }
   let removed = 0;
-  if (d && fs.existsSync(cpath(d))){ fs.unlinkSync(cpath(d)); removed = 1; }
+  const file = path.join(__dirname, 'data', 'cache', `${d}.json`);
+  if (d && fs.existsSync(file)){ fs.unlinkSync(file); removed = 1; }
   return res.json({ ok:true, removed, date: d || null });
 });
-
 app.get('/admin/precache', async (req, res) => {
   const t = String(req.query.token || '');
   if (!ADMIN_TOKEN || t !== ADMIN_TOKEN) return res.status(401).json({ ok:false, error:'unauthorized' });
