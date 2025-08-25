@@ -18,12 +18,16 @@ app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }
 const ADMIN_TOKEN  = process.env.ADMIN_TOKEN || '';
 const SPORTSDB_KEY = process.env.SPORTSDB_KEY || '3';
 const SPORTSDB_ENABLED = (process.env.SPORTSDB_ENABLED ?? '0') !== '0'; // default OFF while validating ESPN
-const UCL_LOOKAHEAD = (process.env.UCL_LOOKAHEAD ?? '1') === '1'; // include next-day UCL when day is empty
-const BUILD_TAG    = 'hotfix13-ucl-lookahead-names';
+const UCL_LOOKAHEAD = (process.env.UCL_LOOKAHEAD ?? '1') === '1'; // include next-day UCL when day lacks UEFA
+const BUILD_TAG    = 'hotfix14-ucl-qual-codes-lookahead';
 
-// UCL variants (+ big-5 + Europa + Conference)
+// UCL + Qualifiers (+ big-5 + Europa + Conference)
 const UEFA_VARIANTS = [
+  // Main
   'soccer/uefa.champions',
+  // Qualifiers/Playoffs (underscore codes are what ESPN uses)
+  'soccer/uefa.champions_qual',
+  // historical/alt spellings we still try (harmless if 404/empty)
   'soccer/uefa.champions.qualifying',
   'soccer/uefa.champions.qual',
   'soccer/uefa.champions.playoff',
@@ -31,7 +35,7 @@ const UEFA_VARIANTS = [
   'soccer/uefa.champions.league'
 ];
 const EU_LEAGUES = (process.env.EU_LEAGUES || [
-  'soccer/uefa.europa','soccer/uefa.europa.conf',
+  'soccer/uefa.europa','soccer/uefa.europa_qual','soccer/uefa.europa.conf','soccer/uefa.europa.conf_qual',
   'soccer/eng.1','soccer/esp.1','soccer/ger.1','soccer/ita.1','soccer/fra.1',
   'soccer/por.1','soccer/ned.1','soccer/tur.1','soccer/bel.1','soccer/sco.1'
 ]).toString().split(',').map(s=>s.trim()).filter(Boolean);
@@ -39,13 +43,16 @@ const EU_LEAGUES = (process.env.EU_LEAGUES || [
 function prettyLeagueName(segment){
   const map = {
     'soccer/uefa.champions': 'UEFA Champions League',
+    'soccer/uefa.champions_qual': 'UEFA Champions League Qualifying',
     'soccer/uefa.champions.qualifying': 'UEFA Champions League',
     'soccer/uefa.champions.qual': 'UEFA Champions League',
     'soccer/uefa.champions.playoff': 'UEFA Champions League',
     'soccer/uefa.champions.play-offs': 'UEFA Champions League',
     'soccer/uefa.champions.league': 'UEFA Champions League',
     'soccer/uefa.europa': 'UEFA Europa League',
+    'soccer/uefa.europa_qual': 'UEFA Europa League Qualifying',
     'soccer/uefa.europa.conf': 'UEFA Europa Conference League',
+    'soccer/uefa.europa.conf_qual': 'UEFA Europa Conference League Qualifying',
     'soccer/eng.1': 'Premier League',
     'soccer/esp.1': 'LaLiga',
     'soccer/ger.1': 'Bundesliga',
@@ -133,7 +140,6 @@ async function espnBoard(segment, d){
   const j = r.ok ? await r.json() : { error: await r.text() };
   return { ok: r.ok, status: r.status, url, json: j, segment };
 }
-
 function mapBoard(board, d, sport, fallbackLeague){
   const out = [];
   const j = board?.json || {};
@@ -164,12 +170,10 @@ function mapBoard(board, d, sport, fallbackLeague){
   }
   return out;
 }
-
 async function espnSoccerAll(d){
   const b = await espnBoard('soccer', d);
   return { mapped: mapBoard(b, d, 'Soccer', 'Football'), boards: [b] };
 }
-
 async function espnSoccerEU(d){
   const segments = [...UEFA_VARIANTS, ...EU_LEAGUES];
   const results = await Promise.all(segments.map(async seg => {
@@ -180,7 +184,6 @@ async function espnSoccerEU(d){
   const boards = results.map(x => x.board);
   return { mapped, boards };
 }
-
 async function espnNBA(d){ const b = await espnBoard('basketball/nba', d); return { mapped: mapBoard(b,d,'NBA','NBA'), boards:[b] }; }
 async function espnNFL(d){ const b = await espnBoard('football/nfl', d); return { mapped: mapBoard(b,d,'NFL','NFL'), boards:[b] }; }
 
@@ -279,7 +282,7 @@ function addDays(isoDate, n) {
 
 function isUEFA(name=''){
   const s = (name || '').toLowerCase();
-  return s.includes('uefa') || s.includes('champions');
+  return s.includes('uefa') || s.includes('champions') || s.includes('europa');
 }
 
 async function assembleFor(d, debug=false){
@@ -293,8 +296,9 @@ async function assembleFor(d, debug=false){
   let soccer = [...(eu.mapped||[]), ...(allSoc.mapped||[])];
   let lookaheadNote = null;
 
-  // UCL look-ahead: if day is empty (ESPN), include next day's UEFA-only fixtures
-  if (UCL_LOOKAHEAD && soccer.length === 0){
+  // If no UEFA on the selected day (even if other soccer exists), pull next-day UEFA
+  const hasUEFA = soccer.some(f => isUEFA(f.league?.name));
+  if (UCL_LOOKAHEAD && !hasUEFA){
     const dNext = addDays(d, 1);
     const euNext = await espnSoccerEU(dNext).catch(()=>({ mapped:[] }));
     const uefaOnly = (euNext.mapped||[]).filter(f => isUEFA(f.league?.name));
