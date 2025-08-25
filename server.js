@@ -1,4 +1,3 @@
-
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -18,13 +17,10 @@ app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }
 // ====== CONFIG ======
 const ADMIN_TOKEN  = process.env.ADMIN_TOKEN || '';
 const SPORTSDB_KEY = process.env.SPORTSDB_KEY || '3';
-const BUILD_TAG    = 'hotfix9-sportsdb-fallback';
+const BUILD_TAG    = 'hotfix10-dedupe-tbd';
 
-// ESPN league list (can override with EU_LEAGUES env)
 const EU_LEAGUES = (process.env.EU_LEAGUES || [
-  'soccer/uefa.champions',
-  'soccer/uefa.europa',
-  'soccer/uefa.europa.conf',
+  'soccer/uefa.champions','soccer/uefa.europa','soccer/uefa.europa.conf',
   'soccer/eng.1','soccer/esp.1','soccer/ger.1','soccer/ita.1','soccer/fra.1',
   'soccer/por.1','soccer/ned.1','soccer/tur.1','soccer/bel.1','soccer/sco.1'
 ]).toString().split(',').map(s=>s.trim()).filter(Boolean);
@@ -128,6 +124,16 @@ async function espnNFL(d){
 }
 
 // ====== SportsDB fallback (Soccer) ======
+function buildIsoFromSportsDB(e){
+  const ts = e?.strTimestamp;
+  if (ts && !isNaN(Date.parse(ts))) return ts;
+  const dateOnly = e?.dateEvent || null;
+  if (!dateOnly) return null;
+  const time = (e?.strTime || '').toUpperCase();
+  const hasValidTime = /^\d{2}:\d{2}(:\d{2})?$/.test(time);
+  if (hasValidTime) return `${dateOnly}T${time.length===5? time+':00' : time}Z`;
+  return `${dateOnly}T12:00:00Z`; // anchor at noon UTC to avoid day shifts
+}
 async function sportsdbDay(d){
   const url = `https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/eventsday.php?d=${d}&s=Soccer`;
   const r = await httpGet(url);
@@ -136,12 +142,12 @@ async function sportsdbDay(d){
   const out = [];
   for (const e of evs){
     const leagueName = e?.strLeague || 'Football';
-    const iso = e?.strTimestamp || (e?.dateEvent ? `${e.dateEvent}T${(e.strTime||'00:00:00')}` : null);
+    const iso = buildIsoFromSportsDB(e);
     if (!iso) continue;
     out.push(fx({
       sport: 'Soccer',
       league: leagueName,
-      startISO: /Z$/.test(iso) ? iso : `${iso}Z`,
+      startISO: iso,
       status: 'SCHEDULED',
       home: { name: e?.strHomeTeam || '', logo: null },
       away: { name: e?.strAwayTeam || '', logo: null }
@@ -177,16 +183,31 @@ function writeCache(d, payload){
 }
 
 // ====== assemble & dedupe ======
-function dedupe(list){
-  const seen = new Set();
-  const out = [];
-  for (const f of list){
-    const key = `${f.sport}|${(f.league?.name||'').toLowerCase()}|${(f.home?.name||'').toLowerCase()}|${(f.away?.name||'').toLowerCase()}|${f.start_utc}`;
-    if (seen.has(key)) continue;
-    seen.add(key); out.push(f);
+function keyFor(f){
+  return `${(f.sport||'').toLowerCase()}|${(f.league?.name||'').toLowerCase()}|${(f.home?.name||'').toLowerCase()}|${(f.away?.name||'').toLowerCase()}`;
+}
+function dedupePreferEarliest(fixtures){
+  const groups = new Map();
+  for (const f of fixtures){
+    const k = keyFor(f);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(f);
   }
+  const out = [];
+  for (const arr of groups.values()){
+    arr.sort((a,b) => (a.start_utc||'').localeCompare(b.start_utc||''));
+    let best = arr[0];
+    for (const cur of arr){
+      const hasLogos = (cur.home?.logo || cur.away?.logo);
+      const bestHasLogos = (best.home?.logo || best.away?.logo);
+      if (hasLogos && !bestHasLogos) best = cur;
+    }
+    out.push(best);
+  }
+  out.sort((a,b) => (a.start_utc||'').localeCompare(b.start_utc||''));
   return out;
 }
+
 async function assembleFor(d, debug=false){
   const [eu, allSoc, nba, nfl] = await Promise.all([
     espnSoccerEU(d).catch(()=>({ mapped:[], boards:[] })),
@@ -194,14 +215,13 @@ async function assembleFor(d, debug=false){
     espnNBA(d).catch(()=>({ mapped:[], board:null })),
     espnNFL(d).catch(()=>({ mapped:[], board:null }))
   ]);
-  let soccer = dedupe([...(eu.mapped||[]), ...(allSoc.mapped||[])]);
+  let soccer = [...(eu.mapped||[]), ...(allSoc.mapped||[])];
   let sdb = { mapped: [] };
   if (soccer.length === 0){
     sdb = await sportsdbDay(d).catch(()=>({ mapped:[] }));
-    soccer = dedupe([...(sdb.mapped||[])]);
+    soccer = [...(sdb.mapped||[])];
   }
-  const fixtures = dedupe([ ...soccer, ...(nba.mapped||[]), ...(nfl.mapped||[]) ])
-    .sort((a,b) => (a.start_utc||'').localeCompare(b.start_utc||''));
+  const merged = dedupePreferEarliest([ ...soccer, ...(nba.mapped||[]), ...(nfl.mapped||[]) ]);
   const meta = {
     date: d,
     sourceCounts: {
@@ -221,7 +241,7 @@ async function assembleFor(d, debug=false){
       ].filter(Boolean)
     };
   }
-  return { meta, fixtures };
+  return { meta, fixtures: merged };
 }
 
 // ====== ROUTES ======
