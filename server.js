@@ -173,8 +173,29 @@ async function manualFor(dateStr){
 const CACHE_DIR = path.join(__dirname, 'data', 'cache');
 try { fs.mkdirSync(CACHE_DIR, { recursive: true }); } catch {}
 function cpath(d){ return path.join(CACHE_DIR, `${d}.json`); }
-function readCache(d){ try{ if (fs.existsSync(cpath(d))) return JSON.parse(fs.readFileSync(cpath(d),'utf-8')); }catch{} return null; }
-function writeCache(d, payload){ try{ fs.writeFileSync(cpath(d), JSON.stringify(payload)); }catch{} }
+function readCache(d){
+  try{
+    const file = cpath(d);
+    if (!fs.existsSync(file)) return null;
+    // TTLs: today=2m, future=10m, past=24h
+    const now = Date.now();
+    const stat = fs.statSync(file);
+    const age = now - stat.mtimeMs;
+    const today = new Date().toISOString().slice(0,10);
+    let ttl = 24*60*60*1000; // past default 24h
+    if (d >= today) ttl = (d === today) ? 2*60*1000 : 10*60*1000; // today 2m, future 10m
+    if (age > ttl) return null;
+    return JSON.parse(fs.readFileSync(file, 'utf-8'));
+  }catch{ return null; }
+}catch{} return null; }
+function writeCache(d, payload){
+  try{
+    const arr = (payload && payload.fixtures) || [];
+    // Avoid poisoning the cache with empty datasets
+    if (!arr || arr.length === 0) return;
+    fs.writeFileSync(cpath(d), JSON.stringify(payload));
+  }catch{}
+}catch{} }
 
 // Merge/Dedup
 function dedup(list){
@@ -208,6 +229,13 @@ async function assembleFor(d){
 app.get(['/api/fixtures','/api/fixtures/:date'], async (req,res)=>{
   const raw = req.params.date || req.query.date; const d = normalizeDateParam(raw);
   if (!d) return res.status(400).json({ error: 'Invalid date. Use YYYY-MM-DD' });
+  const force = (req.query.force === '1' || req.query.force === 'true');
+  if (!force){ const cached = readCache(d); if (cached) return res.json(cached); }
+  const payload = await assembleFor(d);
+  // writeCache will skip if empty
+  writeCache(d, payload);
+  res.json(payload);
+});
   const cached = readCache(d); if (cached) return res.json(cached);
   const payload = await assembleFor(d); writeCache(d, payload); res.json(payload);
 });
@@ -216,13 +244,13 @@ function auth(req,res){ const t = req.query.token || req.headers['x-admin-token'
 app.get(['/admin/precache','/admin/precache/:date'], async (req,res)=>{
   if(!auth(req,res))return; const raw = req.params.date || req.query.date; const d = normalizeDateParam(raw);
   if(!d) return res.status(400).json({error:'invalid date'});
-  const r = await (await httpGet(`${req.protocol}://${req.get('host')}/api/fixtures/${d}`)).json().catch(()=>null);
+  const r = await (await httpGet(`${req.protocol}://${req.get('host')}/api/fixtures/${d}?force=1`)).json().catch(()=>null);
   res.json(r||{meta:{date:d},fixtures:[]});
 });
 app.post(['/admin/precache','/admin/precache/:date'], async (req,res)=>{
   if(!auth(req,res))return; const raw = req.params.date || req.query.date; const d = normalizeDateParam(raw);
   if(!d) return res.status(400).json({error:'invalid date'});
-  const r = await (await httpGet(`${req.protocol}://${req.get('host')}/api/fixtures/${d}`)).json().catch(()=>null);
+  const r = await (await httpGet(`${req.protocol}://${req.get('host')}/api/fixtures/${d}?force=1`)).json().catch(()=>null);
   res.json(r||{meta:{date:d},fixtures:[]});
 });
 app.post('/admin/flush-cache', (req,res)=>{
