@@ -17,9 +17,10 @@ app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }
 // ====== CONFIG ======
 const ADMIN_TOKEN  = process.env.ADMIN_TOKEN || '';
 const SPORTSDB_KEY = process.env.SPORTSDB_KEY || '3';
-const BUILD_TAG    = 'hotfix11-uefa-qual-variants';
+const SPORTSDB_ENABLED = (process.env.SPORTSDB_ENABLED ?? '1') !== '0'; // set to 0 to disable
+const BUILD_TAG    = 'hotfix12-sdb-date-filter';
 
-// Try multiple ESPN segments for UCL (group + qualifying/playoffs) — ESPN changes these names.
+// UCL variants (+ big-5 + Europa + Conference)
 const UEFA_VARIANTS = [
   'soccer/uefa.champions',
   'soccer/uefa.champions.qualifying',
@@ -28,8 +29,6 @@ const UEFA_VARIANTS = [
   'soccer/uefa.champions.play-offs',
   'soccer/uefa.champions.league'
 ];
-
-// Big-5 domestic + Europa + Conference remain
 const EU_LEAGUES = (process.env.EU_LEAGUES || [
   'soccer/uefa.europa','soccer/uefa.europa.conf',
   'soccer/eng.1','soccer/esp.1','soccer/ger.1','soccer/ita.1','soccer/fra.1',
@@ -140,15 +139,17 @@ function buildIsoFromSportsDB(e){
   return `${dateOnly}T12:00:00Z`;
 }
 async function sportsdbDay(d){
+  if (!SPORTSDB_ENABLED || !SPORTSDB_KEY || SPORTSDB_KEY === '0') return { mapped: [] };
   const url = `https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/eventsday.php?d=${d}&s=Soccer`;
   const r = await httpGet(url);
   const j = r.ok ? await r.json() : { error: await r.text() };
   const evs = j?.events || [];
   const out = [];
   for (const e of evs){
-    const leagueName = e?.strLeague || 'Football';
     const iso = buildIsoFromSportsDB(e);
     if (!iso) continue;
+    if (dayOf(iso) !== d) continue; // STRICT: only accept exact same day
+    const leagueName = e?.strLeague || 'Football';
     out.push(fx({
       sport: 'Soccer',
       league: leagueName,
@@ -221,6 +222,7 @@ async function assembleFor(d, debug=false){
     espnNFL(d).catch(()=>({ mapped:[], board:null }))
   ]);
   let soccer = [...(eu.mapped||[]), ...(allSoc.mapped||[])];
+  // Fallback to SportsDB strictly for same-day only
   let sdb = { mapped: [] };
   if (soccer.length === 0){
     sdb = await sportsdbDay(d).catch(()=>({ mapped:[] }));
@@ -241,7 +243,7 @@ async function assembleFor(d, debug=false){
     meta.debug = {
       urls: [
         ...(eu.boards||[]).map(b=>({ url:b.url, ok:b.ok, status:b.status })),
-        allSoc.board ? { url: allSoc.board.url, ok: allSoc.board.ok, status: allSoc.board.status } : null,
+        allSoc.board ? { url: allSoc.board.url, ok: allSoc.board.ok, status:b.status } : null,
         sdb.url ? { url: sdb.url, ok: true } : null
       ].filter(Boolean)
     };
