@@ -18,12 +18,13 @@ app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }
 const ADMIN_TOKEN  = process.env.ADMIN_TOKEN || '';
 const SPORTSDB_KEY = process.env.SPORTSDB_KEY || '3';
 const SPORTSDB_ENABLED = (process.env.SPORTSDB_ENABLED ?? '0') !== '0'; // default OFF while validating ESPN
-const UCL_LOOKAHEAD = (process.env.UCL_LOOKAHEAD ?? '0') === '1'; // you can re-enable; default OFF now
+const UCL_LOOKAHEAD = (process.env.UCL_LOOKAHEAD ?? '0') === '1'; // default OFF now
 const SECONDARY_ON_EMPTY = (process.env.SECONDARY_ON_EMPTY ?? '1') === '1'; // fill quiet days with tier-2
-const BUILD_TAG    = 'hotfix15-secondary-tier-fallback';
+const TZ_DISPLAY = process.env.TZ_DISPLAY || 'Europe/Bucharest';
+const TZ_OFFSET_MINUTES = Number(process.env.TZ_OFFSET_MINUTES || '180'); // fallback if Intl tz fails
+const BUILD_TAG    = 'hotfix16-localday-tz-fix+tier2';
 
 // ====== LEAGUE SEGMENTS ======
-// UCL + Qualifiers (+ big-5 + Europa + Conference)
 const UEFA_VARIANTS = [
   'soccer/uefa.champions',
   'soccer/uefa.champions_qual',
@@ -39,7 +40,7 @@ const EU_LEAGUES = (process.env.EU_LEAGUES || [
   'soccer/por.1','soccer/ned.1','soccer/tur.1','soccer/bel.1','soccer/sco.1'
 ]).toString().split(',').map(s=>s.trim()).filter(Boolean);
 
-// **NEW** Secondary-tier leagues used only on quiet days
+// Secondary-tier leagues for quiet days
 const TIER2_LEAGUES = (process.env.TIER2_LEAGUES || [
   'soccer/eng.2','soccer/esp.2','soccer/ger.2','soccer/ita.2','soccer/fra.2',
   'soccer/ned.2','soccer/por.2','soccer/tur.2','soccer/bel.2','soccer/sco.2'
@@ -47,7 +48,6 @@ const TIER2_LEAGUES = (process.env.TIER2_LEAGUES || [
 
 function prettyLeagueName(segment){
   const map = {
-    // UEFA
     'soccer/uefa.champions': 'UEFA Champions League',
     'soccer/uefa.champions_qual': 'UEFA Champions League Qualifying',
     'soccer/uefa.champions.qualifying': 'UEFA Champions League',
@@ -59,7 +59,6 @@ function prettyLeagueName(segment){
     'soccer/uefa.europa_qual': 'UEFA Europa League Qualifying',
     'soccer/uefa.europa.conf': 'UEFA Europa Conference League',
     'soccer/uefa.europa.conf_qual': 'UEFA Europa Conference League Qualifying',
-    // Tier 1
     'soccer/eng.1': 'Premier League',
     'soccer/esp.1': 'LaLiga',
     'soccer/ger.1': 'Bundesliga',
@@ -70,7 +69,6 @@ function prettyLeagueName(segment){
     'soccer/tur.1': 'Süper Lig',
     'soccer/bel.1': 'Jupiler Pro League',
     'soccer/sco.1': 'Scottish Premiership',
-    // **NEW** Tier 2
     'soccer/eng.2': 'EFL Championship',
     'soccer/esp.2': 'LaLiga 2',
     'soccer/ger.2': '2. Bundesliga',
@@ -100,26 +98,48 @@ async function httpGet(url, extra={}){
   }
 }
 const yyyymmdd = d => d.replace(/-/g,'');
+
+function dayOfInTZ(iso, tz){
+  try{
+    const dtf = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit' });
+    const parts = dtf.formatToParts(new Date(iso));
+    const y = parts.find(p=>p.type==='year')?.value;
+    const m = parts.find(p=>p.type==='month')?.value;
+    const d = parts.find(p=>p.type==='day')?.value;
+    if (y && m && d) return `${y}-${m}-${d}`;
+  }catch{}
+  // fallback simple offset if Intl fails
+  const t = new Date(iso);
+  const ms = t.getTime() + TZ_OFFSET_MINUTES*60*1000;
+  const k = new Date(ms);
+  const y = k.getUTCFullYear();
+  const m = String(k.getUTCMonth()+1).padStart(2,'0');
+  const d = String(k.getUTCDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+
 function normalizeDateParam(raw){
   if (!raw) return null;
   let s = String(raw).trim();
   const lower = s.toLowerCase();
-  if (lower === 'today') return new Date().toISOString().slice(0,10);
-  if (lower === 'tomorrow'){ const d = new Date(Date.now()+86400000); return d.toISOString().slice(0,10); }
-  if (lower === 'yesterday'){ const d = new Date(Date.now()-86400000); return d.toISOString().slice(0,10); }
+  if (lower === 'today') return dayOfInTZ(new Date().toISOString(), TZ_DISPLAY);
+  if (lower === 'tomorrow'){
+    const now = new Date();
+    now.setUTCDate(now.getUTCDate()+1);
+    return dayOfInTZ(now.toISOString(), TZ_DISPLAY);
+  }
+  if (lower === 'yesterday'){
+    const now = new Date();
+    now.setUTCDate(now.getUTCDate()-1);
+    return dayOfInTZ(now.toISOString(), TZ_DISPLAY);
+  }
   s = s.replace(/[.\/]/g,'-').replace(/\s+/g,'-');
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
   const m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
   if (m) return `${m[3]}-${m[2]}-${m[1]}`;
   return null;
 }
-const dayOf = iso => {
-  const t = new Date(iso);
-  const y = t.getUTCFullYear();
-  const m = String(t.getUTCMonth()+1).padStart(2,'0');
-  const d = String(t.getUTCDate()).padStart(2,'0');
-  return `${y}-${m}-${d}`;
-};
+
 const fixLogo = u => u ? u.replace(/^http:/,'https:') : null;
 const pickName = (t) => t?.shortDisplayName || t?.displayName || t?.name || t?.abbreviation || '';
 const teamLogo = t => fixLogo(t?.logo || t?.logos?.[0]?.href || null);
@@ -143,7 +163,7 @@ function statusFromEspn(ev){
 function fx({ sport, league, tier, startISO, status, home, away }){
   return {
     sport,
-    tier, // 1 or 2 (for UI toggles later)
+    tier, // 1 or 2
     league: { name: league || 'Football', code: null },
     start_utc: startISO,
     status: status || 'SCHEDULED',
@@ -165,7 +185,7 @@ function mapBoard(board, d, sport, fallbackLeague, tier=1){
   for (const ev of (j?.events || [])){
     const iso = ev?.date;
     if (!iso) continue;
-    if (dayOf(iso) !== d) continue;
+    if (dayOfInTZ(iso, TZ_DISPLAY) !== d) continue; // <<< compare using display timezone
     const comp = ev?.competitions?.[0] || {};
     const competitors = comp?.competitors || [];
     const H = competitors.find(x => x.homeAway === 'home') || competitors[0] || {};
@@ -227,7 +247,7 @@ async function sportsdbDay(d){
   for (const e of evs){
     const iso = buildIsoFromSportsDB(e);
     if (!iso) continue;
-    if (dayOf(iso) !== d) continue; // STRICT: same-day only
+    if (dayOfInTZ(iso, TZ_DISPLAY) !== d) continue; // compare using display tz
     const leagueName = e?.strLeague || 'Football';
     out.push(fx({
       sport: 'Soccer',
@@ -253,7 +273,7 @@ function readCache(d){
     const now = Date.now();
     const stat = fs.statSync(file);
     const age = now - stat.mtimeMs;
-    const today = new Date().toISOString().slice(0,10);
+    const today = dayOfInTZ(new Date().toISOString(), TZ_DISPLAY);
     let ttl = 24*60*60*1000;
     if (d >= today) ttl = (d === today) ? 2*60*1000 : 10*60*1000;
     if (age > ttl) return null;
@@ -306,7 +326,6 @@ function isUEFA(name=''){
 }
 
 async function assembleFor(d, debug=false){
-  // Tier-1 pulls (UEFA/Big-5 + all-soccer as backup)
   const [eu, allSoc, nba, nfl] = await Promise.all([
     espnSoccerSegments([...UEFA_VARIANTS, ...EU_LEAGUES], d, 1).catch(()=>({ mapped:[], boards:[] })),
     espnSoccerAll(d).catch(()=>({ mapped:[], boards:[] })),
@@ -317,7 +336,6 @@ async function assembleFor(d, debug=false){
   let soccer = [...(eu.mapped||[]), ...(allSoc.mapped||[])];
   let notice = null;
 
-  // Optional: look ahead 1 day for UEFA only (if no UEFA today)
   if (UCL_LOOKAHEAD){
     const hasUEFA = soccer.some(f => isUEFA(f.league?.name));
     if (!hasUEFA){
@@ -331,7 +349,6 @@ async function assembleFor(d, debug=false){
     }
   }
 
-  // **NEW**: if still empty/quiet, pull TIER-2 leagues for the *same day*
   if (SECONDARY_ON_EMPTY && soccer.length === 0){
     const tier2 = await espnSoccerSegments(TIER2_LEAGUES, d, 2).catch(()=>({ mapped:[] }));
     if ((tier2.mapped||[]).length){
@@ -340,7 +357,6 @@ async function assembleFor(d, debug=false){
     }
   }
 
-  // Fallback to SportsDB strictly same-day (still off by default)
   let sdb = { mapped: [] };
   if (soccer.length === 0){
     sdb = await sportsdbDay(d).catch(()=>({ mapped:[] }));
@@ -351,6 +367,7 @@ async function assembleFor(d, debug=false){
   const merged = dedupePreferEarliest([ ...soccer, ...((nba.mapped)||[]), ...((nfl.mapped)||[]) ]);
   const meta = {
     date: d,
+    tz: TZ_DISPLAY,
     sourceCounts: {
       espn_soccer_tier1: eu.mapped?.length || 0,
       espn_soccer_all: allSoc.mapped?.length || 0,
@@ -364,7 +381,7 @@ async function assembleFor(d, debug=false){
 
   if (debug){
     meta.debug = {
-      tier2_segments: TIER2_LEAGUES,
+      tz: TZ_DISPLAY,
       urls: []
     };
   }
@@ -375,7 +392,7 @@ async function assembleFor(d, debug=false){
 app.get('/__/version', (req,res)=> res.json({ build: BUILD_TAG, ts: new Date().toISOString() }));
 app.get('/__/probe', async (req, res) => {
   try{
-    const d = normalizeDateParam(req.query.date || new Date().toISOString().slice(0,10)) || new Date().toISOString().slice(0,10);
+    const d = normalizeDateParam(req.query.date || dayOfInTZ(new Date().toISOString(), TZ_DISPLAY)) || dayOfInTZ(new Date().toISOString(), TZ_DISPLAY);
     const debug = (req.query.debug === '1' || req.query.debug === 'true');
     const r = await assembleFor(d, debug);
     res.json(r.meta);
