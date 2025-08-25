@@ -17,12 +17,12 @@ app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }
 // ====== CONFIG ======
 const ADMIN_TOKEN  = process.env.ADMIN_TOKEN || '';
 const SPORTSDB_KEY = process.env.SPORTSDB_KEY || '3';
-const SPORTSDB_ENABLED = (process.env.SPORTSDB_ENABLED ?? '0') !== '0'; // default OFF while validating ESPN
+const SPORTSDB_ENABLED = (process.env.SPORTSDB_ENABLED ?? '0') !== '0'; // optional backup
 const UCL_LOOKAHEAD = (process.env.UCL_LOOKAHEAD ?? '0') === '1'; // default OFF now
 const SECONDARY_ON_EMPTY = (process.env.SECONDARY_ON_EMPTY ?? '1') === '1'; // fill quiet days with tier-2
 const TZ_DISPLAY = process.env.TZ_DISPLAY || 'Europe/Bucharest';
 const TZ_OFFSET_MINUTES = Number(process.env.TZ_OFFSET_MINUTES || '180'); // fallback if Intl tz fails
-const BUILD_TAG    = 'hotfix16-localday-tz-fix+tier2';
+const BUILD_TAG    = 'hotfix16b-tz+tier2+robust-env+debug';
 
 // ====== LEAGUE SEGMENTS ======
 const UEFA_VARIANTS = [
@@ -34,17 +34,27 @@ const UEFA_VARIANTS = [
   'soccer/uefa.champions.play-offs',
   'soccer/uefa.champions.league'
 ];
-const EU_LEAGUES = (process.env.EU_LEAGUES || [
+
+function parseListEnv(val, fallbackList){
+  const raw = (val ?? '').toString();
+  const parts = raw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
+  const list = (parts.length ? parts : fallbackList).map(s => s.trim()).filter(Boolean);
+  // unique
+  return Array.from(new Set(list));
+}
+
+const EU_LEAGUES = parseListEnv(process.env.EU_LEAGUES, [
   'soccer/uefa.europa','soccer/uefa.europa_qual','soccer/uefa.europa.conf','soccer/uefa.europa.conf_qual',
   'soccer/eng.1','soccer/esp.1','soccer/ger.1','soccer/ita.1','soccer/fra.1',
   'soccer/por.1','soccer/ned.1','soccer/tur.1','soccer/bel.1','soccer/sco.1'
-]).toString().split(',').map(s=>s.trim()).filter(Boolean);
+]);
 
-// Secondary-tier leagues for quiet days
-const TIER2_LEAGUES = (process.env.TIER2_LEAGUES || [
+// Secondary-tier leagues for quiet days (now robust parsing: commas or spaces)
+const TIER2_LEAGUES = parseListEnv(process.env.TIER2_LEAGUES, [
   'soccer/eng.2','soccer/esp.2','soccer/ger.2','soccer/ita.2','soccer/fra.2',
-  'soccer/ned.2','soccer/por.2','soccer/tur.2','soccer/bel.2','soccer/sco.2'
-]).toString().split(',').map(s=>s.trim()).filter(Boolean);
+  'soccer/usa.1','soccer/mex.1','soccer/bra.1','soccer/arg.1',
+  'soccer/nor.1','soccer/swe.1','soccer/den.1','soccer/pol.1','soccer/jpn.1'
+]);
 
 function prettyLeagueName(segment){
   const map = {
@@ -74,11 +84,15 @@ function prettyLeagueName(segment){
     'soccer/ger.2': '2. Bundesliga',
     'soccer/ita.2': 'Serie B',
     'soccer/fra.2': 'Ligue 2',
-    'soccer/ned.2': 'Eerste Divisie',
-    'soccer/por.2': 'Liga Portugal 2',
-    'soccer/tur.2': 'TFF 1. Lig',
-    'soccer/bel.2': 'Challenger Pro League',
-    'soccer/sco.2': 'Scottish Championship'
+    'soccer/usa.1': 'MLS',
+    'soccer/mex.1': 'Liga MX',
+    'soccer/bra.1': 'Brasileirão',
+    'soccer/arg.1': 'Liga Profesional',
+    'soccer/nor.1': 'Eliteserien',
+    'soccer/swe.1': 'Allsvenskan',
+    'soccer/den.1': 'Superliga',
+    'soccer/pol.1': 'Ekstraklasa',
+    'soccer/jpn.1': 'J1 League'
   };
   return map[segment] || 'Football';
 }
@@ -108,7 +122,6 @@ function dayOfInTZ(iso, tz){
     const d = parts.find(p=>p.type==='day')?.value;
     if (y && m && d) return `${y}-${m}-${d}`;
   }catch{}
-  // fallback simple offset if Intl fails
   const t = new Date(iso);
   const ms = t.getTime() + TZ_OFFSET_MINUTES*60*1000;
   const k = new Date(ms);
@@ -150,7 +163,7 @@ function parseEventNameTeams(name){
   const vs = n.split(/\s+vs\.?\s+/i);
   if (vs.length === 2) return [vs[0], vs[1]];
   const at = n.split(/\s+at\s+/i);
-  if (at.length === 2) return [at[1], at[0]]; // home vs away, if "Away at Home" form
+  if (at.length === 2) return [at[1], at[0]];
   return [null,null];
 }
 
@@ -163,12 +176,12 @@ function statusFromEspn(ev){
 function fx({ sport, league, tier, startISO, status, home, away }){
   return {
     sport,
-    tier, // 1 or 2
+    tier,
     league: { name: league || 'Football', code: null },
     start_utc: startISO,
     status: status || 'SCHEDULED',
     home: { name: home?.name || '', logo: home?.logo || null },
-    away: { name: away?.name || '', logo: away?.logo || null }
+    away: { name: away?.name || '', logo: home?.logo || null }
   };
 }
 
@@ -185,7 +198,7 @@ function mapBoard(board, d, sport, fallbackLeague, tier=1){
   for (const ev of (j?.events || [])){
     const iso = ev?.date;
     if (!iso) continue;
-    if (dayOfInTZ(iso, TZ_DISPLAY) !== d) continue; // <<< compare using display timezone
+    if (dayOfInTZ(iso, TZ_DISPLAY) !== d) continue;
     const comp = ev?.competitions?.[0] || {};
     const competitors = comp?.competitors || [];
     const H = competitors.find(x => x.homeAway === 'home') || competitors[0] || {};
@@ -226,7 +239,7 @@ async function espnSoccerAll(d){
 async function espnNBA(d){ const b = await espnBoard('basketball/nba', d); return { mapped: mapBoard(b,d,'NBA','NBA',1), boards:[b] }; }
 async function espnNFL(d){ const b = await espnBoard('football/nfl', d); return { mapped: mapBoard(b,d,'NFL','NFL',1), boards:[b] }; }
 
-// ====== SportsDB fallback (Soccer) ======
+// ====== SportsDB fallback (Soccer)
 function buildIsoFromSportsDB(e){
   const ts = e?.strTimestamp;
   if (ts && !isNaN(Date.parse(ts))) return ts;
@@ -247,7 +260,7 @@ async function sportsdbDay(d){
   for (const e of evs){
     const iso = buildIsoFromSportsDB(e);
     if (!iso) continue;
-    if (dayOfInTZ(iso, TZ_DISPLAY) !== d) continue; // compare using display tz
+    if (dayOfInTZ(iso, TZ_DISPLAY) !== d) continue;
     const leagueName = e?.strLeague || 'Football';
     out.push(fx({
       sport: 'Soccer',
@@ -358,7 +371,7 @@ async function assembleFor(d, debug=false){
   }
 
   let sdb = { mapped: [] };
-  if (soccer.length === 0){
+  if (soccer.length === 0 && SPORTSDB_ENABLED){
     sdb = await sportsdbDay(d).catch(()=>({ mapped:[] }));
     soccer = soccer.concat(sdb.mapped || []);
     if ((sdb.mapped||[]).length && !notice) notice = 'Filled using SportsDB fallback';
@@ -382,7 +395,9 @@ async function assembleFor(d, debug=false){
   if (debug){
     meta.debug = {
       tz: TZ_DISPLAY,
-      urls: []
+      secondary_on_empty: SECONDARY_ON_EMPTY,
+      ucl_lookahead: UCL_LOOKAHEAD,
+      tier2_segments: TIER2_LEAGUES
     };
   }
   return { meta, fixtures: merged };
