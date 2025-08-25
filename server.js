@@ -107,7 +107,23 @@ function mapSoccerEvents(j, d){
   const out=[];
   for (const ev of (j?.events||[])){
     const iso = ev?.date; if (!iso || dayOf(iso)!==d) continue;
-    const c=ev?.competitions?.[0]||{};
+    const c=ev?.competitions?.[0]||{}
+
+function mapGenericEvents(j, d, sport, fallbackLeague){
+  const out=[];
+  for (const ev of (j?.events||[])){
+    const iso = ev?.date; if (!iso || dayOf(iso)!==d) continue;
+    const c = ev?.competitions?.[0] || {};
+    const H = (c?.competitors||[]).find(x=>x.homeAway==='home') || {};
+    const A = (c?.competitors||[]).find(x=>x.homeAway==='away') || {};
+    const leagueName = (c?.league?.name) || (ev?.league?.name) || (j?.leagues && j.leagues[0] && j.leagues[0].name) || fallbackLeague;
+    out.push(fx({ sport, league: leagueName, startISO: iso, status: statusFromEspn(ev),
+      home:{name:H?.team?.displayName||H?.team?.name, logo: takeLogo(H?.team)},
+      away:{name:A?.team?.displayName||A?.team?.name, logo: takeLogo(A?.team)} }));
+  }
+  return out;
+}
+;
     const H=(c?.competitors||[]).find(x=>x.homeAway==='home')||{};
     const A=(c?.competitors||[]).find(x=>x.homeAway==='away')||{};
         const leagueName = (c?.league?.name)|| (ev?.league?.name) || (j?.leagues && j.leagues[0] && j.leagues[0].name) || ev?.name || 'Football';
@@ -123,8 +139,8 @@ async function espnSoccerEU(d){
   const lists = boards.map(j => mapSoccerEvents(j,d));
   return lists.flat();
 }
-async function espnNBA(d){ const j = await espnBoard('basketball/nba', d); const out=[]; for(const ev of (j?.events||[])){ const iso=ev?.date; if(!iso||dayOf(iso)!==d) continue; const c=ev?.competitions?.[0]||{}; const H=(c?.competitors||[]).find(x=>x.homeAway==='home')||{}; const A=(c?.competitors||[]).find(x=>x.homeAway==='away')||{}; out.push(fx({ sport:'NBA', league:'NBA', startISO: iso, status: statusFromEspn(ev), home:{name:H?.team?.displayName||H?.team?.name, logo: takeLogo(H?.team)}, away:{name:A?.team?.displayName||A?.team?.name, logo: takeLogo(A?.team)} })); } return out; }
-async function espnNFL(d){ const j = await espnBoard('football/nfl', d); const out=[]; for(const ev of (j?.events||[])){ const iso=ev?.date; if(!iso||dayOf(iso)!==d) continue; const c=ev?.competitions?.[0]||{}; const H=(c?.competitors||[]).find(x=>x.homeAway==='home')||{}; const A=(c?.competitors||[]).find(x=>x.homeAway==='away')||{}; out.push(fx({ sport:'NFL', league:'NFL', startISO: iso, status: statusFromEspn(ev), home:{name:H?.team?.displayName||H?.team?.name, logo: takeLogo(H?.team)}, away:{name:A?.team?.displayName||A?.team?.name, logo: takeLogo(A?.team)} })); } return out; }
+async function espnNBA(d){ const j = await espnBoard('basketball/nba', d); return mapGenericEvents(j,d,'NBA','NBA'); }; const H=(c?.competitors||[]).find(x=>x.homeAway==='home')||{}; const A=(c?.competitors||[]).find(x=>x.homeAway==='away')||{}; out.push(fx({ sport:'NBA', league:'NBA', startISO: iso, status: statusFromEspn(ev), home:{name:H?.team?.displayName||H?.team?.name, logo: takeLogo(H?.team)}, away:{name:A?.team?.displayName||A?.team?.name, logo: takeLogo(A?.team)} })); } return out; }
+async function espnNFL(d){ const j = await espnBoard('football/nfl', d); return mapGenericEvents(j,d,'NFL','NFL'); }; const H=(c?.competitors||[]).find(x=>x.homeAway==='home')||{}; const A=(c?.competitors||[]).find(x=>x.homeAway==='away')||{}; out.push(fx({ sport:'NFL', league:'NFL', startISO: iso, status: statusFromEspn(ev), home:{name:H?.team?.displayName||H?.team?.name, logo: takeLogo(H?.team)}, away:{name:A?.team?.displayName||A?.team?.name, logo: takeLogo(A?.team)} })); } return out; }
 
 // SportsDB day
 async function sdbDay(d, sportQuery, tag){
@@ -236,10 +252,6 @@ app.get(['/api/fixtures','/api/fixtures/:date'], async (req,res)=>{
   writeCache(d, payload);
   res.json(payload);
 });
-  const cached = readCache(d); if (cached) return res.json(cached);
-  const payload = await assembleFor(d); writeCache(d, payload); res.json(payload);
-});
-
 function auth(req,res){ const t = req.query.token || req.headers['x-admin-token']; if (!ADMIN_TOKEN || t !== ADMIN_TOKEN){ res.status(401).json({error:'unauthorized'}); return false;} return true; }
 app.get(['/admin/precache','/admin/precache/:date'], async (req,res)=>{
   if(!auth(req,res))return; const raw = req.params.date || req.query.date; const d = normalizeDateParam(raw);
