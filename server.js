@@ -18,16 +18,15 @@ app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }
 const ADMIN_TOKEN  = process.env.ADMIN_TOKEN || '';
 const SPORTSDB_KEY = process.env.SPORTSDB_KEY || '3';
 const SPORTSDB_ENABLED = (process.env.SPORTSDB_ENABLED ?? '0') !== '0'; // default OFF while validating ESPN
-const UCL_LOOKAHEAD = (process.env.UCL_LOOKAHEAD ?? '1') === '1'; // include next-day UCL when day lacks UEFA
-const BUILD_TAG    = 'hotfix14-ucl-qual-codes-lookahead';
+const UCL_LOOKAHEAD = (process.env.UCL_LOOKAHEAD ?? '0') === '1'; // you can re-enable; default OFF now
+const SECONDARY_ON_EMPTY = (process.env.SECONDARY_ON_EMPTY ?? '1') === '1'; // fill quiet days with tier-2
+const BUILD_TAG    = 'hotfix15-secondary-tier-fallback';
 
+// ====== LEAGUE SEGMENTS ======
 // UCL + Qualifiers (+ big-5 + Europa + Conference)
 const UEFA_VARIANTS = [
-  // Main
   'soccer/uefa.champions',
-  // Qualifiers/Playoffs (underscore codes are what ESPN uses)
   'soccer/uefa.champions_qual',
-  // historical/alt spellings we still try (harmless if 404/empty)
   'soccer/uefa.champions.qualifying',
   'soccer/uefa.champions.qual',
   'soccer/uefa.champions.playoff',
@@ -40,8 +39,15 @@ const EU_LEAGUES = (process.env.EU_LEAGUES || [
   'soccer/por.1','soccer/ned.1','soccer/tur.1','soccer/bel.1','soccer/sco.1'
 ]).toString().split(',').map(s=>s.trim()).filter(Boolean);
 
+// **NEW** Secondary-tier leagues used only on quiet days
+const TIER2_LEAGUES = (process.env.TIER2_LEAGUES || [
+  'soccer/eng.2','soccer/esp.2','soccer/ger.2','soccer/ita.2','soccer/fra.2',
+  'soccer/ned.2','soccer/por.2','soccer/tur.2','soccer/bel.2','soccer/sco.2'
+]).toString().split(',').map(s=>s.trim()).filter(Boolean);
+
 function prettyLeagueName(segment){
   const map = {
+    // UEFA
     'soccer/uefa.champions': 'UEFA Champions League',
     'soccer/uefa.champions_qual': 'UEFA Champions League Qualifying',
     'soccer/uefa.champions.qualifying': 'UEFA Champions League',
@@ -53,6 +59,7 @@ function prettyLeagueName(segment){
     'soccer/uefa.europa_qual': 'UEFA Europa League Qualifying',
     'soccer/uefa.europa.conf': 'UEFA Europa Conference League',
     'soccer/uefa.europa.conf_qual': 'UEFA Europa Conference League Qualifying',
+    // Tier 1
     'soccer/eng.1': 'Premier League',
     'soccer/esp.1': 'LaLiga',
     'soccer/ger.1': 'Bundesliga',
@@ -62,7 +69,18 @@ function prettyLeagueName(segment){
     'soccer/ned.1': 'Eredivisie',
     'soccer/tur.1': 'Süper Lig',
     'soccer/bel.1': 'Jupiler Pro League',
-    'soccer/sco.1': 'Scottish Premiership'
+    'soccer/sco.1': 'Scottish Premiership',
+    // **NEW** Tier 2
+    'soccer/eng.2': 'EFL Championship',
+    'soccer/esp.2': 'LaLiga 2',
+    'soccer/ger.2': '2. Bundesliga',
+    'soccer/ita.2': 'Serie B',
+    'soccer/fra.2': 'Ligue 2',
+    'soccer/ned.2': 'Eerste Divisie',
+    'soccer/por.2': 'Liga Portugal 2',
+    'soccer/tur.2': 'TFF 1. Lig',
+    'soccer/bel.2': 'Challenger Pro League',
+    'soccer/sco.2': 'Scottish Championship'
   };
   return map[segment] || 'Football';
 }
@@ -122,9 +140,10 @@ function statusFromEspn(ev){
   if (/IN_PROGRESS|LIVE|STATUS_IN_PROGRESS|STATUS_HALFTIME/.test(s)) return 'LIVE';
   return 'SCHEDULED';
 }
-function fx({ sport, league, startISO, status, home, away }){
+function fx({ sport, league, tier, startISO, status, home, away }){
   return {
     sport,
+    tier, // 1 or 2 (for UI toggles later)
     league: { name: league || 'Football', code: null },
     start_utc: startISO,
     status: status || 'SCHEDULED',
@@ -140,7 +159,7 @@ async function espnBoard(segment, d){
   const j = r.ok ? await r.json() : { error: await r.text() };
   return { ok: r.ok, status: r.status, url, json: j, segment };
 }
-function mapBoard(board, d, sport, fallbackLeague){
+function mapBoard(board, d, sport, fallbackLeague, tier=1){
   const out = [];
   const j = board?.json || {};
   for (const ev of (j?.events || [])){
@@ -161,6 +180,7 @@ function mapBoard(board, d, sport, fallbackLeague){
     const leagueName = comp?.league?.name || j?.leagues?.[0]?.name || fallbackLeague;
     out.push(fx({
       sport,
+      tier,
       league: leagueName,
       startISO: iso,
       status: statusFromEspn(ev),
@@ -170,22 +190,21 @@ function mapBoard(board, d, sport, fallbackLeague){
   }
   return out;
 }
-async function espnSoccerAll(d){
-  const b = await espnBoard('soccer', d);
-  return { mapped: mapBoard(b, d, 'Soccer', 'Football'), boards: [b] };
-}
-async function espnSoccerEU(d){
-  const segments = [...UEFA_VARIANTS, ...EU_LEAGUES];
+async function espnSoccerSegments(segments, d, tier){
   const results = await Promise.all(segments.map(async seg => {
     const b = await espnBoard(seg, d);
-    return { board: b, mapped: mapBoard(b, d, 'Soccer', prettyLeagueName(seg)) };
+    return { board: b, mapped: mapBoard(b, d, 'Soccer', prettyLeagueName(seg), tier) };
   }));
   const mapped = results.flatMap(x => x.mapped);
   const boards = results.map(x => x.board);
   return { mapped, boards };
 }
-async function espnNBA(d){ const b = await espnBoard('basketball/nba', d); return { mapped: mapBoard(b,d,'NBA','NBA'), boards:[b] }; }
-async function espnNFL(d){ const b = await espnBoard('football/nfl', d); return { mapped: mapBoard(b,d,'NFL','NFL'), boards:[b] }; }
+async function espnSoccerAll(d){
+  const b = await espnBoard('soccer', d);
+  return { mapped: mapBoard(b, d, 'Soccer', 'Football', 1), boards: [b] };
+}
+async function espnNBA(d){ const b = await espnBoard('basketball/nba', d); return { mapped: mapBoard(b,d,'NBA','NBA',1), boards:[b] }; }
+async function espnNFL(d){ const b = await espnBoard('football/nfl', d); return { mapped: mapBoard(b,d,'NFL','NFL',1), boards:[b] }; }
 
 // ====== SportsDB fallback (Soccer) ======
 function buildIsoFromSportsDB(e){
@@ -212,6 +231,7 @@ async function sportsdbDay(d){
     const leagueName = e?.strLeague || 'Football';
     out.push(fx({
       sport: 'Soccer',
+      tier: 2,
       league: leagueName,
       startISO: iso,
       status: 'SCHEDULED',
@@ -250,7 +270,7 @@ function writeCache(d, payload){
 
 // ====== assemble & dedupe ======
 function keyFor(f){
-  return `${(f.sport||'').toLowerCase()}|${(f.league?.name||'').toLowerCase()}|${(f.home?.name||'').toLowerCase()}|${(f.away?.name||'').toLowerCase()}`;
+  return `${(f.sport||'').toLowerCase()}|${(f.tier||1)}|${(f.league?.name||'').toLowerCase()}|${(f.home?.name||'').toLowerCase()}|${(f.away?.name||'').toLowerCase()}`;
 }
 function dedupePreferEarliest(fixtures){
   const groups = new Map();
@@ -286,55 +306,66 @@ function isUEFA(name=''){
 }
 
 async function assembleFor(d, debug=false){
+  // Tier-1 pulls (UEFA/Big-5 + all-soccer as backup)
   const [eu, allSoc, nba, nfl] = await Promise.all([
-    espnSoccerEU(d).catch(()=>({ mapped:[], boards:[] })),
+    espnSoccerSegments([...UEFA_VARIANTS, ...EU_LEAGUES], d, 1).catch(()=>({ mapped:[], boards:[] })),
     espnSoccerAll(d).catch(()=>({ mapped:[], boards:[] })),
     espnNBA(d).catch(()=>({ mapped:[], boards:[] })),
     espnNFL(d).catch(()=>({ mapped:[], boards:[] }))
   ]);
 
   let soccer = [...(eu.mapped||[]), ...(allSoc.mapped||[])];
-  let lookaheadNote = null;
+  let notice = null;
 
-  // If no UEFA on the selected day (even if other soccer exists), pull next-day UEFA
-  const hasUEFA = soccer.some(f => isUEFA(f.league?.name));
-  if (UCL_LOOKAHEAD && !hasUEFA){
-    const dNext = addDays(d, 1);
-    const euNext = await espnSoccerEU(dNext).catch(()=>({ mapped:[] }));
-    const uefaOnly = (euNext.mapped||[]).filter(f => isUEFA(f.league?.name));
-    if (uefaOnly.length){
-      soccer = soccer.concat(uefaOnly);
-      lookaheadNote = `Including next-day UEFA fixtures (${dNext})`;
+  // Optional: look ahead 1 day for UEFA only (if no UEFA today)
+  if (UCL_LOOKAHEAD){
+    const hasUEFA = soccer.some(f => isUEFA(f.league?.name));
+    if (!hasUEFA){
+      const dNext = addDays(d, 1);
+      const euNext = await espnSoccerSegments(UEFA_VARIANTS, dNext, 1).catch(()=>({ mapped:[] }));
+      const uefaOnly = (euNext.mapped||[]).filter(f => isUEFA(f.league?.name));
+      if (uefaOnly.length){
+        soccer = soccer.concat(uefaOnly);
+        notice = `Including next-day UEFA fixtures (${dNext})`;
+      }
     }
   }
 
-  // Fallback to SportsDB strictly for same-day only (kept OFF by default)
+  // **NEW**: if still empty/quiet, pull TIER-2 leagues for the *same day*
+  if (SECONDARY_ON_EMPTY && soccer.length === 0){
+    const tier2 = await espnSoccerSegments(TIER2_LEAGUES, d, 2).catch(()=>({ mapped:[] }));
+    if ((tier2.mapped||[]).length){
+      soccer = soccer.concat(tier2.mapped);
+      notice = 'Filled with secondary leagues (Tier 2) for this quiet day';
+    }
+  }
+
+  // Fallback to SportsDB strictly same-day (still off by default)
   let sdb = { mapped: [] };
   if (soccer.length === 0){
     sdb = await sportsdbDay(d).catch(()=>({ mapped:[] }));
     soccer = soccer.concat(sdb.mapped || []);
+    if ((sdb.mapped||[]).length && !notice) notice = 'Filled using SportsDB fallback';
   }
 
   const merged = dedupePreferEarliest([ ...soccer, ...((nba.mapped)||[]), ...((nfl.mapped)||[]) ]);
   const meta = {
     date: d,
     sourceCounts: {
-      espn_soccer_eu: eu.mapped?.length || 0,
+      espn_soccer_tier1: eu.mapped?.length || 0,
       espn_soccer_all: allSoc.mapped?.length || 0,
+      espn_soccer_tier2: merged.filter(f => f.tier === 2).length,
       sportsdb_soccer: sdb.mapped?.length || 0,
       espn_nba: nba.mapped?.length || 0,
       espn_nfl: nfl.mapped?.length || 0
     }
   };
-  if (lookaheadNote) meta.notice = lookaheadNote;
+  if (notice) meta.notice = notice;
 
   if (debug){
     meta.debug = {
-      urls: [
-        ...(eu.boards||[]).map(b=>({ url:b.url, ok:b.ok, status:b.status })),
-        ...(allSoc.boards||[]).map(b=>({ url:b.url, ok:b.ok, status:b.status })),
-        sdb.url ? { url: sdb.url, ok: true } : null
-      ].filter(Boolean)
+      tier2_segments: TIER2_LEAGUES,
+      urls: []
     };
   }
   return { meta, fixtures: merged };
