@@ -17,7 +17,7 @@ app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }
 // ====== CONFIG ======
 const ADMIN_TOKEN  = process.env.ADMIN_TOKEN || '';
 const SPORTSDB_KEY = process.env.SPORTSDB_KEY || '3';
-const BUILD_TAG    = 'hotfix7-minimal';
+const BUILD_TAG    = 'hotfix8-soccer-all-fallback';
 
 // Big 5 + UEFA scoreboards on ESPN (can be overridden by EU_LEAGUES env)
 const EU_LEAGUES = (process.env.EU_LEAGUES || [
@@ -34,9 +34,8 @@ async function httpGet(url, extra={}){
   try{
     const r = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'application/json,text/plain,*/*' }, ...extra });
     return r;
-  }catch{
-    return { ok:false, status:0, json:async()=>({}), text:async()=>'',
-             arrayBuffer: async()=>new ArrayBuffer(0) };
+  }catch(e){
+    return { ok:false, status:0, json:async()=>({ error:String(e) }), text:async()=>String(e) };
   }
 }
 
@@ -58,8 +57,8 @@ const dayOf = iso => {
   const t = new Date(iso);
   const y = t.getUTCFullYear();
   const m = String(t.getUTCMonth()+1).padStart(2,'0');
-  const d = String(t.getUTCDate()).padStart(2,'0');
-  return `${y}-${m}-${d}`;
+  const dd = String(t.getUTCDate()).padStart(2,'0');
+  return `${y}-${m}-${dd}`;
 };
 
 function fixLogo(u){ return u ? u.replace(/^http:/,'https:') : null; }
@@ -67,7 +66,7 @@ function teamLogo(team){ return fixLogo(team?.logo || team?.logos?.[0]?.href || 
 function statusFromEspn(ev){
   const s = (ev?.status?.type?.name || ev?.status?.type?.description || '').toUpperCase();
   if (/FINAL|STATUS_FINAL|POSTGAME|FULLTIME|FT/.test(s)) return 'FINISHED';
-  if (/IN_PROGRESS|LIVE|STATUS_IN_PROGRESS/.test(s)) return 'LIVE';
+  if (/IN_PROGRESS|LIVE|STATUS_IN_PROGRESS|STATUS_HALFTIME/.test(s)) return 'LIVE';
   return 'SCHEDULED';
 }
 function fx({ sport, league, startISO, status, home, away }){
@@ -85,36 +84,21 @@ function fx({ sport, league, startISO, status, home, away }){
 async function espnBoard(segment, d){
   const url = `https://site.api.espn.com/apis/site/v2/sports/${segment}/scoreboard?dates=${YYYYMMDD(d)}`;
   const r = await httpGet(url);
-  if (!r.ok) return { ok:false, status:r.status, events:[], leagues:[] };
-  const j = await r.json(); j.ok = true; return j;
+  const j = r.ok ? await r.json() : { error: await r.text() };
+  return { ok: r.ok, status: r.status, url, json: j };
 }
-function mapSoccer(board, d){
+function mapBoard(board, d, sport, fallbackLeague){
   const out = [];
-  for (const ev of (board?.events || [])){
-    const iso = ev?.date; if (!iso || dayOf(iso) !== d) continue;
+  const j = board?.json || {};
+  for (const ev of (j?.events || [])){
+    const iso = ev?.date;
+    if (!iso) continue;
+    const day = dayOf(iso);
+    if (day !== d) continue;
     const comp = ev?.competitions?.[0] || {};
     const H = (comp?.competitors || []).find(x => x.homeAway === 'home') || {};
     const A = (comp?.competitors || []).find(x => x.homeAway === 'away') || {};
-    const leagueName = comp?.league?.name || board?.leagues?.[0]?.name || ev?.league?.name || 'Football';
-    out.push(fx({
-      sport: 'Soccer',
-      league: leagueName,
-      startISO: iso,
-      status: statusFromEspn(ev),
-      home: { name: H?.team?.displayName || H?.team?.name, logo: teamLogo(H?.team) },
-      away: { name: A?.team?.displayName || A?.team?.name, logo: teamLogo(A?.team) }
-    }));
-  }
-  return out;
-}
-function mapGeneric(board, d, sport, fallbackLeague){
-  const out = [];
-  for (const ev of (board?.events || [])){
-    const iso = ev?.date; if (!iso || dayOf(iso) !== d) continue;
-    const comp = ev?.competitions?.[0] || {};
-    const H = (comp?.competitors || []).find(x => x.homeAway === 'home') || {};
-    const A = (comp?.competitors || []).find(x => x.homeAway === 'away') || {};
-    const leagueName = comp?.league?.name || ev?.league?.name || board?.leagues?.[0]?.name || fallbackLeague;
+    const leagueName = comp?.league?.name || ev?.league?.name || j?.leagues?.[0]?.name || fallbackLeague;
     out.push(fx({
       sport,
       league: leagueName,
@@ -128,15 +112,21 @@ function mapGeneric(board, d, sport, fallbackLeague){
 }
 async function espnSoccerEU(d){
   const boards = await Promise.all(EU_LEAGUES.map(seg => espnBoard(seg, d)));
-  return boards.flatMap(b => mapSoccer(b, d));
+  const mapped = boards.flatMap(b => mapBoard(b, d, 'Soccer', 'Football'));
+  return { mapped, boards };
+}
+async function espnSoccerAll(d){
+  const b = await espnBoard('soccer', d);
+  const mapped = mapBoard(b, d, 'Soccer', 'Football');
+  return { mapped, board: b };
 }
 async function espnNBA(d){
   const b = await espnBoard('basketball/nba', d);
-  return mapGeneric(b, d, 'NBA', 'NBA');
+  return { mapped: mapBoard(b, d, 'NBA', 'NBA'), board: b };
 }
 async function espnNFL(d){
   const b = await espnBoard('football/nfl', d);
-  return mapGeneric(b, d, 'NFL', 'NFL');
+  return { mapped: mapBoard(b, d, 'NFL', 'NFL'), board: b };
 }
 
 // ====== CACHE ======
@@ -166,21 +156,47 @@ function writeCache(d, payload){
 }
 
 // ====== ASSEMBLE ======
-async function assembleFor(d){
-  const [soccer, nba, nfl] = await Promise.all([
-    espnSoccerEU(d).catch(()=>[]),
-    espnNBA(d).catch(()=>[]),
-    espnNFL(d).catch(()=>[])
+function dedupe(fixtures){
+  const seen = new Set();
+  const out = [];
+  for (const f of fixtures){
+    const key = `${f.sport}|${(f.league?.name||'').toLowerCase()}|${(f.home?.name||'').toLowerCase()}|${(f.away?.name||'').toLowerCase()}|${f.start_utc}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(f);
+  }
+  return out;
+}
+
+async function assembleFor(d, debug=false){
+  const [eu, allSoc, nba, nfl] = await Promise.all([
+    espnSoccerEU(d).catch(()=>({ mapped:[], boards:[] })),
+    espnSoccerAll(d).catch(()=>({ mapped:[], board:null })),
+    espnNBA(d).catch(()=>({ mapped:[], board:null })),
+    espnNFL(d).catch(()=>({ mapped:[], board:null }))
   ]);
-  const fixtures = [...soccer, ...nba, ...nfl].sort((a,b) => (a.start_utc||'').localeCompare(b.start_utc||''));
+  const soccer = dedupe([...(eu.mapped||[]), ...(allSoc.mapped||[])]);
+  const fixtures = dedupe([ ...soccer, ...(nba.mapped||[]), ...(nfl.mapped||[]) ])
+    .sort((a,b) => (a.start_utc||'').localeCompare(b.start_utc||''));
   const meta = {
     date: d,
     sourceCounts: {
-      espn_soccer_eu: soccer.length,
-      espn_nba: nba.length,
-      espn_nfl: nfl.length
+      espn_soccer_eu: eu.mapped?.length || 0,
+      espn_soccer_all: allSoc.mapped?.length || 0,
+      espn_nba: nba.mapped?.length || 0,
+      espn_nfl: nfl.mapped?.length || 0
     }
   };
+  if (debug){
+    meta.debug = {
+      urls: [
+        ...(eu.boards||[]).map(b=>({url:b.url, ok:b.ok, status:b.status})),
+        allSoc.board ? { url: allSoc.board.url, ok: allSoc.board.ok, status: allSoc.board.status } : null,
+        nba.board ? { url: nba.board.url, ok: nba.board.ok, status: nba.board.status } : null,
+        nfl.board ? { url: nfl.board.url, ok: nfl.board.ok, status: nfl.board.status } : null
+      ].filter(Boolean)
+    };
+  }
   return { meta, fixtures };
 }
 
@@ -189,7 +205,8 @@ app.get('/__/version', (req,res)=> res.json({ build: BUILD_TAG, ts: new Date().t
 
 app.get('/__/probe', async (req, res) => {
   const d = normalizeDateParam(req.query.date || new Date().toISOString().slice(0,10)) || new Date().toISOString().slice(0,10);
-  const r = await assembleFor(d);
+  const debug = (req.query.debug === '1' || req.query.debug === 'true');
+  const r = await assembleFor(d, debug);
   res.json(r.meta);
 });
 
@@ -211,15 +228,18 @@ app.post('/admin/flush-cache', (req, res) => {
   const t = String(req.query.token || '');
   if (!ADMIN_TOKEN || t !== ADMIN_TOKEN) return res.status(401).json({ ok:false, error:'unauthorized' });
   const d = normalizeDateParam(req.query.date || '');
-  let count = 0;
   if (req.query.all === 'true' || req.query.all === '1'){
-    for (const f of fs.readdirSync(CACHE_DIR)){
-      fs.unlinkSync(path.join(CACHE_DIR, f)); count++;
+    let removed = 0;
+    if (fs.existsSync(CACHE_DIR)){
+      for (const f of fs.readdirSync(CACHE_DIR)){
+        fs.unlinkSync(path.join(CACHE_DIR, f)); removed++;
+      }
     }
     return res.type('text/plain').send(`ok cleared\n-- -------\nTrue all`);
   }
-  if (d && fs.existsSync(cpath(d))){ fs.unlinkSync(cpath(d)); count=1; }
-  return res.json({ ok:true, removed: count, date: d || null });
+  let removed = 0;
+  if (d && fs.existsSync(cpath(d))){ fs.unlinkSync(cpath(d)); removed = 1; }
+  return res.json({ ok:true, removed, date: d || null });
 });
 
 app.get('/admin/precache', async (req, res) => {
