@@ -155,3 +155,32 @@ main{max-width:1040px;margin:0 auto;padding:16px}
 .state.finished{ color: #b6c2d9; }
 .state.scheduled{ color: var(--text); opacity:.85; }
 .countdown{ margin-top:4px; font-size:12px; color:#9fb3d1; }
+
+
+/* === Mobile header reflow (hotfix-mobile-top) ========================== */
+@media (max-width: 640px){
+  /* put logo top-left, keep it clear of controls */
+  .bar{ position: relative; padding-top: 44px; }
+  .brand{ position: absolute; top: 8px; left: 12px; z-index: 60; }
+  .brand img{ width: 28px; height: 28px; object-fit: contain; }
+
+  /* make the header controls a stacked, tidy flow */
+  .controls{ margin-left: 0; width: 100%; gap: 8px; flex-wrap: wrap; }
+
+  /* search first, full width */
+  #q{ order: 1; flex: 1 1 100%; min-width: 0; }
+
+  /* sport tabs: smooth horizontal pill bar */
+  .filters{ 
+    order: 2; display: flex; gap: 8px; width: 100%;
+    overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  .filters::-webkit-scrollbar{ display: none; }
+  .filters .pill{ flex: 0 0 auto; } /* pills scroll; no wrapping */
+
+  /* leagues + major-only next; date buttons last */
+  .league-wrap{ order: 3; }
+  .switch{ order: 4; }
+  .datepick{ order: 5; width: 100%; display: flex; gap: 8px; }
+}
