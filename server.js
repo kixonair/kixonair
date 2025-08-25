@@ -18,7 +18,7 @@ app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }
 const ADMIN_TOKEN  = process.env.ADMIN_TOKEN || '';
 const SPORTSDB_KEY = process.env.SPORTSDB_KEY || '3';
 const SPORTSDB_ENABLED = (process.env.SPORTSDB_ENABLED ?? '1') !== '0'; // set to 0 to disable
-const BUILD_TAG    = 'hotfix12-sdb-date-filter';
+const BUILD_TAG    = 'hotfix12a-probe-crash-fix';
 
 // UCL variants (+ big-5 + Europa + Conference)
 const UEFA_VARIANTS = [
@@ -38,11 +38,15 @@ const EU_LEAGUES = (process.env.EU_LEAGUES || [
 // ====== HELPERS ======
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome Safari';
 async function httpGet(url, extra={}){
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
   try{
-    const r = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'application/json,text/plain,*/*' }, ...extra });
+    const r = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'application/json,text/plain,*/*' }, signal: controller.signal, ...extra });
     return r;
   }catch(e){
     return { ok:false, status:0, json:async()=>({ error:String(e) }), text:async()=>String(e) };
+  }finally{
+    clearTimeout(timeout);
   }
 }
 const yyyymmdd = d => d.replace(/-/g,'');
@@ -63,7 +67,7 @@ const dayOf = iso => {
   const t = new Date(iso);
   const y = t.getUTCFullYear();
   const m = String(t.getUTCMonth()+1).padStart(2,'0');
-  const d = String(t.getUTCDate()).toString().padStart(2,'0');
+  const d = String(t.getUTCDate()).padStart(2,'0');
   return `${y}-${m}-${d}`;
 };
 const fixLogo = u => u ? u.replace(/^http:/,'https:') : null;
@@ -148,7 +152,7 @@ async function sportsdbDay(d){
   for (const e of evs){
     const iso = buildIsoFromSportsDB(e);
     if (!iso) continue;
-    if (dayOf(iso) !== d) continue; // STRICT: only accept exact same day
+    if (dayOf(iso) !== d) continue; // STRICT: same-day only
     const leagueName = e?.strLeague || 'Football';
     out.push(fx({
       sport: 'Soccer',
@@ -243,7 +247,7 @@ async function assembleFor(d, debug=false){
     meta.debug = {
       urls: [
         ...(eu.boards||[]).map(b=>({ url:b.url, ok:b.ok, status:b.status })),
-        allSoc.board ? { url: allSoc.board.url, ok: allSoc.board.ok, status:b.status } : null,
+        allSoc.board ? { url: allSoc.board.url, ok: allSoc.board.ok, status: allSoc.board.status } : null,
         sdb.url ? { url: sdb.url, ok: true } : null
       ].filter(Boolean)
     };
@@ -254,48 +258,64 @@ async function assembleFor(d, debug=false){
 // ====== ROUTES ======
 app.get('/__/version', (req,res)=> res.json({ build: BUILD_TAG, ts: new Date().toISOString() }));
 app.get('/__/probe', async (req, res) => {
-  const d = normalizeDateParam(req.query.date || new Date().toISOString().slice(0,10)) || new Date().toISOString().slice(0,10);
-  const debug = (req.query.debug === '1' || req.query.debug === 'true');
-  const r = await assembleFor(d, debug);
-  res.json(r.meta);
+  try{
+    const d = normalizeDateParam(req.query.date || new Date().toISOString().slice(0,10)) || new Date().toISOString().slice(0,10);
+    const debug = (req.query.debug === '1' || req.query.debug === 'true');
+    const r = await assembleFor(d, debug);
+    res.json(r.meta);
+  }catch(e){
+    res.status(500).json({ ok:false, error: String(e) });
+  }
 });
 app.get(['/api/fixtures','/api/fixtures/:date'], async (req, res) => {
-  const raw = req.params.date || req.query.date;
-  const d = normalizeDateParam(raw);
-  if (!d) return res.status(400).json({ error: 'Invalid date. Use YYYY-MM-DD' });
-  const force = (req.query.force === '1' || req.query.force === 'true');
-  if (!force){
-    const cached = readCache(d);
-    if (cached) return res.json(cached);
+  try{
+    const raw = req.params.date || req.query.date;
+    const d = normalizeDateParam(raw);
+    if (!d) return res.status(400).json({ error: 'Invalid date. Use YYYY-MM-DD' });
+    const force = (req.query.force === '1' || req.query.force === 'true');
+    if (!force){
+      const cached = readCache(d);
+      if (cached) return res.json(cached);
+    }
+    const payload = await assembleFor(d);
+    writeCache(d, payload);
+    res.json(payload);
+  }catch(e){
+    res.status(500).json({ ok:false, error: String(e) });
   }
-  const payload = await assembleFor(d);
-  writeCache(d, payload);
-  res.json(payload);
 });
 app.post('/admin/flush-cache', (req, res) => {
-  const t = String(req.query.token || '');
-  if (!ADMIN_TOKEN || t !== ADMIN_TOKEN) return res.status(401).json({ ok:false, error:'unauthorized' });
-  const d = normalizeDateParam(req.query.date || '');
-  if (req.query.all === 'true' || req.query.all === '1'){
-    let removed = 0;
-    const dir = path.join(__dirname, 'data', 'cache');
-    if (fs.existsSync(dir)){
-      for (const f of fs.readdirSync(dir)){ fs.unlinkSync(path.join(dir,f)); removed++; }
+  try{
+    const t = String(req.query.token || '');
+    if (!ADMIN_TOKEN || t !== ADMIN_TOKEN) return res.status(401).json({ ok:false, error:'unauthorized' });
+    const d = normalizeDateParam(req.query.date || '');
+    if (req.query.all === 'true' || req.query.all === '1'){
+      let removed = 0;
+      const dir = path.join(__dirname, 'data', 'cache');
+      if (fs.existsSync(dir)){
+        for (const f of fs.readdirSync(dir)){ fs.unlinkSync(path.join(dir,f)); removed++; }
+      }
+      return res.type('text/plain').send(`ok cleared\n-- -------\nTrue all`);
     }
-    return res.type('text/plain').send(`ok cleared\n-- -------\nTrue all`);
+    let removed = 0;
+    const file = path.join(__dirname, 'data', 'cache', `${d}.json`);
+    if (d && fs.existsSync(file)){ fs.unlinkSync(file); removed = 1; }
+    return res.json({ ok:true, removed, date: d || null });
+  }catch(e){
+    res.status(500).json({ ok:false, error: String(e) });
   }
-  let removed = 0;
-  const file = path.join(__dirname, 'data', 'cache', `${d}.json`);
-  if (d && fs.existsSync(file)){ fs.unlinkSync(file); removed = 1; }
-  return res.json({ ok:true, removed, date: d || null });
 });
 app.get('/admin/precache', async (req, res) => {
-  const t = String(req.query.token || '');
-  if (!ADMIN_TOKEN || t !== ADMIN_TOKEN) return res.status(401).json({ ok:false, error:'unauthorized' });
-  const d = normalizeDateParam(req.query.date || '');
-  if (!d) return res.status(400).json({ ok:false, error:'invalid date' });
-  const r = await (await httpGet(`${req.protocol}://${req.get('host')}/api/fixtures/${d}?force=1`)).json().catch(()=>null);
-  res.json(r || { ok:false });
+  try{
+    const t = String(req.query.token || '');
+    if (!ADMIN_TOKEN || t !== ADMIN_TOKEN) return res.status(401).json({ ok:false, error:'unauthorized' });
+    const d = normalizeDateParam(req.query.date || '');
+    if (!d) return res.status(400).json({ ok:false, error:'invalid date' });
+    const r = await (await httpGet(`${req.protocol}://${req.get('host')}/api/fixtures/${d}?force=1`)).json().catch(()=>null);
+    res.json(r || { ok:false });
+  }catch(e){
+    res.status(500).json({ ok:false, error: String(e) });
+  }
 });
 
 // ====== START ======
