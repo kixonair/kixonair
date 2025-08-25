@@ -263,7 +263,9 @@
       el.innerHTML = ''; for (let i=0;i<3;i++) el.appendChild(skeleton());
     });
     try{
-      const r = await fetch('/api/fixtures?date=' + dateStr);
+      const todayStr = ymd(Date.now());
+      const qb = (dateStr > todayStr) ? (`&force=1&_=${Date.now()}`) : '';
+      const r = await fetch('/api/fixtures?date=' + dateStr + qb);
       const j = await r.json();
       ALL = j.fixtures || [];
       renderLists();
