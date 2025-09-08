@@ -22,7 +22,7 @@ const UCL_LOOKAHEAD = (process.env.UCL_LOOKAHEAD ?? '0') === '1'; // default OFF
 const SECONDARY_ON_EMPTY = (process.env.SECONDARY_ON_EMPTY ?? '1') === '1'; // fill quiet days with tier-2
 const TZ_DISPLAY = process.env.TZ_DISPLAY || 'Europe/Bucharest';
 const TZ_OFFSET_MINUTES = Number(process.env.TZ_OFFSET_MINUTES || '180'); // fallback if Intl tz fails
-const BUILD_TAG    = 'hotfix16c-away-logo-fix';
+const BUILD_TAG    = 'hotfix18-nfl-localday';
 
 // ====== LEAGUE SEGMENTS ======
 const UEFA_VARIANTS = [
@@ -39,8 +39,7 @@ function parseListEnv(val, fallbackList){
   const raw = (val ?? '').toString();
   const parts = raw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
   const list = (parts.length ? parts : fallbackList).map(s => s.trim()).filter(Boolean);
-  // unique
-  return Array.from(new Set(list));
+  return Array.from(new Set(list)); // unique
 }
 
 const EU_LEAGUES = parseListEnv(process.env.EU_LEAGUES, [
@@ -186,8 +185,7 @@ function fx({ sport, league, tier, startISO, status, home, away }){
     start_utc: startISO,
     status: status || 'SCHEDULED',
     home: { name: home?.name || '', logo: home?.logo || null },
-    // FIXED: away uses away.logo (was home.logo)
-    away: { name: away?.name || '', logo: away?.logo || null }
+    away: { name: away?.name || '', logo: away?.logo || null } // fixed: proper away logo
   };
 }
 
@@ -244,6 +242,19 @@ async function espnSoccerAll(d){
 }
 async function espnNBA(d){ const b = await espnBoard('basketball/nba', d); return { mapped: mapBoard(b,d,'NBA','NBA',1), boards:[b] }; }
 async function espnNFL(d){ const b = await espnBoard('football/nfl', d); return { mapped: mapBoard(b,d,'NFL','NFL',1), boards:[b] }; }
+
+// NEW: NFL cross-midnight fixer — fetch prev/target/next and map them all to local day d
+async function nflForLocalDay(d){
+  const [b0, bPrev, bNext] = await Promise.all([
+    espnBoard('football/nfl', d),
+    espnBoard('football/nfl', addDays(d, -1)),
+    espnBoard('football/nfl', addDays(d, +1)),
+  ]).catch(() => [null, null, null]);
+
+  const boards = [b0, bPrev, bNext].filter(Boolean);
+  const mapped = boards.flatMap(b => mapBoard(b, d, 'NFL', 'NFL', 1));
+  return { mapped, boards };
+}
 
 // ====== SportsDB fallback (Soccer)
 function buildIsoFromSportsDB(e){
@@ -349,7 +360,7 @@ async function assembleFor(d, debug=false){
     espnSoccerSegments([...UEFA_VARIANTS, ...EU_LEAGUES], d, 1).catch(()=>({ mapped:[], boards:[] })),
     espnSoccerAll(d).catch(()=>({ mapped:[], boards:[] })),
     espnNBA(d).catch(()=>({ mapped:[], boards:[] })),
-    espnNFL(d).catch(()=>({ mapped:[], boards:[] }))
+    nflForLocalDay(d).catch(()=>({ mapped:[], boards:[] }))   // <-- use cross-midnight NFL
   ]);
 
   let soccer = [...(eu.mapped||[]), ...(allSoc.mapped||[])];
