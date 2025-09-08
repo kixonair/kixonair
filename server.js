@@ -22,7 +22,7 @@ const UCL_LOOKAHEAD = (process.env.UCL_LOOKAHEAD ?? '0') === '1'; // default OFF
 const SECONDARY_ON_EMPTY = (process.env.SECONDARY_ON_EMPTY ?? '1') === '1'; // fill quiet days with tier-2
 const TZ_DISPLAY = process.env.TZ_DISPLAY || 'Europe/Bucharest';
 const TZ_OFFSET_MINUTES = Number(process.env.TZ_OFFSET_MINUTES || '180'); // fallback if Intl tz fails
-const BUILD_TAG    = 'hotfix18-nfl-localday';
+const BUILD_TAG    = 'hotfix19-nfl+nba-localday';
 
 // ====== LEAGUE SEGMENTS ======
 const UEFA_VARIANTS = [
@@ -243,14 +243,23 @@ async function espnSoccerAll(d){
 async function espnNBA(d){ const b = await espnBoard('basketball/nba', d); return { mapped: mapBoard(b,d,'NBA','NBA',1), boards:[b] }; }
 async function espnNFL(d){ const b = await espnBoard('football/nfl', d); return { mapped: mapBoard(b,d,'NFL','NFL',1), boards:[b] }; }
 
-// NEW: NFL cross-midnight fixer — fetch prev/target/next and map them all to local day d
+// === Cross-midnight wrappers (Europe/Bucharest local day) ===
+async function nbaForLocalDay(d){
+  const [b0, bPrev, bNext] = await Promise.all([
+    espnBoard('basketball/nba', d),
+    espnBoard('basketball/nba', addDays(d, -1)),
+    espnBoard('basketball/nba', addDays(d, +1)),
+  ]).catch(() => [null, null, null]);
+  const boards = [b0, bPrev, bNext].filter(Boolean);
+  const mapped = boards.flatMap(b => mapBoard(b, d, 'NBA', 'NBA', 1));
+  return { mapped, boards };
+}
 async function nflForLocalDay(d){
   const [b0, bPrev, bNext] = await Promise.all([
     espnBoard('football/nfl', d),
     espnBoard('football/nfl', addDays(d, -1)),
     espnBoard('football/nfl', addDays(d, +1)),
   ]).catch(() => [null, null, null]);
-
   const boards = [b0, bPrev, bNext].filter(Boolean);
   const mapped = boards.flatMap(b => mapBoard(b, d, 'NFL', 'NFL', 1));
   return { mapped, boards };
@@ -359,8 +368,8 @@ async function assembleFor(d, debug=false){
   const [eu, allSoc, nba, nfl] = await Promise.all([
     espnSoccerSegments([...UEFA_VARIANTS, ...EU_LEAGUES], d, 1).catch(()=>({ mapped:[], boards:[] })),
     espnSoccerAll(d).catch(()=>({ mapped:[], boards:[] })),
-    espnNBA(d).catch(()=>({ mapped:[], boards:[] })),
-    nflForLocalDay(d).catch(()=>({ mapped:[], boards:[] }))   // <-- use cross-midnight NFL
+    nbaForLocalDay(d).catch(()=>({ mapped:[], boards:[] })),  // NBA cross-midnight
+    nflForLocalDay(d).catch(()=>({ mapped:[], boards:[] }))   // NFL cross-midnight
   ]);
 
   let soccer = [...(eu.mapped||[]), ...(allSoc.mapped||[])];
