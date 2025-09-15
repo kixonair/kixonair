@@ -228,6 +228,8 @@
     // subsequent logic (such as timers) to detect half‑time and other
     // custom states without parsing the raw API codes again.
     a.dataset.status = statusLabel(fx);
+    // Persist the sport on the dataset for sport‑specific fallback logic in updateCard
+    a.dataset.sport = fx.sport || '';
     var s = slug((fx.home.name || '') + '-vs-' + (fx.away.name || ''));
     var watchHref = WATCH_URL + (WATCH_URL.indexOf('?') === -1 ? '?m=' : '&m=') + encodeURIComponent(s);
     a.innerHTML =
@@ -383,12 +385,24 @@
     // derive status: prefer dataset, otherwise by time
     let st = String(el.dataset.status||'').toUpperCase();
     if (!st || st==='SCHEDULED'){
-      // When no explicit status is provided (SCHEDULED), treat matches as LIVE once they start.
-      // We no longer mark them finished based on a fixed time; finished state will be
-      // determined by the upstream API via fx.status.  Without this, long games (e.g. NFL)
-      // could be prematurely marked finished.
-      if (diff <= 0) st = 'LIVE';
-      else st = 'SCHEDULED';
+      // When no explicit status is provided (SCHEDULED), derive status by comparing
+      // the current time against kickoff with sport‑specific fallbacks.  If a match
+      // has started but not finished according to the API, we treat it as LIVE until
+      // a reasonable duration has elapsed.  This prevents long matches (e.g. NFL)
+      // from staying perpetually live when the upstream feed fails to update.
+      const sport = (el.dataset.sport || '').toUpperCase();
+      let fallbackHours = 4; // default fallback for unknown sports
+      if (sport === 'SOCCER' || sport === 'FOOTBALL') fallbackHours = 2;
+      else if (sport === 'NBA') fallbackHours = 3;
+      else if (sport === 'NFL') fallbackHours = 4;
+      const fallbackMs = fallbackHours * H;
+      if (diff <= 0 && diff > -fallbackMs) {
+        st = 'LIVE';
+      } else if (diff <= -fallbackMs) {
+        st = 'FINISHED';
+      } else {
+        st = 'SCHEDULED';
+      }
     }
 
     if (st==='SCHEDULED'){
