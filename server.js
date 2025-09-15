@@ -172,9 +172,16 @@ function parseEventNameTeams(name){
 }
 
 function statusFromEspn(ev){
-  const s = (ev?.status?.type?.name || ev?.status?.type?.description || '').toUpperCase();
+  const sRaw = ev?.status?.type?.name || ev?.status?.type?.description || '';
+  const s = String(sRaw).toUpperCase();
+  // Finished states: final, postgame, full time
   if (/FINAL|STATUS_FINAL|POSTGAME|FULLTIME|FT/.test(s)) return 'FINISHED';
-  if (/IN_PROGRESS|LIVE|STATUS_IN_PROGRESS|STATUS_HALFTIME/.test(s)) return 'LIVE';
+  // Half‑time: ESPN uses STATUS_HALFTIME for the interval break.  Do
+  // not treat this as live so that the client can display a dedicated
+  // label.
+  if (/STATUS_HALFTIME|HALF\s?TIME/.test(s)) return 'HALF';
+  // Live play in either period
+  if (/IN_PROGRESS|LIVE|STATUS_IN_PROGRESS/.test(s)) return 'LIVE';
   return 'SCHEDULED';
 }
 function fx({ sport, league, tier, startISO, status, home, away }){

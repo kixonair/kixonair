@@ -152,6 +152,7 @@ main{max-width:1040px;margin:0 auto;padding:16px}
 .state.live{ color: var(--live); }
 .state.finished{ color: #b6c2d9; }
 .state.scheduled{ color: var(--text); opacity:.85; }
+.state.half{ color:#fbbf24; }
 .countdown{ margin-top:4px; font-size:12px; color:#9fb3d1; }
 
 /* =====================================================================

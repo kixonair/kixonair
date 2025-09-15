@@ -36,7 +36,16 @@
       <label class="switch" title="Hide youth / reserves / friendlies">
         <input type="checkbox" id="majorOnly"><span>Major only</span>
       </label>
-      <div class="datepick">
+      <!--
+        The original Kixonair UI allowed the user to pick a specific date
+        (today or tomorrow) to view fixtures.  In the redesigned version
+        we instead surface all fixtures scheduled to start within the next
+        48 hours and keep them on screen until they finish.  To avoid
+        confusing interactions we hide the date picker and its associated
+        buttons.  The underlying inputs remain in the markup for
+        potential future use but are hidden via inline style.
+      -->
+      <div class="datepick" style="display:none">
         <input id="date" type="date" aria-label="Pick a date"/>
         <button id="today" class="ghost">Today</button>
         <button id="tomorrow" class="ghost">Tomorrow</button>
@@ -191,9 +200,20 @@
   function imgTag(url, alt){
     return url ? '<img class="badge" src="'+url+'" alt="'+(alt||'')+'" onerror="this.style.display=\'none\'"/>' : '';
   }
+  // Derive a short label for a fixture status.  In addition to the
+  // original states (SCHEDULED, LIVE, FINISHED) we surface a special
+  // "HALF" state for half‑time.  This allows the UI to display
+  // matches at the interval break without incorrectly marking them as
+  // finished or scheduled.  If the upstream API exposes a status like
+  // "HT" or contains the word "HALF" we treat it as half time.  Live
+  // play in either the first or second half continues to show as LIVE.
   function statusLabel(fx){
     const st = (fx.status || '').toUpperCase();
+    // halftime variants
+    if (/\bHT\b/.test(st) || /HALF/.test(st)) return 'HALF';
+    // live play including 1st or 2nd half
     if (/LIVE|IN_PLAY|1ST|2ND/.test(st)) return 'LIVE';
+    // finished matches
     if (/FINISH|FT|ENDED/.test(st)) return 'FINISHED';
     return 'SCHEDULED';
   }
@@ -203,7 +223,10 @@
     var a = document.createElement('div');
     a.className = 'game-card';
     a.dataset.startUtc = fx.start_utc || '';
-    a.dataset.status = (fx.status || 'SCHEDULED');
+    // Store the derived status label on the dataset.  This allows
+    // subsequent logic (such as timers) to detect half‑time and other
+    // custom states without parsing the raw API codes again.
+    a.dataset.status = statusLabel(fx);
     var s = slug((fx.home.name || '') + '-vs-' + (fx.away.name || ''));
     var watchHref = WATCH_URL + (WATCH_URL.indexOf('?') === -1 ? '?m=' : '&m=') + encodeURIComponent(s);
     a.innerHTML =
@@ -275,7 +298,11 @@
     }
   }
 
-  load((function(){ const d = new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); })());
+  // Start by loading upcoming fixtures.  We schedule a refresh every
+  // 15 minutes to keep the list up‑to‑date.  The legacy date‑based
+  // loader is no longer used.
+  loadUpcoming();
+  setInterval(loadUpcoming, 15 * 60 * 1000);
 
 
 // === Kixonair timers: 24h kickoff, countdown, LIVE/Finished pill ===
@@ -310,16 +337,25 @@
     }
 
     if (st==='SCHEDULED'){
+      // Upcoming fixture: show countdown until kick‑off
       if (cd){ cd.textContent = 'Starts in '+fmtCountdown(diff); cd.style.display='block'; }
-      if (state){ state.textContent = 'SCHEDULED'; state.classList.remove('live','finished'); state.classList.add('scheduled'); }
+      if (state){ state.textContent = 'SCHEDULED'; state.classList.remove('live','finished','half'); state.classList.add('scheduled'); }
       if (dot) dot.classList.remove('live');
-    }else if (st==='LIVE'){
+    }else if (st==='HALF'){
+      // Match is at half‑time: treat similar to live but with a unique label
       if (cd) cd.style.display='none';
-      if (state){ state.textContent = 'LIVE'; state.classList.remove('finished','scheduled'); state.classList.add('live'); }
+      if (state){ state.textContent = 'HALF'; state.classList.remove('live','finished','scheduled'); state.classList.add('half'); }
+      // During half time the dot remains red to indicate the match is ongoing
+      if (dot) dot.classList.add('live');
+    }else if (st==='LIVE'){
+      // Match currently in play
+      if (cd) cd.style.display='none';
+      if (state){ state.textContent = 'LIVE'; state.classList.remove('finished','scheduled','half'); state.classList.add('live'); }
       if (dot) dot.classList.add('live');
     }else{
+      // Finished: hide countdown and mark as finished
       if (cd) cd.style.display='none';
-      if (state){ state.textContent = 'FINISHED'; state.classList.remove('live','scheduled'); state.classList.add('finished'); }
+      if (state){ state.textContent = 'FINISHED'; state.classList.remove('live','scheduled','half'); state.classList.add('finished'); }
       if (dot) dot.classList.remove('live');
     }
   }
