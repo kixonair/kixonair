@@ -1,5 +1,3 @@
-
-
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -452,24 +450,13 @@ app.get('/__/probe', async (req, res) => {
 });
 app.get(['/api/fixtures','/api/fixtures/:date'], async (req, res) => {
   try{
-    const raw = (req.params.date ?? req.query.date ?? '');
-    let d = normalizeDateParam(raw);
-    // Default to "today" in your display TZ if no date was supplied
-    if (!d) d = dayOfInTZ(new Date().toISOString(), TZ_DISPLAY);
-
+    const raw = req.params.date || req.query.date;
+    const d = normalizeDateParam(raw);
+    if (!d) return res.status(400).json({ error: 'Invalid date. Use YYYY-MM-DD' });
     const force = (req.query.force === '1' || req.query.force === 'true');
     if (!force){
       const cached = readCache(d);
       if (cached) return res.json(cached);
-    }
-    const payload = await assembleFor(d);
-    writeCache(d, payload);
-    res.json(payload);
-  }catch(e){
-    res.status(500).json({ ok:false, error: String(e) });
-  }
-});
-;
     }
     const payload = await assembleFor(d);
     writeCache(d, payload);

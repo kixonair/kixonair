@@ -298,6 +298,56 @@
     }
   }
 
+  // Load fixtures occurring within the next 48 hours.  This helper fetches
+  // today’s and tomorrow’s fixtures from the backend and filters them
+  // to only include matches that start within the next 48 hours (plus a
+  // small window for matches that have just kicked off).  The resulting
+  // list is stored in the global `ALL` array and the UI is updated.
+  async function loadUpcoming(){
+    // Show skeleton cards while loading
+    ['football','nba','nfl'].forEach(function(id){
+      const el = document.getElementById(id);
+      el.innerHTML = '';
+      for (let i=0;i<3;i++) el.appendChild(skeleton());
+    });
+    try{
+      const now = Date.now();
+      const todayStr = ymd(now);
+      const tomorrowStr = ymd(now + 86400000);
+      const dates = [todayStr, tomorrowStr];
+      const results = await Promise.all(dates.map(async function(d){
+        // force refresh for future dates to avoid stale cache
+        const qb = (d > todayStr) ? (`&force=1&_=${Date.now()}`) : '';
+        const r = await fetch('/api/fixtures?date=' + d + qb);
+        return r.json();
+      }));
+      let combined = [];
+      results.forEach(function(j){
+        if (j && j.fixtures) combined = combined.concat(j.fixtures);
+      });
+      // Filter to only fixtures starting within the next 48h and those recently started.
+      const H48 = 48 * 60 * 60 * 1000;
+      const past = 6 * 60 * 60 * 1000;
+      const filtered = combined.filter(function(fx){
+        const ts = Date.parse(fx.start_utc);
+        if (!isFinite(ts)) return false;
+        const diff = ts - now;
+        return diff < H48 && diff > -past;
+      });
+      ALL = filtered;
+      renderLists();
+      // Override counts message to reflect the 48h window
+      const footballCount = filtered.filter(function(fx){ return fx.sport === 'Soccer'; }).length;
+      const nbaCount = filtered.filter(function(fx){ return fx.sport === 'NBA'; }).length;
+      const nflCount = filtered.filter(function(fx){ return fx.sport === 'NFL'; }).length;
+      document.getElementById('counts').textContent =
+        'Loaded ' + footballCount + ' Football, ' + nbaCount + ' NBA, ' + nflCount + ' NFL (next 48 hours)';
+    }catch(e){
+      document.getElementById('counts').textContent = 'Could not load games. Try again shortly.';
+      ['football','nba','nfl'].forEach(function(id){ setEmpty(document.getElementById(id)); });
+    }
+  }
+
   // Start by loading upcoming fixtures.  We schedule a refresh every
   // 15 minutes to keep the list up‑to‑date.  The legacy date‑based
   // loader is no longer used.
