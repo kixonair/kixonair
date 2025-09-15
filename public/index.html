@@ -213,8 +213,9 @@
     if (/\bHT\b/.test(st) || /HALF/.test(st)) return 'HALF';
     // live play including 1st or 2nd half
     if (/LIVE|IN_PLAY|1ST|2ND/.test(st)) return 'LIVE';
-    // finished matches
-    if (/FINISH|FT|ENDED/.test(st)) return 'FINISHED';
+    // finished matches: treat final, post‑game and full‑time codes as finished.  Use word boundaries
+    // for FT so that "HALFTIME" does not trigger a finished state.
+    if (/STATUS_FINAL|STATUS_POSTGAME|POSTGAME|FINAL|FULL\s?TIME|FULLTIME|ENDED|FINISH(?:ED)?|\bFT\b/.test(st)) return 'FINISHED';
     return 'SCHEDULED';
   }
   function compName(fx){ return fx.league && (fx.league.name || fx.league.code) || ''; }
@@ -327,6 +328,7 @@
       });
       // Filter to only fixtures starting within the next 48h and those recently started.
       const H48 = 48 * 60 * 60 * 1000;
+      // Limit how long finished matches remain visible: remove matches more than 6 hours after kickoff
       const past = 6 * 60 * 60 * 1000;
       const filtered = combined.filter(function(fx){
         const ts = Date.parse(fx.start_utc);
@@ -381,8 +383,12 @@
     // derive status: prefer dataset, otherwise by time
     let st = String(el.dataset.status||'').toUpperCase();
     if (!st || st==='SCHEDULED'){
-      if (diff <= 0 && diff > -6*H) st='LIVE';
-      else if (diff <= -6*H) st='FINISHED';
+      // When no explicit status is provided (SCHEDULED), treat matches as LIVE once they start.
+      // We no longer mark them finished based on a fixed time; finished state will be
+      // determined by the upstream API via fx.status.  Without this, long games (e.g. NFL)
+      // could be prematurely marked finished.
+      if (diff <= 0) st='LIVE';
+      else st='SCHEDULED';
       else st='SCHEDULED';
     }
 

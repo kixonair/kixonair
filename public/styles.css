@@ -80,7 +80,21 @@ main{max-width:1040px;margin:0 auto;padding:16px}
 .feed{display:flex;flex-direction:column;gap:14px}
 
 /* Game Card */
-.game-card{background:var(--card);border:1px solid var(--edge);border-radius:14px;padding:14px}
+.game-card{
+  background:var(--card);
+  border:1px solid var(--edge);
+  border-radius:14px;
+  padding:14px;
+  /* Add depth to cards for a more premium feel */
+  box-shadow:0 4px 12px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.2);
+  transition:transform 0.15s ease-out, box-shadow 0.15s ease-out;
+}
+
+/* Subtle lift and stronger shadow on hover to enhance interactivity */
+.game-card:hover{
+  transform:translateY(-2px);
+  box-shadow:0 8px 16px rgba(0,0,0,0.45), 0 4px 8px rgba(0,0,0,0.3);
+}
 .game-card .gc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .gc-head .left{display:flex;align-items:center;gap:10px}
 .dot{width:8px;height:8px;border-radius:50%;background:#7a8597;display:inline-block}
@@ -98,8 +112,26 @@ main{max-width:1040px;margin:0 auto;padding:16px}
 .score .num{font-size:26px;font-weight:800}
 .score .when{margin-top:4px;color:var(--muted);font-size:12px}
 .gc-foot{display:flex;justify-content:flex-start;padding:8px 4px 0}
-.watch-btn{display:inline-flex;align-items:center;gap:10px;background:#21293a;border:1px solid #2a3650;color:#e5eeff;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:700}
-.watch-btn:hover{background:#27344a;border-color:#344465}
+.watch-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  background:linear-gradient(145deg,#21293a,#2e3750);
+  border:1px solid #2a3650;
+  color:#e5eeff;
+  padding:10px 14px;
+  border-radius:10px;
+  text-decoration:none;
+  font-weight:700;
+  /* Lift button off the page with a soft shadow */
+  box-shadow:0 3px 6px rgba(0,0,0,0.2);
+  transition:background 0.18s ease, box-shadow 0.18s ease;
+}
+.watch-btn:hover{
+  background:#344465;
+  border-color:#41527a;
+  box-shadow:0 4px 8px rgba(0,0,0,0.3);
+}
 .play{width:0;height:0;border-left:10px solid #e5eeff;border-top:6px solid transparent;border-bottom:6px solid transparent;display:inline-block}
 
 /* Skeleton */
