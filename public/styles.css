@@ -214,27 +214,6 @@ main{max-width:1040px;margin:0 auto;padding:16px}
   display:none;
 }
 
-/* === Custom logo sizing ========================================= */
-/* Ensure the new logo renders at an appropriate size on desktop and mobile */
-/* Increase logo size for better visibility */
-/*
- * Increase the default logo dimensions so that it stands out more clearly on
- * larger screens. The logo is now 64 px square on desktop and scales up
- * slightly on smaller viewports. The image itself is allowed to scale
- * down if there isn’t enough room thanks to object‑fit.
- */
-.header .bar .brand img{
-  height:64px;
-  width:64px;
-  object-fit:contain;
-}
-@media(max-width:768px){
-  .header .bar .brand img{
-    height:72px;
-    width:72px;
-  }
-}
-
 @media (max-width:768px){
   /* Show the hamburger button on small screens */
   .menu-btn{display:inline-flex;align-items:center;justify-content:center;}
@@ -312,9 +291,7 @@ main{max-width:1040px;margin:0 auto;padding:16px}
    ===================================================================== */
 @media (max-width: 640px){
   /* Layout space for the brand */
-  /* Make room for the larger logo on very narrow screens by increasing
-     the top padding of the bar. */
-  .header .bar{ position: relative; padding-top: 84px; }
+  .header .bar{ position: relative; padding-top: 72px; }
 
   /* Brand node: try several common wrappers */
   .header .bar .brand,
@@ -336,7 +313,7 @@ main{max-width:1040px;margin:0 auto;padding:16px}
   .header .bar .site-brand img,
   .header .bar a.brand img,
   .header .bar > a:first-child > img{
-    width: 64px; height: 64px;
+    width: 48px; height: 48px;
     border-radius: 12px;
     background: radial-gradient(ellipse at 50% 50%, rgba(255,255,255,0.12), rgba(255,255,255,0));
     border: 1px solid #233048;
