@@ -9,12 +9,14 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css?v=21" />
-<link rel="icon" href="/logo.svg" type="image/svg+xml" />
+<!-- Use a relative path for the favicon to ensure it resolves when served locally or from file:// -->
+<link rel="icon" href="logo.svg" type="image/svg+xml" />
 </head>
 <body>
 <header class="header">
   <div class="bar">
-    <a class="brand" href="/"><img src="/logo.svg" alt="Kixonair" height="28"/></a>
+    <!-- Updated to use the new logo. The relative path ensures the image loads when opened via file protocol. -->
+    <a class="brand brand--no-text" href="./"><img src="logo.svg" alt="Kixonair" height="28"/></a>
   </div>
 </header>
 <main class="mc">
