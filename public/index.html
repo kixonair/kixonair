@@ -24,7 +24,10 @@
     <input id="q" type="text" placeholder="Search team…" aria-label="Search team"/>
     <!-- Mobile menu toggle button. Hidden on larger screens via CSS. -->
     <button id="menuBtn" class="menu-btn" aria-label="Toggle menu">
-      <span class="material-symbols-rounded">menu</span>
+      <!-- Inline SVG hamburger icon to avoid external font dependencies -->
+      <svg class="icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" fill="currentColor"></path>
+      </svg>
     </button>
     <div class="controls">
       <!-- The filters and other toggles remain in the controls container; search was moved above -->
