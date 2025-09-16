@@ -356,3 +356,29 @@ main{max-width:1040px;margin:0 auto;padding:16px}
   .switch{ order: 4; }
   .datepick, .dates, .date-row{ order: 5; width: 100%; display: flex; gap: 8px; overflow-x:auto; }
 }
+
+/* ===================================================================
+   Desktop logo sizing
+   The default header brand image is only 28px tall when loaded via the
+   inline height attribute.  On wider screens this makes the new logo
+   appear too small.  This media query increases the size of the logo
+   for viewports wider than 640px to improve visibility on desktop
+   devices while preserving the mobile layout.  The border and subtle
+   glow mirror the mobile design but are scaled proportionally.
+   =================================================================== */
+@media (min-width: 641px) {
+  .header .bar .brand img,
+  .header .bar .logo img,
+  .header .bar .site-brand img,
+  .header .bar a.brand img,
+  .header .bar > a:first-child > img {
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+    background: radial-gradient(ellipse at 50% 50%, rgba(255,255,255,0.10), rgba(255,255,255,0));
+    border: 1px solid #233048;
+    padding: 6px;
+    object-fit: contain;
+    filter: brightness(1.3) contrast(1.2) drop-shadow(0 2px 10px rgba(0,0,0,.6));
+  }
+}
