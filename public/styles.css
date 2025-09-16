@@ -40,6 +40,23 @@ body{
   background:#0e1620;border:1px solid var(--edge);color:var(--text);
   border-radius:12px;padding:10px 12px;min-width:160px;outline:none
 }
+
+/* Style the main search bar in the header (outside of .controls) */
+#q{
+  background:#0e1620;
+  border:1px solid var(--edge);
+  color:var(--text);
+  border-radius:12px;
+  padding:10px 12px;
+  min-width:200px;
+  max-width:320px;
+  outline:none;
+  flex-grow:1;
+  flex-shrink:0;
+}
+#q::placeholder{
+  color:var(--muted);
+}
 .pill{
   background:var(--pill);border:1px solid var(--edge);color:var(--text);
   border-radius:999px;padding:8px 12px;cursor:pointer
