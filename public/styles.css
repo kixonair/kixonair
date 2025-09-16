@@ -335,6 +335,16 @@ main{max-width:1040px;margin:0 auto;padding:16px}
     letter-spacing: .2px;
     margin-left: 6px;
   }
+  /* Override: remove brand caption on mobile */
+  .header .bar .brand::after,
+  .header .bar .logo::after,
+  .header .bar .site-brand::after,
+  .header .bar a.brand::after,
+  .header .bar > a:first-child::after{
+    content: none !important;
+    display: none !important;
+  }
+
 
   /* Controls stack cleanly */
   .controls{ margin-left: 0; width: 100%; gap: 8px; flex-wrap: wrap; }
@@ -389,5 +399,18 @@ main{max-width:1040px;margin:0 auto;padding:16px}
   /* Push the hamburger menu to the far right */
   #menuBtn {
     margin-left: auto;
+  }
+}
+
+
+/* Desktop: make the logo 56x56 */
+@media (min-width: 641px){
+  .brand img,
+  .header .bar .logo img,
+  .header .bar .site-brand img,
+  .header .bar a.brand img,
+  .header .bar > a:first-child > img{
+    width: 56px;
+    height: 56px;
   }
 }
