@@ -69,8 +69,11 @@ body{
 main{max-width:1040px;margin:0 auto;padding:16px}
 .hero{
   margin:18px 0 10px;
-  background:linear-gradient(120deg,rgba(6,182,212,0.10),rgba(139,92,246,0.10));
-  border:1px solid #0f1622;border-radius:16px;padding:18px
+  /* Make hero more vibrant with a deeper gradient */
+  background:linear-gradient(135deg,rgba(139,92,246,0.20),rgba(6,182,212,0.20));
+  border:1px solid #0f1622;
+  border-radius:16px;
+  padding:18px;
 }
 .hero h1{margin:0 0 6px;font-size:22px}
 .hero p{margin:0;color:var(--muted)}
@@ -85,6 +88,7 @@ main{max-width:1040px;margin:0 auto;padding:16px}
   border:1px solid var(--edge);
   border-radius:14px;
   padding:14px;
+  position:relative;
   /* Add depth to cards for a more premium feel */
   box-shadow:0 4px 12px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.2);
   transition:transform 0.15s ease-out, box-shadow 0.15s ease-out;
@@ -94,6 +98,25 @@ main{max-width:1040px;margin:0 auto;padding:16px}
 .game-card:hover{
   transform:translateY(-2px);
   box-shadow:0 8px 16px rgba(0,0,0,0.45), 0 4px 8px rgba(0,0,0,0.3);
+}
+
+/* Favourite star */
+.game-card .fav{
+  position:absolute;
+  top:8px;
+  right:8px;
+  font-size:18px;
+  color:#485b75;
+  cursor:pointer;
+  user-select:none;
+  transition:color 0.2s ease;
+}
+.game-card .fav.active{
+  color:#facc15;
+}
+.game-card.favourite{
+  border-color:#facc15;
+  box-shadow:0 6px 14px rgba(255,204,0,0.3), 0 3px 6px rgba(255,204,0,0.15);
 }
 .game-card .gc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .gc-head .left{display:flex;align-items:center;gap:10px}
@@ -154,6 +177,62 @@ main{max-width:1040px;margin:0 auto;padding:16px}
 }
 .muted{color:var(--muted)} .small{font-size:12px}
 .hidden{display:none !important}
+
+/* === Mobile menu toggle styles ========================================= */
+/* Button to toggle the collapsible menu. Hidden on desktops by default. */
+.menu-btn{
+  display:none;
+  background:transparent;
+  border:none;
+  color:var(--text);
+  font-size:28px;
+  cursor:pointer;
+  padding:6px;
+  border-radius:8px;
+  line-height:1;
+}
+
+/* Overlay behind the menu; hidden by default */
+.menu-overlay{
+  display:none;
+}
+
+@media (max-width:768px){
+  /* Show the hamburger button on small screens */
+  .menu-btn{display:inline-flex;align-items:center;justify-content:center;}
+  /* Convert controls into an off-canvas panel that slides down */
+  .controls{
+    position:fixed;
+    top:60px; /* approximate header height; adjust if header size changes */
+    left:0;
+    right:0;
+    background:rgba(10,14,20,0.95);
+    padding:16px;
+    flex-direction:column;
+    align-items:stretch;
+    gap:12px;
+    border-bottom-left-radius:12px;
+    border-bottom-right-radius:12px;
+    transform:translateY(-200%);
+    transition:transform 0.3s ease-in-out;
+    z-index:999;
+  }
+  /* When open, slide the controls into view */
+  .controls.open{
+    transform:translateY(0);
+  }
+  /* Display the overlay when menu is open */
+  .menu-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.5);
+    z-index:998;
+  }
+  .menu-overlay.active{display:block;}
+  /* Ensure search input spans full width on mobile */
+  .bar > input[type="text"]{flex:1 1 100%;min-width:0;}
+}
 
 /* === Mobile polish: general ========================================== */
 :root{ --safe-top: env(safe-area-inset-top); --safe-bottom: env(safe-area-inset-bottom); }

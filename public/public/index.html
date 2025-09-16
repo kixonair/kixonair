@@ -15,8 +15,14 @@
 <header class="header">
   <div class="bar">
     <a class="brand" href="/"><img src="/logo.svg" alt="Kixonair" height="28"/></a>
+    <!-- Search bar sits outside the collapsible controls so it remains accessible on mobile -->
+    <input id="q" type="text" placeholder="Search team…" aria-label="Search team"/>
+    <!-- Mobile menu toggle button. Hidden on larger screens via CSS. -->
+    <button id="menuBtn" class="menu-btn" aria-label="Toggle menu">
+      <span class="material-symbols-rounded">menu</span>
+    </button>
     <div class="controls">
-      <input id="q" type="text" placeholder="Search team…" aria-label="Search team"/>
+      <!-- The filters and other toggles remain in the controls container; search was moved above -->
       <div class="filters" role="tablist">
         <button class="pill active" data-sport="all">All</button>
         <button class="pill" data-sport="Football">Football</button>
@@ -31,12 +37,23 @@
       <label class="switch" title="Hide youth / reserves / friendlies">
         <input type="checkbox" id="majorOnly"><span>Major only</span>
       </label>
-      <div class="datepick">
+      <!--
+        The original Kixonair UI allowed the user to pick a specific date
+        (today or tomorrow) to view fixtures.  In the redesigned version
+        we instead surface all fixtures scheduled to start within the next
+        48 hours and keep them on screen until they finish.  To avoid
+        confusing interactions we hide the date picker and its associated
+        buttons.  The underlying inputs remain in the markup for
+        potential future use but are hidden via inline style.
+      -->
+      <div class="datepick" style="display:none">
         <input id="date" type="date" aria-label="Pick a date"/>
         <button id="today" class="ghost">Today</button>
         <button id="tomorrow" class="ghost">Tomorrow</button>
       </div>
     </div>
+    <!-- Overlay for mobile menu. Appears behind controls when menu is open. -->
+    <div id="menuOverlay" class="menu-overlay"></div>
   </div>
 </header>
 
@@ -182,6 +199,24 @@
 
   const q = document.getElementById('q');
   q.addEventListener('input', function(){ renderLists(); });
+
+  // === Mobile menu toggling ===
+  // When the viewport is narrow (mobile), we collapse the filters and toggles into a slide-down menu.
+  // The search input remains visible at all times. Clicking the hamburger button toggles
+  // the visibility of the controls container and overlay. Clicking the overlay closes it.
+  const menuBtn = document.getElementById('menuBtn');
+  const controlsEl = document.querySelector('.controls');
+  const menuOverlay = document.getElementById('menuOverlay');
+  if (menuBtn && controlsEl && menuOverlay) {
+    menuBtn.addEventListener('click', function(){
+      const open = controlsEl.classList.toggle('open');
+      menuOverlay.classList.toggle('active', open);
+    });
+    menuOverlay.addEventListener('click', function(){
+      controlsEl.classList.remove('open');
+      menuOverlay.classList.remove('active');
+    });
+  }
 
   function imgTag(url, alt){
     return url ? '<img class="badge" src="'+url+'" alt="'+(alt||'')+'" onerror="this.style.display=\'none\'"/>' : '';

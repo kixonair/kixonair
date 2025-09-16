@@ -20,8 +20,14 @@
 <header class="header">
   <div class="bar">
     <a class="brand" href="/"><img src="/logo.svg" alt="Kixonair" height="28"/></a>
+    <!-- Search bar sits outside the collapsible controls so it remains accessible on mobile -->
+    <input id="q" type="text" placeholder="Search team…" aria-label="Search team"/>
+    <!-- Mobile menu toggle button. Hidden on larger screens via CSS. -->
+    <button id="menuBtn" class="menu-btn" aria-label="Toggle menu">
+      <span class="material-symbols-rounded">menu</span>
+    </button>
     <div class="controls">
-      <input id="q" type="text" placeholder="Search team…" aria-label="Search team"/>
+      <!-- The filters and other toggles remain in the controls container; search was moved above -->
       <div class="filters" role="tablist">
         <button class="pill active" data-sport="all">All</button>
         <button class="pill" data-sport="Football">Football</button>
@@ -51,6 +57,8 @@
         <button id="tomorrow" class="ghost">Tomorrow</button>
       </div>
     </div>
+    <!-- Overlay for mobile menu. Appears behind controls when menu is open. -->
+    <div id="menuOverlay" class="menu-overlay"></div>
   </div>
 </header>
 
@@ -98,6 +106,34 @@
   let activeSport = 'all';
   let leagueKey = 'all';
   let ALL = [];
+
+  // === Favourites ===
+  // Store an array of slugs in localStorage to persist favourited games across sessions.
+  function getFavs(){
+    try{
+      const raw = localStorage.getItem('favourites');
+      return raw ? JSON.parse(raw) : [];
+    }catch{ return []; }
+  }
+  function saveFavs(arr){
+    try{
+      localStorage.setItem('favourites', JSON.stringify(arr));
+    }catch{}
+  }
+  function isFav(slug){
+    if (!slug) return false;
+    const favs = getFavs();
+    return favs.includes(slug);
+  }
+  function toggleFav(slug){
+    if (!slug) return;
+    let favs = getFavs();
+    const idx = favs.indexOf(slug);
+    if (idx >= 0) favs.splice(idx,1); else favs.push(slug);
+    saveFavs(favs);
+    renderLists();
+  }
+
 
   function nameOf(fx){ return (fx.league && (fx.league.name || fx.league.code)) || ''; }
   function codeIs(fx, code){ return fx.league && (fx.league.code||'').toUpperCase() === code.toUpperCase(); }
@@ -197,6 +233,24 @@
   const q = document.getElementById('q');
   q.addEventListener('input', function(){ renderLists(); });
 
+  // === Mobile menu toggling ===
+  // When the viewport is narrow (mobile), we collapse the filters and toggles into a slide-down menu.
+  // The search input remains visible at all times. Clicking the hamburger button toggles
+  // the visibility of the controls container and overlay. Clicking the overlay closes it.
+  const menuBtn = document.getElementById('menuBtn');
+  const controlsEl = document.querySelector('.controls');
+  const menuOverlay = document.getElementById('menuOverlay');
+  if (menuBtn && controlsEl && menuOverlay) {
+    menuBtn.addEventListener('click', function(){
+      const open = controlsEl.classList.toggle('open');
+      menuOverlay.classList.toggle('active', open);
+    });
+    menuOverlay.addEventListener('click', function(){
+      controlsEl.classList.remove('open');
+      menuOverlay.classList.remove('active');
+    });
+  }
+
   function imgTag(url, alt){
     return url ? '<img class="badge" src="'+url+'" alt="'+(alt||'')+'" onerror="this.style.display=\'none\'"/>' : '';
   }
@@ -232,11 +286,17 @@
     a.dataset.sport = fx.sport || '';
     var s = slug((fx.home.name || '') + '-vs-' + (fx.away.name || ''));
     var watchHref = WATCH_URL + (WATCH_URL.indexOf('?') === -1 ? '?m=' : '&m=') + encodeURIComponent(s);
+    // Build the inner HTML of the card.  We include a favourite toggle (★) in the head
+    // so users can mark games they care about.  The slug is stored on the dataset
+    // for toggle handling.
+    a.dataset.slug = s;
     a.innerHTML =
       '<div class="gc-head">' +
         '<div class="left"><span class="dot '+(statusLabel(fx)==='LIVE'?'live':'')+'"></span>' +
         '<span class="state">'+ statusLabel(fx) +'</span>' +
         '<div class="comp">'+ compName(fx) +'</div></div>' +
+        // favourite star (clickable)
+        '<span class="fav" title="Favourite">★</span>' +
         '<div class="sport-tag">'+ ((fx.sport==='Soccer')?'Football':fx.sport) +'</div>' +
       '</div>' +
       '<div class="gc-main">' +
@@ -267,8 +327,24 @@
       if (!arr.length) { setEmpty(el); return; }
       let final = arr.slice();
       if (term) final = final.filter(function(fx){ return (fx.home.name + ' ' + fx.away.name).toLowerCase().includes(term); });
-      final.sort(function(a,b){ return new Date(a.start_utc) - new Date(b.start_utc); })
-           .forEach(function(fx){ el.appendChild(card(fx)); });
+      // Sort fixtures by favourite status (favourites first) then by start time
+      final.sort(function(a,b){
+        const favA = isFav(slug((a.home.name||'')+'-vs-'+(a.away.name||''))) ? 1 : 0;
+        const favB = isFav(slug((b.home.name||'')+'-vs-'+(b.away.name||''))) ? 1 : 0;
+        if (favA !== favB) return favB - favA; // favourites come first
+        return new Date(a.start_utc) - new Date(b.start_utc);
+      })
+      .forEach(function(fx){
+        const cardEl = card(fx);
+        // Mark favourites on card and star
+        const slugVal = cardEl.dataset.slug;
+        if (isFav(slugVal)){
+          cardEl.classList.add('favourite');
+          const star = cardEl.querySelector('.fav');
+          if (star) star.classList.add('active');
+        }
+        el.appendChild(cardEl);
+      });
       if (!final.length) setEmpty(el);
     }
 
@@ -358,6 +434,20 @@
   loadUpcoming();
   setInterval(loadUpcoming, 15 * 60 * 1000);
 
+  // Handle favourite toggles.  Use event delegation on the document to
+  // capture clicks on the star icon.  When a favourite star is clicked,
+  // toggle its state and persist the updated list.  The slug is stored on
+  // the card element (data-slug).  After toggling, re-render lists to
+  // update ordering and colours.
+  document.addEventListener('click', function(evt){
+    const target = evt.target;
+    if (target && target.classList.contains('fav')){
+      const card = target.closest('.game-card');
+      if (!card) return;
+      const slugVal = card.dataset.slug;
+      toggleFav(slugVal);
+    }
+  });
 
 // === Kixonair timers: 24h kickoff, countdown, LIVE/Finished pill ===
 (function(){
