@@ -36,6 +36,7 @@
         <button class="pill" data-sport="Football">Football</button>
         <button class="pill" data-sport="NBA">NBA</button>
         <button class="pill" data-sport="NFL">NFL</button>
+        <button class="pill" data-sport="NHL">NHL</button>
       </div>
       <div class="league-wrap" id="leagueWrap">
         <button class="pill" id="leagueToggle" aria-expanded="false" aria-controls="leagueMenu">Leagues ▾</button>
@@ -86,6 +87,11 @@
   <section class="section" data-sport="NFL">
     <h2>🏈 NFL</h2>
     <div id="nfl" class="feed"></div>
+  </section>
+
+  <section class="section" data-sport="NHL">
+    <h2>🏒 NHL</h2>
+    <div id="nhl" class="feed"></div>
   </section>
 </main>
 
@@ -320,6 +326,7 @@
     const footballAll = ALL.filter(function(fx){ return fx.sport === 'Soccer'; });
     const nba = ALL.filter(function(fx){ return fx.sport === 'NBA'; });
     const nfl = ALL.filter(function(fx){ return fx.sport === 'NFL'; });
+    const nhl = ALL.filter(function(fx){ return fx.sport === 'NHL'; });
 
     const league = LEAGUES.find(function(x){ return x.key === leagueKey; }) || LEAGUES[0];
     const footballPre = footballAll.filter(function(fx){ return league.test(fx); });
@@ -355,16 +362,17 @@
     fill(football, 'football');
     fill(nba, 'nba');
     fill(nfl, 'nfl');
+    fill(nhl, 'nhl');
 
     document.getElementById('counts').textContent =
       'Loaded ' + football.length + ' Football (of ' + footballPre.length +
       (majorOnlyEl.checked ? ' after Major filter' : '') + '), ' +
-      nba.length + ' NBA, ' + nfl.length + ' NFL for ' + dateEl.value;
+      nba.length + ' NBA, ' + nfl.length + ' NFL, ' + nhl.length + ' NHL for ' + dateEl.value;
     renderVisibility();
   }
 
   async function load(dateStr){
-    ['football','nba','nfl'].forEach(function(id){
+    ['football','nba','nfl','nhl'].forEach(function(id){
       const el = document.getElementById(id);
       el.innerHTML = ''; for (let i=0;i<3;i++) el.appendChild(skeleton());
     });
@@ -377,7 +385,7 @@
       renderLists();
     }catch(e){
       document.getElementById('counts').textContent = 'Could not load games. Try again shortly.';
-      ['football','nba','nfl'].forEach(function(id){ setEmpty(document.getElementById(id)); });
+      ['football','nba','nfl','nhl'].forEach(function(id){ setEmpty(document.getElementById(id)); });
     }
   }
 
@@ -388,7 +396,7 @@
   // list is stored in the global `ALL` array and the UI is updated.
   async function loadUpcoming(){
     // Show skeleton cards while loading
-    ['football','nba','nfl'].forEach(function(id){
+    ['football','nba','nfl','nhl'].forEach(function(id){
       const el = document.getElementById(id);
       el.innerHTML = '';
       for (let i=0;i<3;i++) el.appendChild(skeleton());
@@ -428,7 +436,7 @@
         'Loaded ' + footballCount + ' Football, ' + nbaCount + ' NBA, ' + nflCount + ' NFL (next 48 hours)';
     }catch(e){
       document.getElementById('counts').textContent = 'Could not load games. Try again shortly.';
-      ['football','nba','nfl'].forEach(function(id){ setEmpty(document.getElementById(id)); });
+      ['football','nba','nfl','nhl'].forEach(function(id){ setEmpty(document.getElementById(id)); });
     }
   }
 

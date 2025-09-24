@@ -270,6 +270,17 @@ async function nflForLocalDay(d){
   const boards = [b0, bPrev, bNext].filter(Boolean);
   const mapped = boards.flatMap(b => mapBoard(b, d, 'NFL', 'NFL', 1));
   return { mapped, boards };
+async function nhlForLocalDay(d){
+  const [b0, bPrev, bNext] = await Promise.all([
+    espnBoard('hockey/nhl', d),
+    espnBoard('hockey/nhl', addDays(d, -1)),
+    espnBoard('hockey/nhl', addDays(d, +1)),
+  ]).catch(() => [null, null, null]);
+  const boards = [b0, bPrev, bNext].filter(Boolean);
+  const mapped = boards.flatMap(b => mapBoard(b, d, 'NHL', 'NHL', 1));
+  return { mapped, boards };
+}
+
 }
 
 // ====== SportsDB fallback (Soccer)
@@ -372,7 +383,7 @@ function isUEFA(name=''){
 }
 
 async function assembleFor(d, debug=false){
-  const [eu, allSoc, nba, nfl] = await Promise.all([
+  const [eu, allSoc, nba, nfl, nhl] = await Promise.all([
     espnSoccerSegments([...UEFA_VARIANTS, ...EU_LEAGUES], d, 1).catch(()=>({ mapped:[], boards:[] })),
     espnSoccerAll(d).catch(()=>({ mapped:[], boards:[] })),
     nbaForLocalDay(d).catch(()=>({ mapped:[], boards:[] })),  // NBA cross-midnight
