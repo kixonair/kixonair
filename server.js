@@ -270,6 +270,11 @@ async function nflForLocalDay(d){
   const boards = [b0, bPrev, bNext].filter(Boolean);
   const mapped = boards.flatMap(b => mapBoard(b, d, 'NFL', 'NFL', 1));
   return { mapped, boards };
+
+
+}
+
+
 async function nhlForLocalDay(d){
   const [b0, bPrev, bNext] = await Promise.all([
     espnBoard('hockey/nhl', d),
@@ -279,8 +284,6 @@ async function nhlForLocalDay(d){
   const boards = [b0, bPrev, bNext].filter(Boolean);
   const mapped = boards.flatMap(b => mapBoard(b, d, 'NHL', 'NHL', 1));
   return { mapped, boards };
-}
-
 }
 
 // ====== SportsDB fallback (Soccer)
@@ -387,7 +390,8 @@ async function assembleFor(d, debug=false){
     espnSoccerSegments([...UEFA_VARIANTS, ...EU_LEAGUES], d, 1).catch(()=>({ mapped:[], boards:[] })),
     espnSoccerAll(d).catch(()=>({ mapped:[], boards:[] })),
     nbaForLocalDay(d).catch(()=>({ mapped:[], boards:[] })),  // NBA cross-midnight
-    nflForLocalDay(d).catch(()=>({ mapped:[], boards:[] }))   // NFL cross-midnight
+    nflForLocalDay(d).catch(()=>({ mapped:[], boards:[] })),   // NFL cross-midnight
+    nhlForLocalDay(d).catch(()=>({ mapped:[], boards:[] }))    // NHL cross-midnight
   ]);
 
   let soccer = [...(eu.mapped||[]), ...(allSoc.mapped||[])];
@@ -421,7 +425,7 @@ async function assembleFor(d, debug=false){
     if ((sdb.mapped||[]).length && !notice) notice = 'Filled using SportsDB fallback';
   }
 
-  const merged = dedupePreferEarliest([ ...soccer, ...((nba.mapped)||[]), ...((nfl.mapped)||[]) ]);
+  const merged = dedupePreferEarliest([ ...soccer, ...((nba.mapped)||[]), ...((nfl.mapped)||[]), ...((nhl.mapped)||[]) ]);
   const meta = {
     date: d,
     tz: TZ_DISPLAY,
@@ -431,7 +435,8 @@ async function assembleFor(d, debug=false){
       espn_soccer_tier2: merged.filter(f => f.tier === 2).length,
       sportsdb_soccer: sdb.mapped?.length || 0,
       espn_nba: nba.mapped?.length || 0,
-      espn_nfl: nfl.mapped?.length || 0
+      espn_nfl: nfl.mapped?.length || 0,
+      espn_nhl: nhl?.mapped?.length || 0
     }
   };
   if (notice) meta.notice = notice;
