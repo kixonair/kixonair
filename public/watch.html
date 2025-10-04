@@ -104,10 +104,16 @@
 </main>
 
 <script>
+  let __loadFailTimer = null;
+  function hideLoading(){
+    try{ document.getElementById('loadingOverlay').classList.add('hidden'); }catch{}
+    if(__loadFailTimer){ clearTimeout(__loadFailTimer); __loadFailTimer=null; }
+  }
+
   function qs(name){ return new URLSearchParams(location.search).get(name) || ''; }
   function set(el, val){ el.textContent = val || ''; }
 
-  async function load(){ document.getElementById('loadingOverlay').classList.remove('hidden');
+  async function load(){ document.getElementById('loadingOverlay').classList.remove('hidden'); __loadFailTimer = setTimeout(hideLoading, 5000);
     const id = qs('id');
     const maybeSrc = qs('src'); // if someone manually adds it, we only show a button, no embedding.
 
@@ -229,7 +235,7 @@
     return cands[0];
   }
 
-  async function load(){ document.getElementById('loadingOverlay').classList.remove('hidden');
+  async function load(){ document.getElementById('loadingOverlay').classList.remove('hidden'); __loadFailTimer = setTimeout(hideLoading, 5000);
     const id = qs('id');
     const maybeSrc = qs('src');
     if (maybeSrc){
