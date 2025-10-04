@@ -167,8 +167,46 @@ app.get('/api/fixtures', async (req, res) => {
   res.json({ date: dateStr, fixtures: merged, meta: { issues, sourceCounts } });
 });
 
+
 app.get('/api/fixture/:id', async (req,res) => {
-  res.json({ fixture: null });
+  try{
+    const id = String(req.params.id || '');
+    if (!id) return res.status(400).json({ ok:false, error:'missing id', fixture:null });
+
+    // helper to fetch fixtures for a given date using the existing /api/fixtures logic
+    async function fixturesFor(dateStr){
+      const url = `${req.protocol}://${req.get('host')}/api/fixtures?date=${encodeURIComponent(dateStr)}`;
+      try{
+        const r = await fetch(url);
+        const j = await r.json();
+        return Array.isArray(j?.fixtures) ? j.fixtures : [];
+      }catch{return [];}
+    }
+
+    const today = new Date().toISOString().slice(0,10);
+    const day = d => new Date(Date.UTC(+d.slice(0,4), +d.slice(5,7)-1, +d.slice(8,10)));
+    function addDays(dateStr, delta){
+      const dt = day(dateStr); dt.setUTCDate(dt.getUTCDate()+delta);
+      return dt.toISOString().slice(0,10);
+    }
+
+    // search today, then -1, then +1
+    const windows = [today, addDays(today,-1), addDays(today,1)];
+    let found = null;
+    for (const d of windows){
+      const list = await fixturesFor(d);
+      found = list.find(fx => String(fx.id) === id) || null;
+      if (found){
+        return res.json({ ok:true, fixture: found, date: d });
+      }
+    }
+
+    // not found
+    res.status(404).json({ ok:false, error:'not found', fixture:null });
+  }catch(e){
+    res.status(500).json({ ok:false, error:String(e), fixture:null });
+  }
+});
 });
 
 app.get('*', (req,res) => res.sendFile(process.cwd() + '/public/index.html'));

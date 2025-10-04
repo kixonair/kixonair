@@ -1,45 +1,117 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="theme-color" content="#0b0f14" />
-<title>Kixonair — Match Center</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=21" />
-<!-- Use a relative path for the favicon to ensure it resolves when served locally or from file:// -->
-<link rel="icon" href="logo.svg" type="image/svg+xml" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b0f14" />
+  <title>Kixonair — Match Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css?v=21" />
+  <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+  <style>
+    .mc-wrap{max-width:1100px;margin:0 auto;padding:16px}
+    .mc-header{display:flex;align-items:center;gap:16px;margin-bottom:12px}
+    .mc-logos{display:flex;align-items:center;gap:16px}
+    .mc-logos img{width:56px;height:56px;object-fit:contain}
+    .h1{font-size:28px;font-weight:800}
+    .muted{opacity:.7}
+    .grid2{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:8px}
+    .player{width:100%;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden;margin:18px 0}
+    .player iframe,.player video{width:100%;height:100%;border:0;display:block}
+    .badgelike{display:inline-block;border:1px solid #2a2f37;border-radius:999px;padding:4px 10px;font-size:12px}
+    .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .back{color:#9ab; text-decoration:none}
+  </style>
 </head>
 <body>
 <header class="header">
   <div class="bar">
-    <!-- Updated to use the new logo. The relative path ensures the image loads when opened via file protocol. -->
-    <a class="brand brand--no-text" href="./"><img src="logo.svg" alt="Kixonair" height="28"/></a>
+    <a class="brand" href="/"><img src="/logo.svg" alt="Kixonair" height="28"/></a>
+    <div style="flex:1"></div>
   </div>
 </header>
-<main class="mc">
-  <div id="card" class="card">Loading…</div>
-  <p class="muted center small">We don’t host streams. Check your local rights holder for live coverage.</p>
+
+<main class="mc-wrap">
+  <div class="topbar">
+    <a class="back" href="/" aria-label="Back to schedule">← Back to schedule</a>
+    <span class="badgelike" id="compBadge"></span>
+  </div>
+
+  <div id="matchHeader" class="mc-header"></div>
+  <div id="meta" class="grid2"></div>
+
+  <section class="player" id="player"></section>
+  <section id="fallbackMsg" class="muted" style="display:none">
+    No stream source was provided. Open this page from the schedule or add one to the URL like:
+    <code>?id=12345&amp;src=https%3A%2F%2Fexample.com%2Fstream.m3u8</code>
+  </section>
 </main>
+
 <script>
-  const p = new URLSearchParams(location.search);
-  const id = p.get('id') || '';
+  function qs(name){ return new URLSearchParams(location.search).get(name) || ''; }
+  function isVideoUrl(u){ return /\.m3u8($|\?)/i.test(u) || /\.mp4($|\?)/i.test(u) || /\.webm($|\?)/i.test(u); }
+
   async function load(){
-    const el = document.getElementById('card');
-    if(!id){ el.textContent='Missing match id.'; return; }
-    const r = await fetch(`/api/fixture/${id}`);
-    const j = await r.json();
-    const fx = j.fixture;
-    if(!fx){ el.textContent='Not found.'; return; }
-    el.innerHTML = `
-      <div class="h1">${fx.home.name} <span class="vs">vs</span> ${fx.away.name}</div>
-      <div class="grid2">
-        <div><span class="muted small">Kickoff</span><div>${new Date(fx.start_utc).toLocaleString()}</div></div>
-        <div><span class="muted small">Competition</span><div>${fx.league?.name || ''}</div></div>
-        <div><span class="muted small">Status</span><div>${fx.status || 'SCHEDULED'}</div></div>
-      </div>`;
+    const id  = qs('id');
+    const src = qs('src'); // optional
+
+    const head = document.getElementById('matchHeader');
+    const meta = document.getElementById('meta');
+    const player = document.getElementById('player');
+    const compBadge = document.getElementById('compBadge');
+    const fallbackMsg = document.getElementById('fallbackMsg');
+
+    if(!id){
+      head.innerHTML = '<div class="h1">Missing match id</div>';
+      fallbackMsg.style.display = 'block';
+      return;
+    }
+
+    // Try today, fallback ±1 day automatically from the API route on the server
+    const r = await fetch('/api/fixture/' + encodeURIComponent(id)).catch(()=>null);
+    const j = r ? await r.json().catch(()=>null) : null;
+    const fx = j && (j.fixture || j.data || j) || {};
+
+    const homeName = fx.home?.name || fx.homeTeam?.name || 'Home';
+    const awayName = fx.away?.name || fx.awayTeam?.name || 'Away';
+    const homeLogo = fx.home?.logo || fx.homeTeam?.logo || fx.home?.logoUrl || '';
+    const awayLogo = fx.away?.logo || fx.awayTeam?.logo || fx.away?.logoUrl || '';
+    const league   = fx.league?.name || fx.competition || '';
+    const status   = fx.status || fx.state || 'SCHEDULED';
+    const kickoff  = fx.start_utc || fx.kickoff || fx.start || fx.date || '';
+
+    compBadge.textContent = league || '';
+
+    head.innerHTML = `
+      <div class="mc-logos">
+        ${homeLogo ? `<img src="${homeLogo}" alt="${homeName} logo" />` : ''}
+      </div>
+      <div>
+        <div class="h1">${homeName} <span class="vs">vs</span> ${awayName}</div>
+        <div class="muted">${status}</div>
+      </div>
+      <div class="mc-logos">
+        ${awayLogo ? `<img src="${awayLogo}" alt="${awayName} logo" />` : ''}
+      </div>
+    `;
+
+    meta.innerHTML = `
+      <div><span class="muted small">Kickoff</span><div>${kickoff ? new Date(kickoff).toLocaleString() : '-'}</div></div>
+      <div><span class="muted small">Competition</span><div>${league || '-'}</div></div>
+      <div><span class="muted small">Status</span><div>${status || '-'}</div></div>
+    `;
+
+    if (src){
+      if (isVideoUrl(src)){
+        player.innerHTML = `<video controls playsinline autoplay><source src="${src}">Your browser does not support the video tag.</video>`;
+      } else {
+        player.innerHTML = `<iframe src="${src}" allowfullscreen loading="lazy" referrerpolicy="no-referrer"></iframe>`;
+      }
+    } else {
+      fallbackMsg.style.display = 'block';
+    }
   }
   load();
 </script>
