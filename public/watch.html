@@ -41,7 +41,18 @@
 
   /* Hide long badge on narrow screens to avoid overlap; full league remains in meta section */
   @media(max-width:600px){ #leagueBadge{display:none} }
+
+  /* Loading overlay */
+  .loading{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(3,8,14,.78);backdrop-filter:saturate(120%) blur(3px);z-index:50;transition:opacity .25s ease}
+  .loading.hidden{opacity:0;pointer-events:none}
+  .spinner{position:relative;width:74px;height:74px;margin-bottom:10px}
+  .ring{position:absolute;inset:0;border-radius:50%;border:4px solid rgba(255,255,255,.14);border-top-color:rgba(255,255,255,.6);animation:spin 1s linear infinite}
+  .dot{position:absolute;top:50%;left:50%;width:14px;height:14px;background:#22c55e;border-radius:50%;transform:translate(-50%,-50%);animation:pulse 1.2s ease-in-out infinite}
+  .loadingText{font-size:14px;opacity:.9}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(.85);opacity:.85}50%{transform:translate(-50%,-50%) scale(1.12);opacity:1}}
 </style>
+
 
 
 
@@ -101,7 +112,7 @@
   function qs(name){ return new URLSearchParams(location.search).get(name) || ''; }
   function set(el, val){ el.textContent = val || ''; }
 
-  async function load(){ document.getElementById('loadingOverlay').classList.remove('hidden'); __loadFailTimer = setTimeout(hideLoading, 5000);
+  async function load(){ showLoading(); __loadFailTimer = setTimeout(hideLoading, 5000); document.getElementById('loadingOverlay').classList.remove('hidden'); __loadFailTimer = setTimeout(hideLoading, 5000);
     const id = qs('id');
     const maybeSrc = qs('src'); // if someone manually adds it, we only show a button, no embedding.
 
