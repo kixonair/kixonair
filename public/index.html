@@ -299,7 +299,7 @@
 var fallbackId = (fx.start_utc ? (s + '@' + fx.start_utc) : s);
 var fixtureId = fx.id || fx.uid || fx.eventId || fx.esId || fallbackId;
 var originalStream = (typeof buildRileyUrl === 'function') ? buildRileyUrl(fx) : (('https://rileymarker.com/sportlo' + (('https://rileymarker.com/sportlo'.indexOf('?')===-1?'?m=':'&m=')) + encodeURIComponent(s)));
-var watchHref = WATCH_URL + '?id=' + encodeURIComponent(fixtureId) + (originalStream ? '&src=' + encodeURIComponent(originalStream) : '');
+var watchHref = WATCH_URL + '?id=' + encodeURIComponent(fixtureId);
     // Build the inner HTML of the card.  We include a favourite toggle (★) in the head
     // so users can mark games they care about.  The slug is stored on the dataset
     // for toggle handling.

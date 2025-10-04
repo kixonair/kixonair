@@ -169,12 +169,120 @@ app.get('/api/fixtures', async (req, res) => {
 
 
 
+
 app.get('/api/fixture/:id', async (req,res) => {
   try{
-    const raw = String(req.params.id || '');
+    const raw = decodeURIComponent(String(req.params.id || ''));
     if (!raw) return res.status(400).json({ ok:false, error:'missing id', fixture:null });
 
+    // Helpers
     const today = new Date().toISOString().slice(0,10);
+    const day = d => new Date(Date.UTC(+d.slice(0,4), +d.slice(5,7)-1, +d.slice(8,10)));
+    const fmt = dt => dt.toISOString().slice(0,10);
+    const addDays = (dateStr, delta) => { const dt = day(dateStr); dt.setUTCDate(dt.getUTCDate()+delta); return fmt(dt); };
+
+    function slug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
+    function teamSlug(s){
+      const sl = slug(s);
+      // also return a trimmed alias (first or last word) to match nicknames like "spurs", "leeds"
+      const parts = sl.split('-').filter(Boolean);
+      const first = parts[0] || sl;
+      const last = parts[parts.length-1] || sl;
+      return { full: sl, first, last };
+    }
+    function timeMs(x){
+      if (!x) return NaN;
+      const s = String(x);
+      try { return Date.parse(s.length >= 20 ? s : s.endsWith('Z') ? s : s + 'Z'); } catch { return NaN; }
+    }
+
+    // Parse "slug@iso" or raw id forms
+    const hasAt = raw.includes('@');
+    const slugPart = slug(hasAt ? raw.split('@')[0] : raw);
+    const isoPart  = hasAt ? raw.split('@')[1] : null;
+    const isoMs = timeMs(isoPart);
+    const dateHint = isNaN(isoMs) ? null : fmt(new Date(isoMs));
+
+    async function fixturesFor(dateStr){
+      const base = `${req.protocol}://${req.get('host')}/api/fixtures?date=${encodeURIComponent(dateStr)}`;
+      const r = await fetch(base).catch(()=>null);
+      const j = r ? await r.json().catch(()=>null) : null;
+      return Array.isArray(j?.fixtures) ? j.fixtures : [];
+    }
+
+    // First try exact id over a small date window (derived from isoPart if present)
+    const searchDays = dateHint ? [dateHint, addDays(dateHint,-1), addDays(dateHint,1)] : [today, addDays(today,-1), addDays(today,1)];
+    for (const d of searchDays){
+      const list = await fixturesFor(d);
+      let found = list.find(fx => String(fx.id) === raw);
+      if (found) return res.json({ ok:true, fixture: found, date: d });
+    }
+
+    // Fuzzy search by slug (supports nicknames like "leeds" / "spurs" and order-insensitive)
+    function matchesSlug(fx){
+      const nmHome = teamSlug(fx.home?.name || '');
+      const nmAway = teamSlug(fx.away?.name || '');
+      const pairA = `${nmHome.full}-vs-${nmAway.full}`;
+      const pairB = `${nmAway.full}-vs-${nmHome.full}`;
+      if (slugPart === slug(pairA) || slugPart === slug(pairB)) return true;
+
+      // tokens from slugPart around "-vs-"
+      const toks = slugPart.split('-vs-');
+      if (toks.length === 2){
+        const a = toks[0], b = toks[1];
+        const homeHit = nmHome.full.includes(a) || nmHome.first === a || nmHome.last === a;
+        const awayHit = nmAway.full.includes(b) || nmAway.first === b || nmAway.last === b;
+        const revHomeHit = nmHome.full.includes(b) || nmHome.first === b || nmHome.last === b;
+        const revAwayHit = nmAway.full.includes(a) || nmAway.first === a || nmAway.last === a;
+        if ((homeHit && awayHit) || (revHomeHit && revAwayHit)) return true;
+      }else{
+        // Single token mode: allow either team to contain it
+        const a = toks[0];
+        if (nmHome.full.includes(a) || nmAway.full.includes(a)) return true;
+      }
+      return false;
+    }
+
+    // Build candidate set across a wider window in case of timezone offsets (+/- 3 days)
+    const wideDays = dateHint
+      ? [addDays(dateHint,-1), dateHint, addDays(dateHint,1), addDays(dateHint,2)]
+      : [addDays(today,-2), addDays(today,-1), today, addDays(today,1), addDays(today,2)];
+    let candidates = [];
+    for (const d of wideDays){
+      const list = await fixturesFor(d);
+      candidates.push(...list.filter(matchesSlug));
+    }
+
+    if (candidates.length){
+      // If we have an iso time, pick the closest by start time (±6 hours tolerance)
+      if (!isNaN(isoMs)){
+        candidates.sort((a,b) => Math.abs(timeMs(a.start_utc)-isoMs) - Math.abs(timeMs(b.start_utc)-isoMs));
+        const best = candidates[0];
+        if (Math.abs(timeMs(best.start_utc) - isoMs) <= 6*3600*1000){
+          return res.json({ ok:true, fixture: best });
+        }
+      }
+      // Else just pick the soonest upcoming or the first
+      candidates.sort((a,b) => timeMs(a.start_utc) - timeMs(b.start_utc));
+      return res.json({ ok:true, fixture: candidates[0] });
+    }
+
+    // Final fallback: scan exact id match over a broader 7-day window (if the id was some other form)
+    const broader = [];
+    for (let d=-3; d<=3; d++){
+      const dateStr = addDays(today, d);
+      const list = await fixturesFor(dateStr);
+      const hit = list.find(fx => String(fx.id) === raw);
+      if (hit){ return res.json({ ok:true, fixture: hit, date: dateStr }); }
+      broader.push(...list);
+    }
+
+    res.status(404).json({ ok:false, error:'not found', fixture:null });
+  }catch(e){
+    res.status(500).json({ ok:false, error:String(e), fixture:null });
+  }
+});
+const today = new Date().toISOString().slice(0,10);
     const day = d => new Date(Date.UTC(+d.slice(0,4), +d.slice(5,7)-1, +d.slice(8,10)));
     const fmt = dt => dt.toISOString().slice(0,10);
     const addDays = (dateStr, delta) => { const dt = day(dateStr); dt.setUTCDate(dt.getUTCDate()+delta); return fmt(dt); };
