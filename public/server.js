@@ -366,5 +366,27 @@ const today = new Date().toISOString().slice(0,10);
 });
 });
 
+
+// Lightweight embed proxy for Riley to bypass frame-ancestors/XFO when legally allowed.
+// NOTE: Use only if you have rights to display the content within your site.
+app.get('/embed/riley', async (req,res) => {
+  try{
+    const m = String(req.query.m || '').trim();
+    if (!m) return res.status(400).type('text').send('missing m');
+    const url = 'https://rileymarker.com/sportlo?m=' + encodeURIComponent(m);
+    const r = await fetch(url);
+    const text = await r.text();
+    // Remove frame-blocking headers and set a permissive CSP for this response
+    res.removeHeader('x-frame-options');
+    res.set('Content-Security-Policy', '');
+    res.type('html');
+    // Ensure relative asset URLs resolve correctly on Riley
+    const withBase = text.replace(/<head(\s*?)>/i, '<head$1><base href="https://rileymarker.com/">');
+    res.send(withBase);
+  }catch(e){
+    res.status(500).type('text').send('proxy error');
+  }
+});
+
 app.get('*', (req,res) => res.sendFile(process.cwd() + '/public/index.html'));
 app.listen(PORT, () => console.log('Kixonair v16 running on :'+PORT));
