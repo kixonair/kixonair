@@ -55,7 +55,7 @@
 
   async function load(){
     const id  = qs('id');
-    const src = qs('src'); // optional
+    const src = qs('src');
 
     const head = document.getElementById('matchHeader');
     const meta = document.getElementById('meta');
@@ -63,54 +63,46 @@
     const compBadge = document.getElementById('compBadge');
     const fallbackMsg = document.getElementById('fallbackMsg');
 
-    if(!id){
-      head.innerHTML = '<div class="h1">Missing match id</div>';
-      fallbackMsg.style.display = 'block';
-      return;
-    }
-
-    // Try today, fallback ±1 day automatically from the API route on the server
-    const r = await fetch('/api/fixture/' + encodeURIComponent(id)).catch(()=>null);
-    const j = r ? await r.json().catch(()=>null) : null;
-    const fx = j && (j.fixture || j.data || j) || {};
-
-    const homeName = fx.home?.name || fx.homeTeam?.name || 'Home';
-    const awayName = fx.away?.name || fx.awayTeam?.name || 'Away';
-    const homeLogo = fx.home?.logo || fx.homeTeam?.logo || fx.home?.logoUrl || '';
-    const awayLogo = fx.away?.logo || fx.awayTeam?.logo || fx.away?.logoUrl || '';
-    const league   = fx.league?.name || fx.competition || '';
-    const status   = fx.status || fx.state || 'SCHEDULED';
-    const kickoff  = fx.start_utc || fx.kickoff || fx.start || fx.date || '';
-
-    compBadge.textContent = league || '';
-
-    head.innerHTML = `
-      <div class="mc-logos">
-        ${homeLogo ? `<img src="${homeLogo}" alt="${homeName} logo" />` : ''}
-      </div>
-      <div>
-        <div class="h1">${homeName} <span class="vs">vs</span> ${awayName}</div>
-        <div class="muted">${status}</div>
-      </div>
-      <div class="mc-logos">
-        ${awayLogo ? `<img src="${awayLogo}" alt="${awayName} logo" />` : ''}
-      </div>
-    `;
-
-    meta.innerHTML = `
-      <div><span class="muted small">Kickoff</span><div>${kickoff ? new Date(kickoff).toLocaleString() : '-'}</div></div>
-      <div><span class="muted small">Competition</span><div>${league || '-'}</div></div>
-      <div><span class="muted small">Status</span><div>${status || '-'}</div></div>
-    `;
-
-    if (src){
-      if (isVideoUrl(src)){
+    // 1) Render player immediately if src is present
+    if (src) {
+      if (isVideoUrl(src)) {
         player.innerHTML = `<video controls playsinline autoplay><source src="${src}">Your browser does not support the video tag.</video>`;
       } else {
         player.innerHTML = `<iframe src="${src}" allowfullscreen loading="lazy" referrerpolicy="no-referrer"></iframe>`;
       }
     } else {
       fallbackMsg.style.display = 'block';
+    }
+
+    // 2) If we have an id, hydrate match info; else just show a generic title
+    if (!id) {
+      head.innerHTML = '<div class="h1">Live stream</div>';
+      return;
+    }
+
+    try {
+      const r = await fetch('/api/fixture/' + encodeURIComponent(id));
+      const j = await r.json();
+      const fx = j.fixture || j || {};
+      const homeName = fx.home?.name || 'Home';
+      const awayName = fx.away?.name || 'Away';
+      const homeLogo = fx.home?.logo || '';
+      const awayLogo = fx.away?.logo || '';
+      const league   = fx.league?.name || '';
+      const status   = fx.status || 'SCHEDULED';
+      const kickoff  = fx.start_utc || '';
+
+      compBadge.textContent = league || '';
+      head.innerHTML = `
+        <div class="mc-logos">${homeLogo ? `<img src="${homeLogo}" alt="${homeName} logo" />` : ''}</div>
+        <div><div class="h1">${homeName} <span class="vs">vs</span> ${awayName}</div><div class="muted">${status}</div></div>
+        <div class="mc-logos">${awayLogo ? `<img src="${awayLogo}" alt="${awayName} logo" />` : ''}</div>`;
+      meta.innerHTML = `
+        <div><span class="muted small">Kickoff</span><div>${kickoff ? new Date(kickoff).toLocaleString() : '-'}</div></div>
+        <div><span class="muted small">Competition</span><div>${league || '-'}</div></div>
+        <div><span class="muted small">Status</span><div>${status || '-'}</div></div>`;
+    } catch(e) {
+      head.innerHTML = '<div class="h1">Live stream</div>';
     }
   }
   load();

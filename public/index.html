@@ -295,7 +295,9 @@
     // Persist the sport on the dataset for sport‑specific fallback logic in updateCard
     a.dataset.sport = fx.sport || '';
     var s = slug((fx.home.name || '') + '-vs-' + (fx.away.name || ''));
-var fixtureId = fx.id || fx.uid || fx.eventId || fx.esId || '';
+// Make a stable fallback id if the API item has no id
+var fallbackId = (fx.start_utc ? (s + '@' + fx.start_utc) : s);
+var fixtureId = fx.id || fx.uid || fx.eventId || fx.esId || fallbackId;
 var originalStream = (typeof buildRileyUrl === 'function') ? buildRileyUrl(fx) : (('https://rileymarker.com/sportlo' + (('https://rileymarker.com/sportlo'.indexOf('?')===-1?'?m=':'&m=')) + encodeURIComponent(s)));
 var watchHref = WATCH_URL + '?id=' + encodeURIComponent(fixtureId) + (originalStream ? '&src=' + encodeURIComponent(originalStream) : '');
     // Build the inner HTML of the card.  We include a favourite toggle (★) in the head

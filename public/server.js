@@ -168,12 +168,59 @@ app.get('/api/fixtures', async (req, res) => {
 });
 
 
+
 app.get('/api/fixture/:id', async (req,res) => {
   try{
-    const id = String(req.params.id || '');
-    if (!id) return res.status(400).json({ ok:false, error:'missing id', fixture:null });
+    const raw = String(req.params.id || '');
+    if (!raw) return res.status(400).json({ ok:false, error:'missing id', fixture:null });
 
-    // helper to fetch fixtures for a given date using the existing /api/fixtures logic
+    const today = new Date().toISOString().slice(0,10);
+    const day = d => new Date(Date.UTC(+d.slice(0,4), +d.slice(5,7)-1, +d.slice(8,10)));
+    const fmt = dt => dt.toISOString().slice(0,10);
+    const addDays = (dateStr, delta) => { const dt = day(dateStr); dt.setUTCDate(dt.getUTCDate()+delta); return fmt(dt); };
+    const windows = [today, addDays(today,-1), addDays(today,1)];
+
+    function slug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
+    function sameTeams(a,b){
+      return slug(a.home?.name)===slug(b.home?.name) && slug(a.away?.name)===slug(b.away?.name);
+    }
+
+    const [maybeSlug, maybeIso] = raw.includes('@') ? [raw.split('@')[0], raw.split('@')[1]] : [raw, null];
+    const targetSlug = slug(maybeSlug).replace(/-vs-/, '-vs-'); // normalize
+
+    async function fixturesFor(dateStr){
+      const base = `${req.protocol}://${req.get('host')}/api/fixtures?date=${encodeURIComponent(dateStr)}`;
+      const r = await fetch(base).catch(()=>null);
+      const j = r ? await r.json().catch(()=>null) : null;
+      return Array.isArray(j?.fixtures) ? j.fixtures : [];
+    }
+
+    for (const d of windows){
+      const list = await fixturesFor(d);
+      // 1) exact id
+      let found = list.find(fx => String(fx.id) === raw);
+      if (found) return res.json({ ok:true, fixture: found, date: d });
+
+      // 2) slug@iso form
+      if (maybeIso){
+        found = list.find(fx => slug(`${fx.home?.name}-vs-${fx.away?.name}`) === targetSlug && String(fx.start_utc||'').startsWith(maybeIso.slice(0,16)));
+        if (found) return res.json({ ok:true, fixture: found, date: d });
+      }
+
+      // 3) slug-only match (pick the closest by start_utc)
+      const candidates = list.filter(fx => slug(`${fx.home?.name}-vs-${fx.away?.name}`) === targetSlug);
+      if (candidates.length){
+        candidates.sort((a,b) => Math.abs(new Date(a.start_utc) - new Date()) - Math.abs(new Date(b.start_utc) - new Date()));
+        return res.json({ ok:true, fixture: candidates[0], date: d });
+      }
+    }
+
+    res.status(404).json({ ok:false, error:'not found', fixture:null });
+  }catch(e){
+    res.status(500).json({ ok:false, error:String(e), fixture:null });
+  }
+});
+// helper to fetch fixtures for a given date using the existing /api/fixtures logic
     async function fixturesFor(dateStr){
       const url = `${req.protocol}://${req.get('host')}/api/fixtures?date=${encodeURIComponent(dateStr)}`;
       try{
