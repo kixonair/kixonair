@@ -109,5 +109,131 @@
   }
   load();
 </script>
+
+<script>
+  function qs(name){ return new URLSearchParams(location.search).get(name) || ''; }
+  function slug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
+  function capWords(s){ return String(s||'').split(/[-\s]+/).map(w => w? w[0].toUpperCase()+w.slice(1):'').join(' '); }
+  function timeMs(x){ try{ return Date.parse(String(x)); }catch{return NaN;} }
+
+  async function hydrateFromFixture(fx){
+    const homeName = fx.home?.name || 'Home';
+    const awayName = fx.away?.name || 'Away';
+    const homeLogo = fx.home?.logo || '';
+    const awayLogo = fx.away?.logo || '';
+    const league   = fx.league?.name || '';
+    const status   = fx.status || 'SCHEDULED';
+    const kickoff  = fx.start_utc || '';
+
+    document.getElementById('homeName').textContent = homeName;
+    document.getElementById('awayName').textContent = awayName;
+    document.getElementById('homeLogo').src = homeLogo || '/logo.svg';
+    document.getElementById('awayLogo').src = awayLogo || '/logo.svg';
+    document.getElementById('leagueBadge').textContent = league || '';
+    document.getElementById('league').textContent = league || '-';
+    document.getElementById('state').textContent = status || '-';
+    document.getElementById('kickoff').textContent = kickoff ? new Date(kickoff).toLocaleString() : '-';
+    document.getElementById('statusLine').textContent = status || '';
+  }
+
+  async function clientSearch(slugPart, isoHint){
+    function teamTokens(name){
+      const s = slug(name);
+      const parts = s.split('-').filter(Boolean);
+      const first = parts[0] || s, last = parts[parts.length-1] || s;
+      return { full:s, first, last };
+    }
+    function matchSlug(fx){
+      const nmHome = teamTokens(fx.home?.name || '');
+      const nmAway = teamTokens(fx.away?.name || '');
+      const pairA = slug(nmHome.full + '-vs-' + nmAway.full);
+      const pairB = slug(nmAway.full + '-vs-' + nmHome.full);
+      if (slugPart === pairA || slugPart === pairB) return true;
+      const toks = slugPart.split('-vs-');
+      if (toks.length === 2){
+        const a=toks[0], b=toks[1];
+        const hitAB = (nmHome.full.includes(a) || nmHome.first===a || nmHome.last===a) && (nmAway.full.includes(b) || nmAway.first===b || nmAway.last===b);
+        const hitBA = (nmHome.full.includes(b) || nmHome.first===b || nmHome.last===b) && (nmAway.full.includes(a) || nmAway.first===a || nmAway.last===a);
+        return hitAB || hitBA;
+      }
+      return false;
+    }
+    async function fixturesFor(dateStr){
+      const r = await fetch('/api/fixtures?date=' + encodeURIComponent(dateStr)).catch(()=>null);
+      const j = r ? await r.json().catch(()=>null) : null;
+      return Array.isArray(j?.fixtures) ? j.fixtures : [];
+    }
+    function ymdFromIso(x){
+      if (!x) return null;
+      try{ return String(x).slice(0,10); }catch{return null;}
+    }
+    const today = new Date().toISOString().slice(0,10);
+    function addDays(dateStr, delta){
+      const dt = new Date(Date.UTC(+dateStr.slice(0,4), +dateStr.slice(5,7)-1, +dateStr.slice(8,10)));
+      dt.setUTCDate(dt.getUTCDate()+delta);
+      return dt.toISOString().slice(0,10);
+    }
+    const base = ymdFromIso(isoHint) || today;
+    const days = [addDays(base,-1), base, addDays(base,1), addDays(base,2)];
+    let cands = [];
+    for (const d of days){
+      const list = await fixturesFor(d);
+      cands.push(...list.filter(matchSlug));
+    }
+    if (!cands.length) return null;
+    const tHint = timeMs(isoHint);
+    if (!Number.isNaN(tHint)){
+      cands.sort((a,b)=> Math.abs(timeMs(a.start_utc)-tHint) - Math.abs(timeMs(b.start_utc)-tHint));
+    }
+    return cands[0];
+  }
+
+  async function load(){
+    const id = qs('id');
+    const maybeSrc = qs('src');
+    if (maybeSrc){
+      const a = document.getElementById('extLink');
+      a.href = maybeSrc;
+      document.getElementById('extLinkWrap').style.display = 'block';
+    }
+
+    // Pre-fill names from slug so the page looks contextual even before data loads
+    if (id && id.includes('@')){
+      const slugPart = id.split('@')[0];
+      const toks = slugPart.split('-vs-');
+      if (toks.length === 2){
+        document.getElementById('homeName').textContent = capWords(toks[0]);
+        document.getElementById('awayName').textContent = capWords(toks[1]);
+      }
+    }
+
+    if (!id){ document.getElementById('statusLine').textContent='Missing match id'; return; }
+
+    // Primary: server resolver
+    let fx = null;
+    try{
+      const r = await fetch('/api/fixture/' + encodeURIComponent(id));
+      if (r.ok){
+        const j = await r.json();
+        fx = j && (j.fixture || j.fixture === null ? j.fixture : null);
+      }
+    }catch(e){ /* ignore */ }
+
+    if (fx){ await hydrateFromFixture(fx); return; }
+
+    // Fallback: client-side search across /api/fixtures
+    try{
+      const hasAt = id.includes('@');
+      const slugPart = slug(hasAt ? id.split('@')[0] : id);
+      const isoHint  = hasAt ? id.split('@')[1] : null;
+      const hit = await clientSearch(slugPart, isoHint);
+      if (hit){ await hydrateFromFixture(hit); return; }
+    }catch(e){ /* ignore */ }
+
+    document.getElementById('statusLine').textContent = 'Could not load match data.';
+  }
+  load();
+</script>
 </body>
+
 </html>
