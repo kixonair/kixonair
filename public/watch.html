@@ -51,7 +51,16 @@
   .loadingText{font-size:14px;opacity:.9}
   @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(.85);opacity:.85}50%{transform:translate(-50%,-50%) scale(1.12);opacity:1}}
+
+  /* Inline drawer for Riley */
+  .drawer{margin-top:12px;border:1px solid #2a2f37;border-radius:12px;overflow:hidden;background:#0b0f14}
+  .drawer.hidden{display:none}
+  .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #1c2230}
+  .drawer-title{font-weight:700}
+  .drawer-body{position:relative;width:100%;height:min(70vh, 720px);background:#000}
+  .drawer-body iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 </style>
+
 
 
 
@@ -78,6 +87,7 @@
   <div class="headerbar">
     <a class="btn" href="/" aria-label="Back to schedule">← Back</a><div class="center"></div>
     <span id="leagueBadge" class="badge"></span>
+<button id="showStream" class="btn" type="button">Show Stream</button>
   </div>
 
   <div class="teams">
@@ -93,7 +103,15 @@
     <div><span class="muted small">Status</span><div id="state">-</div></div>
   </div>
 
-  <section class="player" id="player">
+  <section class="player" id="player"></section>
+<div id="inlineDrawer" class="drawer hidden">
+  <div class="drawer-head">
+    <div class="drawer-title">Riley stream (inline)</div>
+    <button id="closeDrawer" class="btn" type="button">Close</button>
+  </div>
+  <div class="drawer-body"><iframe id="rileyFrame" allowfullscreen referrerpolicy="no-referrer"></iframe></div>
+</div>
+
     <div class="muted">No stream connected. Add one later — this page is dedicated to the match data.</div>
   </section>
 
@@ -279,6 +297,41 @@
     document.getElementById('statusLine').textContent = 'Could not load match data.';
   }
   load();
+
+  // === Riley inline drawer logic ===
+  function buildRileyUrlFromFixture(fx){
+    const home = fx?.home?.name || ''; const away = fx?.away?.name || '';
+    return 'https://rileymarker.com/sportlo?m=' + encodeURIComponent(slugify(home + '-vs-' + away));
+  }
+  function openRileyInline(primaryUrl, slug){
+    const dr = document.getElementById('inlineDrawer');
+    const f  = document.getElementById('rileyFrame');
+    dr.classList.remove('hidden');
+    // try direct first; if it doesn't load quickly, fall back to local proxy
+    let switched = false;
+    f.src = primaryUrl;
+    const to = setTimeout(()=>{
+      if (!switched){
+        switched = true;
+        f.src = '/embed/riley?m=' + encodeURIComponent(slug);
+      }
+    }, 1500);
+    f.onload = () => { clearTimeout(to); };
+  }
+  (function wireDrawer(){
+    const btn = document.getElementById('showStream');
+    const close = document.getElementById('closeDrawer');
+    btn?.addEventListener('click', () => {
+      const existingSrc = new URLSearchParams(location.search).get('src');
+      if (existingSrc){
+        openRileyInline(existingSrc, '');
+      } else if (window.__lastFixture){
+        const slug = slugify(`${window.__lastFixture?.home?.name||''}-vs-${window.__lastFixture?.away?.name||''}`);
+        openRileyInline(buildRileyUrlFromFixture(window.__lastFixture), slug);
+      }
+    });
+    close?.addEventListener('click', () => document.getElementById('inlineDrawer').classList.add('hidden'));
+  })();
 </script>
 </body>
 
