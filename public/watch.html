@@ -95,22 +95,38 @@
   const $ = id => document.getElementById(id);
   function minutesSince(dt){ try{ return (Date.now() - Date.parse(dt))/60000; } catch { return NaN; } }
   function normalizeStatus(fx){
-    const raw = String(fx?.status || fx?.state || '').trim();
-    const lc = raw.toLowerCase();
-    const ko = fx?.start_utc || fx?.kickoff || fx?.date || null;
+  const raw = String(fx?.status || fx?.state || '').trim();
+  const lc  = raw.toLowerCase();
+  const ko  = fx?.start_utc || fx?.kickoff || fx?.date || null;
 
-    // Clear half-time variants
-    if (['ht','half-time','halftime','interval'].some(k => lc === k) || 'half' in lc):
-        return 'Half-time';
+  // Half-time variants
+  if (['ht','half-time','halftime','interval'].some(k => lc === k) || lc.includes('half')) {
+    return 'Half-time';
+  }
 
-    // If the feed says finished but we're in the 35–70 min window from kickoff,
-    // treat it as the mid-game break instead of full-time.
-    const m = minutesSince(ko);
-    if ((lc === 'finished' || lc === 'ft' || lc.includes('full')) && !isNaN(m) && m > 35 && m < 70){
-      return 'Half-time';
-    }
+  // If feed says finished but we're in 35–70 mins from kickoff -> still halftime
+  const m = minutesSince(ko);
+  if ((lc === 'finished' || lc === 'ft' || lc.includes('full')) && !isNaN(m) && m > 35 && m < 70) {
+    return 'Half-time';
+  }
 
-    // Live play
+  // Live play
+  if (
+    lc.includes('live') || lc === '1h' || lc === '2h' ||
+    lc.includes('in play') || lc.includes('1st') || lc.includes('2nd')
+  ) {
+    return 'LIVE';
+  }
+
+  // Other common states
+  if (lc.includes('postponed') || lc.includes('suspended')) return 'POSTP.';
+  if (lc.includes('cancel')) return 'CANCELLED';
+  if (lc.includes('delayed')) return 'DELAYED';
+  if (lc.includes('finished') || lc === 'ft' || lc.includes('full')) return 'FINISHED';
+
+  return 'SCHEDULED';
+}
+// Live play
     if (lc.includes('live') || lc === '1h' || lc === '2h' || lc.includes('in play')) return 'LIVE';
 
     // Scheduled / upcoming
