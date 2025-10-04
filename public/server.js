@@ -1,6 +1,7 @@
 // Kixonair server v16 — ALL MATCHES
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import fetch from 'node-fetch';
 
 const app = express();
@@ -9,7 +10,8 @@ const PORT = process.env.PORT || 3000;
 const ORIGINS = (process.env.ALLOW_ORIGINS || 'https://kixonair.com,https://www.kixonair.com,https://kixonair.onrender.com')
   .split(',').map(s => s.trim());
 app.use(cors({ origin: (origin, cb) => cb(null, !origin || ORIGINS.includes(origin)), credentials: false }));
-app.use(express.static('public'));
+app.use(compression());
+app.use(express.static('public', { maxAge: '1h', etag: true }));
 app.get('/health', (req,res) => res.type('text').send('ok'));
 
 const APISPORTS_KEY = process.env.APISPORTS_KEY || '';
