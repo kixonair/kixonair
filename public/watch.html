@@ -115,7 +115,10 @@
     <div class="muted">No stream connected. Add one later — this page is dedicated to the match data.</div>
   </section>
 
-  <div id="extLinkWrap" style="display:none;text-align:center">
+  <div style="text-align:center; margin-top:8px;">
+  <button id="openServer1" class="btn" type="button">Server 1</button>
+</div>
+<div id="extLinkWrap" style="display:none;text-align:center">
     <a id="extLink" class="btn" target="_blank" rel="noopener">Open external stream ↗</a>
   </div>
 </main>
@@ -331,6 +334,30 @@
       }
     });
     close?.addEventListener('click', () => document.getElementById('inlineDrawer').classList.add('hidden'));
+  })();
+
+  // === Server 1 drawer wiring ===
+  function server1UrlFromFixture(fx){
+    const home = fx?.home?.name || ''; const away = fx?.away?.name || '';
+    const slug = slugify(home + '-vs-' + away);
+    return '/embed/riley?m=' + encodeURIComponent(slug);
+  }
+  (function wireServer1(){
+    const btn = document.getElementById('openServer1');
+    const close = document.getElementById('closeDrawer');
+    btn?.addEventListener('click', () => {
+      const dr = document.getElementById('inlineDrawer');
+      const f  = document.getElementById('rileyFrame');
+      let url = null;
+      const qs = new URLSearchParams(location.search);
+      const direct = qs.get('src');
+      if (direct){ url = direct; } 
+      else if (window.__lastFixture){ url = server1UrlFromFixture(window.__lastFixture); }
+      if (!url){ return; }
+      dr.classList.remove('hidden');
+      f.src = url;
+    });
+    close?.addEventListener('click', ()=> document.getElementById('inlineDrawer').classList.add('hidden'));
   })();
 </script>
 </body>
