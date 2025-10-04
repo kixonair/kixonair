@@ -89,31 +89,6 @@
   function slug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
   function capWords(s){ return String(s||'').split(/[-\s]+/).map(w => w? w[0].toUpperCase()+w.slice(1):'').join(' '); }
   const $ = id => document.getElementById(id);
-  function minutesSince(dt){ try{ return (Date.now() - Date.parse(dt))/60000; } catch { return NaN; } }
-  function normalizeStatus(fx){
-    const raw = String(fx?.status || fx?.state || '').trim();
-    const lc = raw.toLowerCase();
-    const ko = fx?.start_utc || fx?.kickoff || fx?.date || null;
-
-    // Clear half-time variants
-    if (['ht','half-time','halftime','interval'].some(k => lc === k) or 'half' in lc):
-        return 'Half-time';
-
-    // If the feed says finished but we're in the 35–70 min window from kickoff,
-    // treat it as the mid-game break instead of full-time.
-    const m = minutesSince(ko);
-    if ((lc === 'finished' or lc === 'ft' or lc.includes('full')) and !isNaN(m) and m > 35 and m < 70){
-      return 'Half-time';
-    }
-
-    // Live play
-    if (lc.includes('live') or lc === '1h' or lc === '2h' or lc.includes('in play')) return 'LIVE';
-
-    // Scheduled / upcoming
-    if (!raw) return 'SCHEDULED';
-    return raw.toUpperCase();
-  }
-
 
   function renderServerButtonsFromSlug(sl){
     const bar = $('serverBar'); if (!bar) return;
@@ -187,9 +162,9 @@
     $('homeLogo').src = homeLogo || '/logo.svg';
     $('awayLogo').src = awayLogo || '/logo.svg';
     $('leagueBadge').textContent = league || ''; $('league').textContent = league || '-';
-    $('state').textContent = normalizeStatus(fx);
+    $('state').textContent = status || '-';
     $('kickoff').textContent = kickoff ? new Date(kickoff).toLocaleString() : '-';
-    $('statusLine').textContent = normalizeStatus(fx);
+    $('statusLine').textContent = status || '';
 
     renderServerButtonsFromFixture(fx);
     hideLoading();
