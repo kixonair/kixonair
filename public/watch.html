@@ -59,7 +59,12 @@
   .drawer-title{font-weight:700}
   .drawer-body{position:relative;width:100%;height:min(70vh, 720px);background:#000}
   .drawer-body iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+
+  .serverbar .sbtn{ display:inline-flex; align-items:center; justify-content:center; min-width:110px;
+    border:1px solid #2a2f37; border-radius:12px; padding:10px 14px; text-decoration:none; color:#cbd5e1 }
+  .serverbar .sbtn:hover{ background:#121821 }
 </style>
+
 
 
 
@@ -103,11 +108,8 @@
     <div><span class="muted small">Status</span><div id="state">-</div></div>
   </div>
 
-  <section class="player" id="player"></section>
-<div id="inlineDrawer" class="drawer hidden">
-  <div class="drawer-head">
-    <div class="drawer-title">Riley stream (inline)</div>
-    <button id="closeDrawer" class="btn" type="button">Close</button>
+  
+<button id="closeDrawer" class="btn" type="button">Close</button>
   </div>
   <div class="drawer-body"><iframe id="rileyFrame" allowfullscreen referrerpolicy="no-referrer"></iframe></div>
 </div>
@@ -135,7 +137,8 @@
 
   async function load(){ showLoading(); __loadFailTimer = setTimeout(hideLoading, 3000); document.getElementById('loadingOverlay').classList.remove('hidden'); __loadFailTimer = setTimeout(hideLoading, 3000);
     const id = qs('id');
-    const maybeSrc = qs('src'); // if someone manually adds it, we only show a button, no embedding.
+    const maybeSrc = qs('src');
+    if (maybeSrc) { try{ renderServerButtons(null); }catch{} } // if someone manually adds it, we only show a button, no embedding.
 
     if (maybeSrc){
       const a = document.getElementById('extLink');
@@ -258,6 +261,7 @@
   async function load(){ document.getElementById('loadingOverlay').classList.remove('hidden'); __loadFailTimer = setTimeout(hideLoading, 3000);
     const id = qs('id');
     const maybeSrc = qs('src');
+    if (maybeSrc) { try{ renderServerButtons(null); }catch{} }
     if (maybeSrc){
       const a = document.getElementById('extLink');
       a.href = maybeSrc;
