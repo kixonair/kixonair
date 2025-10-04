@@ -282,5 +282,98 @@
   }
   setInterval(refreshStatus, 60000);
 </script>
+
+<!-- WATCH_PATCH_START -->
+<script>
+(async () => {
+  const $ = s => document.querySelector(s);
+  const hideLoading = () => $('#loading, .loading, [data-loading]')?.remove();
+
+  window.addEventListener('error', e => console.log('[JS error]', e.message, e.error));
+  window.addEventListener('unhandledrejection', e => console.log('[Promise rejection]', e.reason));
+
+  function minutesSince(iso){
+    const d = iso ? new Date(iso) : null;
+    if (!d || isNaN(d)) return NaN;
+    return Math.floor((Date.now() - d.getTime())/60000);
+  }
+
+  function normalizeStatus(fx){
+    const raw = String(fx?.status || fx?.state || '').trim();
+    const lc  = raw.toLowerCase();
+    const ko  = fx?.start_utc || fx?.kickoff || fx?.date || null;
+    if (['ht','half-time','halftime','interval'].some(k => lc === k) || lc.includes('half')) return 'Half-time';
+    const m = minutesSince(ko);
+    if ((lc === 'finished' || lc === 'ft' || lc.includes('full')) && !isNaN(m) && m > 35 && m < 70) return 'Half-time';
+    if (lc.includes('live') || lc === '1h' || lc === '2h' || lc.includes('in play') || lc.includes('1st') || lc.includes('2nd')) return 'LIVE';
+    if (lc.includes('postponed') || lc.includes('suspended')) return 'POSTP.';
+    if (lc.includes('cancel')) return 'CANCELLED';
+    if (lc.includes('delayed')) return 'DELAYED';
+    if (lc.includes('finished') || lc === 'ft' || lc.includes('full')) return 'FINISHED';
+    return 'SCHEDULED';
+  }
+
+  async function tryFetchFixture(id){
+    const attempts = [];
+    const raw = id;
+    const enc = encodeURIComponent(id);
+    let slug = null, date = null;
+    if (id.includes('@')) {
+      const parts = id.split('@');
+      slug = parts[0];
+      date = parts.slice(1).join('@');
+    }
+    // Try common shapes
+    attempts.push(`/api/fixture/${raw}`);                 // no encoding
+    attempts.push(`/api/fixture/${enc}`);                 // encoded segment
+    attempts.push(`/api/fixture?id=${enc}`);              // as query
+    if (slug && date) {
+      attempts.push(`/api/fixture/${slug}/${date}`);      // two path params (raw)
+      attempts.push(`/api/fixture/${slug}/${encodeURIComponent(date)}`); // encoded date
+      attempts.push(`/api/fixture?slug=${encodeURIComponent(slug)}&date=${encodeURIComponent(date)}`); // query pair
+    }
+
+    let lastError;
+    for (const url of attempts) {
+      try {
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        console.log('[TRY]', url, res.status);
+        if (!res.ok) { lastError = new Error('HTTP '+res.status+' for '+url); continue; }
+        let data;
+        const text = await res.text();
+        try { data = JSON.parse(text); } catch { lastError = new Error('Non-JSON for '+url+': '+text.slice(0,120)); continue; }
+        return { url, data };
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    throw lastError || new Error('No matching API endpoint');
+  }
+
+  try {
+    const id = new URL(location.href).searchParams.get('id');
+    if (!id) throw new Error('Missing ?id=');
+
+    const { url, data } = await tryFetchFixture(id);
+    console.log('[USING]', url);
+
+    const fx = data?.fixture || data;
+    $('#homeName')?.replaceChildren(document.createTextNode(fx?.home?.name || fx?.home || '—'));
+    $('#awayName')?.replaceChildren(document.createTextNode(fx?.away?.name || fx?.away || '—'));
+    $('#kickoffVal')?.replaceChildren(document.createTextNode(fx?.kickoff || fx?.start_utc || fx?.date || '—'));
+    $('#compVal')?.replaceChildren(document.createTextNode(fx?.competition?.name || fx?.competition || '—'));
+    $('#statusVal')?.replaceChildren(document.createTextNode(normalizeStatus(fx)));
+  } catch (err) {
+    console.log('[watch error]', err);
+    const box = document.createElement('div');
+    box.style.cssText = 'margin:1rem;padding:0.75rem;border:1px solid #f99;background:#fff5f5;border-radius:8px;font:14px system-ui';
+    box.textContent = 'We couldn’t load this match right now. Please try again later.';
+    document.body.appendChild(box);
+  } finally {
+    hideLoading();
+  }
+})();
+</script>
+<!-- WATCH_PATCH_END -->
 </body>
 </html>
