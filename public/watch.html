@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
   <script>
-    // optional redirect guard (keep/remove as you like)
     (function () {
       var ok = ['kixonair.com', 'www.kixonair.com'];
       try { if (!ok.includes(location.hostname)) location.replace('https://kixonair.com'); } catch (e) {}
@@ -12,7 +11,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0b0f14" />
   <title>Kixonair — Match Center</title>
-  <link rel="stylesheet" href="/styles.css?v=33" />
+  <link rel="stylesheet" href="/styles.css?v=34" />
   <link rel="icon" href="/logo.svg" type="image/svg+xml" />
   <style>
     :root{ --pad: clamp(12px, 3vw, 22px); }
@@ -42,7 +41,6 @@
     @keyframes spin{to{transform:rotate(360deg)}}
     @keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(.85);opacity:.85}50%{transform:translate(-50%,-50%) scale(1.12);opacity:1}}
     @media(max-width:600px){ #leagueBadge{display:none} }
-    .error{color:#ef4444}
   </style>
 </head>
 <body>
@@ -79,41 +77,33 @@
   </div>
 
   <div id="serverBar" class="serverbar"></div>
-  <div id="err" class="error"></div>
 </main>
 
 <script>
-  // ======== never get stuck on spinner ========
-  function showError(msg){
-    const e = document.getElementById('err'); if(e){ e.textContent = msg || ''; }
-    const lo = document.getElementById('loadingOverlay'); if (lo) lo.classList.add('hidden');
-  }
-  window.addEventListener('error', () => showError('Could not load match data.'));
-
   // ======== CONFIG ========
   const API_KEY = 'kix-7d29f2d9ef3c4';
   const API_BASE = './api';
 
-  // add API key in every common place (headers + query param) and include cookies
   function apiFetch(url, init = {}) {
     const u = new URL(url, location.href);
-    // add as query param fallback (some servers only check this)
     u.searchParams.set('api_key', API_KEY);
     const headers = Object.assign({}, init.headers || {}, {
-      'API_key': API_KEY,   // custom header (case-sensitive on some proxies)
-      'api_key': API_KEY,   // lowercase variant (Express lowercases header names)
-      'X-API-Key': API_KEY  // standard alt
+      'API_key': API_KEY,
+      'api_key': API_KEY,
+      'X-API-Key': API_KEY
     });
     return fetch(u.toString(), Object.assign({ credentials: 'include' }, init, { headers }));
   }
 
-  // ======== UI helpers ========
+  // ======== helpers ========
   let __loadFailTimer = null;
   const $ = id => document.getElementById(id);
   function hideLoading(){ try{ $('loadingOverlay').classList.add('hidden'); }catch{} if(__loadFailTimer){clearTimeout(__loadFailTimer);__loadFailTimer=null;} }
   function qs(name){ return new URLSearchParams(location.search).get(name) || ''; }
   function slug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
   function capWords(s){ return String(s||'').split(/[-\\s]+/).map(w => w? w[0].toUpperCase()+w.slice(1):'').join(' '); }
+  function ymdFromIso(x){ try{ return String(x||'').slice(0,10) || null; }catch{return null;} }
+  function addDays(dateStr, delta){ const dt = new Date(Date.UTC(+dateStr.slice(0,4), +dateStr.slice(5,7)-1, +dateStr.slice(8,10))); dt.setUTCDate(dt.getUTCDate()+delta); return dt.toISOString().slice(0,10); }
 
   function renderServerButtonsFromSlug(sl){
     const bar = $('serverBar'); if (!bar) return;
@@ -127,7 +117,6 @@
     renderServerButtonsFromSlug(sl);
   }
 
-  // prefill names from slug in URL so UI looks alive even before data lands
   (function prime(){
     const id = qs('id');
     if (id && id.includes('@')){
@@ -141,30 +130,10 @@
     }
   })();
 
-  // ======== date helpers ========
-  function ymdFromIso(x){ try{ return String(x||'').slice(0,10) || null; }catch{return null;} }
-  function addDays(dateStr, delta){
-    const dt = new Date(Date.UTC(+dateStr.slice(0,4), +dateStr.slice(5,7)-1, +dateStr.slice(8,10)));
-    dt.setUTCDate(dt.getUTCDate()+delta);
-    return dt.toISOString().slice(0,10);
-  }
-
-  // ======== API helpers ========
-  function extractFixture(j){
-    if (!j) return null;
-    if (j.fixture) return j.fixture;
-    if (j.data && j.data.fixture) return j.data.fixture;
-    if (Array.isArray(j.fixtures) && j.fixtures.length===1) return j.fixtures[0];
-    if (Array.isArray(j.data?.fixtures) && j.data.fixtures.length===1) return j.data.fixtures[0];
-    return null;
-  }
   async function fixturesFor(dateStr){
     const r = await apiFetch(`${API_BASE}/fixtures?date=${encodeURIComponent(dateStr)}`, { cache: 'no-store' }).catch(() => null);
-    if (!r) return [];
-    if (!r.ok){
-      showError('API error ('+r.status+'): fixtures'); return [];
-    }
-    const j = await r.json().catch(()=>null);
+    if (!r || !r.ok) return []; // don't surface 404—some dates just have none
+    const j = await r.json().catch(() => null);
     const list = j?.fixtures || j?.data?.fixtures || [];
     return Array.isArray(list) ? list : [];
   }
@@ -213,26 +182,17 @@
   }
 
   async function load(){
-    $('loadingOverlay').classList.remove('hidden');
-    __loadFailTimer = setTimeout(hideLoading, 4000);
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+    __loadFailTimer = setTimeout(hideLoading, 3500);
 
     const id  = qs('id');
     if (!id){ $('statusLine').textContent='Missing match id'; hideLoading(); return; }
 
     async function serverResolve(){
       try{
-        // try path param style
         let r = await apiFetch(`${API_BASE}/fixture/${encodeURIComponent(id)}`);
-        if (!r.ok){
-          // try query param style
-          r = await apiFetch(`${API_BASE}/fixture?id=${encodeURIComponent(id)}`);
-        }
-        if (r.ok){
-          const j = await r.json().catch(()=>null);
-          return extractFixture(j);
-        } else {
-          showError('API error ('+r.status+'): fixture');
-        }
+        if (!r.ok) r = await apiFetch(`${API_BASE}/fixture?id=${encodeURIComponent(id)}`);
+        if (r.ok){ const j = await r.json().catch(()=>null); return (j && (j.fixture || j.data?.fixture)) || null; }
       }catch(e){}
       return null;
     }
@@ -241,9 +201,8 @@
       const hasAt = id.includes('@');
       const slugPart = slug(hasAt ? id.split('@')[0] : id);
       const isoHint  = hasAt ? id.split('@')[1] : null;
-      const base = ymdFromIso(isoHint) || new Date().toISOString().slice(0,10);
-      // search ±3 days just in case timezones shifted
-      const days = [ -3,-2,-1,0,1,2,3 ].map(n => addDays(base, n));
+      const base = (isoHint || new Date().toISOString()).slice(0,10);
+      const days = [ -2,-1,0,1,2 ].map(n => addDays(base, n));
       for (const d of days){
         const list = await fixturesFor(d);
         const hit = list.find(fx => matchSlug(slugPart, fx));
