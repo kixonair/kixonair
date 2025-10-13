@@ -1,8 +1,7 @@
 // secure-fetch.js
-// Injects x-api-key automatically for calls to your API.
-// Allow-list hosts so it only runs for your own domain.
+// Adds your API key automatically to all /api requests
 (function () {
-  const API_KEY = 'kix-7d29f2d9ef3c4'; // <-- your key
+  const API_KEY = 'kix-7d29f2d9ef3c4'; // your key
   const ALLOWED_HOSTS = new Set(['kixonair.com', 'www.kixonair.com', location.hostname]);
   const origFetch = window.fetch;
 
@@ -10,10 +9,10 @@
     try {
       const url = new URL(u, location.origin);
       if (!ALLOWED_HOSTS.has(url.hostname)) return false;
-      return url.pathname.startsWith('/api') || url.pathname.startsWith('api') ||
+      return url.pathname.startsWith('/api') ||
+             url.pathname.startsWith('api') ||
              url.href.includes('/api/fixtures');
     } catch {
-      // If input wasn't a full URL, assume same-origin
       return String(u || '').startsWith('/api') || String(u || '').includes('/api/fixtures');
     }
   }
