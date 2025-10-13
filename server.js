@@ -10,45 +10,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// ===== REDIRECT NON-OFFICIAL DOMAINS =====
+app.use((req, res, next) => {
+  const host = req.headers.host?.toLowerCase() || '';
+  const allowed = ['kixonair.com', 'www.kixonair.com'];
+  if (!allowed.includes(host)) {
+    return res.redirect(302, 'https://kixonair.com');
+  }
+  next();
+});
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }));
-
-// === BEGIN KIXONAIR: Mirror Protection & CORS Hardening ===
-const allowed = new Set(['https://kixonair.com', 'https://www.kixonair.com']);
-
-app.use((req, res, next) => {
-  const o = req.headers.origin;
-  if (!o || allowed.has(o)) {
-    res.header('Access-Control-Allow-Origin', o || 'https://kixonair.com');
-    res.header('Vary', 'Origin');
-  }
-  next();
-});
-
-app.options('/api/*', (req, res) => {
-  const o = req.headers.origin;
-  if (o && allowed.has(o)) {
-    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.header('Access-Control-Max-Age', '86400');
-    return res.sendStatus(204);
-  }
-  return res.sendStatus(403);
-});
-
-function fromKixon(req) {
-  const o = req.headers.origin || '';
-  const r = req.headers.referer || '';
-  const ok = /https?:\/\/(www\.)?kixonair\.com(\/|$)/i;
-  return !o || ok.test(o) || ok.test(r);
-}
-app.use('/api', (req, res, next) => {
-  if (!fromKixon(req)) return res.sendStatus(403);
-  next();
-});
-// === END KIXONAIR block ===
-
 
 // ====== CONFIG ======
 const ADMIN_TOKEN  = process.env.ADMIN_TOKEN || '';
