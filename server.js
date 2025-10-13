@@ -23,6 +23,34 @@ app.use((req, res, next) => {
 
 app.use(cors());
 app.use(express.json());
+
+// === BEGIN: Kixonair API security gate ===
+const OFFICIALS = new Set(['kixonair.com','www.kixonair.com']);
+const API_KEY_EXPECTED = process.env.API_KEY || 'kix-7d29f2d9ef3c4';
+
+function isAllowedOrigin(req){
+  const origin = String(req.get('origin') || '');
+  const referer = String(req.get('referer') || '');
+  const ok = (u) => {
+    try { const h = new URL(u).hostname; return OFFICIALS.has(h); } catch { return false; }
+  };
+  return ok(origin) || ok(referer) || req.hostname === 'localhost';
+}
+
+app.use('/api', (req, res, next) => {
+  if (!isAllowedOrigin(req)) {
+    console.warn('[BLOCKED origin]', req.get('origin') || req.get('referer') || '(none)');
+    return res.status(403).json({ ok:false, error:'Forbidden (origin)' });
+  }
+  const key = req.get('x-api-key');
+  if (!key || key !== API_KEY_EXPECTED) {
+    console.warn('[BLOCKED apikey]', (req.get('origin') || req.get('referer') || '(none)'));
+    return res.status(403).json({ ok:false, error:'Forbidden (key)' });
+  }
+  return next();
+});
+// === END: Kixonair API security gate ===
+
 app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }));
 
 // ====== CONFIG ======
