@@ -14,6 +14,19 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+(function(){
+  var ok = ['kixonair.com','www.kixonair.com'];
+  try {
+    if (!ok.includes(location.hostname)) {
+      location.replace('https://kixonair.com');
+    }
+  } catch(e){}
+})();
+</script>
+<link rel="canonical" href="https://kixonair.com/"/>
+
+
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kixonair — Live</title>

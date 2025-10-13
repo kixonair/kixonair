@@ -1,6 +1,19 @@
 <!doctype html>
 <html lang="en">
 <head>
+<script>
+(function(){
+  var ok = ['kixonair.com','www.kixonair.com'];
+  try {
+    if (!ok.includes(location.hostname)) {
+      location.replace('https://kixonair.com');
+    }
+  } catch(e){}
+})();
+</script>
+<link rel="canonical" href="https://kixonair.com/"/>
+
+
   <meta name="theme-color" content="#0b0f14">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
