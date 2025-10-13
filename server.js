@@ -1,4 +1,5 @@
-import 'dotenv/config';
+from pathlib import Path
+orig = """import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import fetch from 'node-fetch';
@@ -150,9 +151,9 @@ function normalizeDateParam(raw){
     now.setUTCDate(now.getUTCDate()-1);
     return dayOfInTZ(now.toISOString(), TZ_DISPLAY);
   }
-  s = s.replace(/[.\/]/g,'-').replace(/\s+/g,'-');
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  const m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  s = s.replace(/[.\\/]/g,'-').replace(/\\s+/g,'-');
+  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\\d{2})-(\\d{2})-(\\d{4})$/);
   if (m) return `${m[3]}-${m[2]}-${m[1]}`;
   return null;
 }
@@ -163,10 +164,10 @@ const teamLogo = t => fixLogo(t?.logo || t?.logos?.[0]?.href || null);
 
 function parseEventNameTeams(name){
   if (!name) return [null,null];
-  const n = name.replace(/\s+/g,' ').trim();
-  const vs = n.split(/\s+vs\.?\s+/i);
+  const n = name.replace(/\\s+/g,' ').trim();
+  const vs = n.split(/\\s+vs\\.?\\s+/i);
   if (vs.length === 2) return [vs[0], vs[1]];
-  const at = n.split(/\s+at\s+/i);
+  const at = n.split(/\\s+at\\s+/i);
   if (at.length === 2) return [at[1], at[0]];
   return [null,null];
 }
@@ -176,10 +177,10 @@ function statusFromEspn(ev){
   const s = String(sRaw).toUpperCase();
   // Finished states: final, postgame, full time
   if (/FINAL|STATUS_FINAL|POSTGAME|FULLTIME|FT/.test(s)) return 'FINISHED';
-  // Half‑time: ESPN uses STATUS_HALFTIME for the interval break.  Do
+  // Half-time: ESPN uses STATUS_HALFTIME for the interval break.  Do
   // not treat this as live so that the client can display a dedicated
   // label.
-  if (/STATUS_HALFTIME|HALF\s?TIME/.test(s)) return 'HALF';
+  if (/STATUS_HALFTIME|HALF\\s?TIME/.test(s)) return 'HALF';
   // Live play in either period
   if (/IN_PROGRESS|LIVE|STATUS_IN_PROGRESS/.test(s)) return 'LIVE';
   return 'SCHEDULED';
@@ -293,7 +294,7 @@ function buildIsoFromSportsDB(e){
   const dateOnly = e?.dateEvent || null;
   if (!dateOnly) return null;
   const time = (e?.strTime || '').toUpperCase();
-  const hasValidTime = /^\d{2}:\d{2}(:\d{2})?$/.test(time);
+  const hasValidTime = /^\\d{2}:\\d{2}(:\\d{2})?$/.test(time);
   if (hasValidTime) return `${dateOnly}T${time.length===5? time+':00' : time}Z`;
   return `${dateOnly}T12:00:00Z`;
 }
@@ -492,7 +493,7 @@ app.post('/admin/flush-cache', (req, res) => {
       if (fs.existsSync(dir)){
         for (const f of fs.readdirSync(dir)){ fs.unlinkSync(path.join(dir,f)); removed++; }
       }
-      return res.type('text/plain').send(`ok cleared\n-- -------\nTrue all`);
+      return res.type('text/plain').send(`ok cleared\\n-- -------\\nTrue all`);
     }
     let removed = 0;
     const file = path.join(__dirname, 'data', 'cache', `${d}.json`);
@@ -518,3 +519,49 @@ app.get('/admin/precache', async (req, res) => {
 // ====== START ======
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`[kixonair] up on :${PORT}`));
+"""
+
+# Insert the protection block after the static middleware line
+insertion_marker = "app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }));"
+prot = """
+// === BEGIN KIXONAIR: Mirror Protection & CORS Hardening ===
+const allowed = new Set(['https://kixonair.com', 'https://www.kixonair.com']);
+
+app.use((req, res, next) => {
+  const o = req.headers.origin;
+  if (!o || allowed.has(o)) {
+    res.header('Access-Control-Allow-Origin', o || 'https://kixonair.com');
+    res.header('Vary', 'Origin');
+  }
+  next();
+});
+
+app.options('/api/*', (req, res) => {
+  const o = req.headers.origin;
+  if (o && allowed.has(o)) {
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Max-Age', '86400');
+    return res.sendStatus(204);
+  }
+  return res.sendStatus(403);
+});
+
+function fromKixon(req) {
+  const o = req.headers.origin || '';
+  const r = req.headers.referer || '';
+  const ok = /https?:\\/\\/(www\\.)?kixonair\\.com(\\/|$)/i;
+  return !o || ok.test(o) || ok.test(r);
+}
+app.use('/api', (req, res, next) => {
+  if (!fromKixon(req)) return res.sendStatus(403);
+  next();
+});
+// === END KIXONAIR block ===
+"""
+
+patched = orig.replace(insertion_marker, insertion_marker + "\n\n" + prot.strip() + "\n")
+
+out_path = Path("/mnt/data/server_patched.js")
+out_path.write_text(patched, encoding="utf-8")
+print("Patched server.js written to:", out_path)
