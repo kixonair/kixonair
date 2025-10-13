@@ -11,6 +11,30 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+
+// --- BEGIN: domain guard & hard redirect ---
+const PRIMARY_HOST = 'kixonair.com';
+const HOST_ALIASES = new Set([PRIMARY_HOST, 'www.'+PRIMARY_HOST, 'localhost', '127.0.0.1']);
+
+app.use((req, res, next) => {
+  try {
+    const host = (req.hostname || '').toLowerCase();
+    if (HOST_ALIASES.has(host)) {
+      res.set('X-Frame-Options', 'DENY');
+      res.set('Referrer-Policy', 'no-referrer-when-downgrade');
+      res.set('Access-Control-Allow-Origin', `https://${PRIMARY_HOST}`);
+      res.set('Content-Security-Policy',
+        `default-src 'self' https://${PRIMARY_HOST}; script-src 'self' https://${PRIMARY_HOST}; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; frame-ancestors 'none';`);
+      return next();
+    }
+    const target = `https://${PRIMARY_HOST}${req.originalUrl || '/'}`;
+    return res.redirect(308, target);
+  } catch (err) {
+    return next();
+  }
+});
+// --- END: domain guard & hard redirect ---
+
 // ===== REDIRECT NON-OFFICIAL DOMAINS =====
 app.use((req, res, next) => {
   const host = req.headers.host?.toLowerCase() || '';
