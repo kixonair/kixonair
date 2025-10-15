@@ -51,6 +51,27 @@ app.use('/api', (req, res, next) => {
 });
 // === END: Kixonair API security gate ===
 
+
+// === Security headers ===
+app.use((req, res, next) => {
+  res.setHeader("Content-Security-Policy",
+    "default-src 'self'; img-src 'self' data: https:; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  next();
+});
+
+// === Protected assets (anti-hotlink) ===
+const ASSET_REFERERS = new Set(['https://kixonair.com', 'https://www.kixonair.com']);
+app.use('/assets', (req, res, next) => {
+  const ref = String(req.get('referer') || '');
+  const origin = String(req.get('origin') || '');
+  const ok = [...ASSET_REFERERS].some(x => ref.startsWith(x) || origin.startsWith(x));
+  if (!ok) return res.sendStatus(403);
+  return next();
+});
+app.use('/assets', express.static(path.join(__dirname, 'assets'), { maxAge: '1y', immutable: true }));
+
 app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }));
 
 // ====== CONFIG ======
@@ -88,7 +109,7 @@ const EU_LEAGUES = parseListEnv(process.env.EU_LEAGUES, [
   'soccer/por.1','soccer/ned.1','soccer/tur.1','soccer/bel.1','soccer/sco.1'
 ]);
 
-// Secondary-tier leagues for quiet days (robust parsing: commas or spaces)
+// Secondary-tier leagues for quiet days (robust parsing: commas || spaces)
 const TIER2_LEAGUES = parseListEnv(process.env.TIER2_LEAGUES, [
   'soccer/eng.2','soccer/esp.2','soccer/ger.2','soccer/ita.2','soccer/fra.2',
   'soccer/usa.1','soccer/mex.1','soccer/bra.1','soccer/arg.1',
