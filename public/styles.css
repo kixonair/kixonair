@@ -147,15 +147,7 @@ main{max-width:1040px;margin:0 auto;padding:16px}
  * long team names are readable and the star sits unobtrusively near the bottom of
  * each card.
  */
-/*
- * On small screens we stack the card content vertically.  The previous
- * breakpoint at 600px was too narrow for modern phones – many devices
- * report widths around 700‑800px in portrait orientation.  To ensure
- * the stacked layout activates on typical mobile widths, increase the
- * breakpoint to 850px.  This applies to both the main site and the
- * version in the public/public folder.
- */
-@media (max-width: 850px){
+@media (max-width: 600px){
   /* Let team names wrap onto up to two lines to avoid ellipsis */
   .team-name,
   .home-name,
@@ -181,20 +173,16 @@ main{max-width:1040px;margin:0 auto;padding:16px}
     margin-right:20px;
   }
 
-  /* On small screens, stack the countdown, home team and away team
-     vertically.  Use a wrapping flexbox so each child occupies the
-     full width, and specify explicit ordering to maintain the desired
-     order (countdown → home → away).  Centre each row and reduce
-     spacing to keep cards compact. */
+  /* On very small screens, stack the home team, score/time and away team
+     vertically.  Use a wrapping flexbox so each child occupies the full
+     width, and specify explicit ordering to maintain the desired order
+     (home → score → away).  Centre each row and reduce spacing to keep
+     cards compact. */
   .gc-main{
-    /* Override the default grid with a vertical flex layout on mobile.
-       Use !important so it wins over later `.gc-main{display:grid}`.  We
-       allow wrapping rather than forcing a column direction so the
-       children can automatically occupy full width (flex-basis:100%). */
-    display:flex !important;
+    display:flex;
     flex-wrap:wrap;
-    gap:4px;
-    padding:6px 8px;
+    gap:8px;
+    padding:8px 8px;
     text-align:center;
     align-items:center;
   }
@@ -204,88 +192,10 @@ main{max-width:1040px;margin:0 auto;padding:16px}
     flex:1 0 100%;
     justify-content:center;
   }
-  /* Ordering of elements on mobile: countdown row first, then home team,
-     and finally away team.  Use !important to override any later rules. */
-  .gc-main > .score{ order:1 !important; }
-  .gc-main > .team.left{ order:2 !important; }
-  .gc-main > .team.right{ order:3 !important; }
-
-  /* Hide large scores and separators; we want only the countdown time.
-     The countdown will remain visible as `.score .countdown`. */
-  .score .num,
-  .score .sep,
-  .score .when{
-    display:none !important;
-  }
-
-  /* Style the countdown row: prefix with "Starts in:" and remove any
-     minimum width so it doesn’t force extra space. */
-  .score{
-    display:flex;
-    align-items:center;
-    gap:4px;
-    min-width:auto;
-  }
-  .score::before{
-    content:'Starts in:' !important;
-    font-weight:600;
-    color:var(--muted);
-    margin-right:4px;
-  }
-  .score .countdown{
-    font-weight:600;
-  }
-
-  /* Reduce padding on the card and the watch button for a more
-     compact appearance on mobile. */
-  .game-card{ padding:12px 10px; }
-  .watch-btn{ padding:8px 12px; font-size:14px; }
-
-  /* Tweak the team name styling to allow long names to wrap
-     gracefully without ellipsis.  Use a slightly smaller font and
-     tighter line-height. */
-  .team .name{
-    font-size:14px;
-    line-height:1.2;
-    overflow-wrap:anywhere;
-  }
-
-  /* Add a coloured bar to the left of each card for visual emphasis.
-     Increase left padding accordingly. */
-  .game-card{
-    position:relative;
-    padding-left:24px;
-  }
-  .game-card::before{
-    content:'';
-    position:absolute;
-    top:0;
-    bottom:0;
-    left:0;
-    width:6px;
-    border-top-left-radius:14px;
-    border-bottom-left-radius:14px;
-    background:linear-gradient(180deg,#f59e0b,#f97316);
-  }
-
-  /* Prevent the watch button from colliding with the favourite star.
-     When cards become narrow, the star sits below the button; remove
-     margin on the button but keep a small gap. */
-  .watch-btn{
-    margin-right:0;
-  }
-
-  /* Ensure the favourite star (heart icon) remains accessible by
-     positioning it near the bottom-right corner. */
-  .game-card .fav{
-    top:auto;
-    bottom:12px;
-    right:12px;
-  }
-
-  /* Remove any remaining margin on `.score .when` (hidden above) to
-     reduce empty space. */
-  .score .when{ margin-top:0; }
+  .gc-main > .team.left{ order:1; }
+  .gc-main > .score{ order:2; }
+  .gc-main > .team.right{ order:3; }
+  .score .num{ font-size:22px; }
   /* Reduce padding and watch button size on small screens */
   .game-card{ padding:10px; }
   .watch-btn{ padding:8px 12px; font-size:14px; }
@@ -297,73 +207,6 @@ main{max-width:1040px;margin:0 auto;padding:16px}
     font-size:14px;
     line-height:1.2;
     overflow-wrap:anywhere;
-  }
-
-  /* Reorder elements so the countdown row appears first, followed by the
-     home team and then the away team.  This better matches the compact
-     card style seen in the example. */
-  .gc-main > .score{ order:1 !important; }
-  .gc-main > .team.left{ order:2 !important; }
-  .gc-main > .team.right{ order:3 !important; }
-
-  /* Compact the countdown row.  Hide the static score/time elements and
-     replace them with a "Starts in:" prefix before the live countdown. */
-  .score .num,
-  .score .sep,
-  .score .when{
-    display:none;
-  }
-  .score{
-    display:flex;
-    gap:4px;
-    align-items:center;
-    min-width:auto;
-  }
-  .score::before{
-    /* Override the default VS label defined in scoreless.css.  Use !important
-       on content so the prefix can’t be replaced by later rules. */
-    content:'Starts in:' !important;
-    display:inline;
-    font-weight:600;
-    color:var(--muted);
-    margin-right:4px;
-  }
-  /* Hide the scheduled kickoff time on mobile; the live countdown
-     provides the necessary context.  Use !important to ensure it
-     overrides scoreless.css. */
-  .score .when{
-    display:none !important;
-  }
-  .score .countdown{
-    font-weight:600;
-  }
-
-  /* Add a subtle coloured bar on the left side of cards on mobile, similar
-     to the example design.  Adjust the card padding to make room for the bar. */
-  .game-card{
-    position:relative;
-    padding-left:22px;
-  }
-  .game-card::before{
-    content:'';
-    position:absolute;
-    top:0;
-    bottom:0;
-    left:0;
-    width:6px;
-    border-top-left-radius:14px;
-    border-bottom-left-radius:14px;
-    background:linear-gradient(180deg,#f59e0b,#f97316);
-  }
-
-  /* Allow the scoreboard row to shrink vertically.  The default `.score`
-     has a `min-width` that adds extra height when stacked.  Reset it and
-     remove default margins on the time string to reduce empty space. */
-  .score{
-    min-width:auto;
-  }
-  .score .when{
-    margin-top:2px;
   }
 }
 .game-card .fav.active{
