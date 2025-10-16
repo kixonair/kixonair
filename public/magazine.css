@@ -1,314 +1,55 @@
-/* Magazine Pro layout styles */
 
-/* Container splits the main content and the aside column */
-.mag-container{
-  display:flex;
-  flex-direction:row;
-  gap:20px;
-  max-width:1040px;
-  margin:0 auto;
-  padding:16px;
+:root{
+  --bg:#0b0f14;--text:#e6eef9;--muted:#9fb0c8;--edge:#0f1622;
+  --card:#101621;--card2:#111827;--btn:#263246;--btn2:#3a4f75;
 }
-.mag-main{flex:3;min-width:0;}
-.mag-aside{flex:1;min-width:0;}
-
-/* Featured hero card */
-.mag-hero{
-  display:flex;
-  align-items:center;
-  background:var(--card);
-  border:1px solid var(--edge);
-  border-radius:16px;
-  padding:20px;
-  margin-bottom:24px;
-  box-shadow:0 4px 12px rgba(0,0,0,0.4);
-  position:relative;
-}
-.mag-hero .logo-wrap{
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:8px;
-  margin-right:20px;
-}
-.mag-hero .logo-wrap img{
-  width:80px;
-  height:80px;
-  border-radius:50%;
-  border:1px solid #233048;
-  background:#0f1622;
-  object-fit:contain;
-}
-.mag-hero .hero-info{
-  flex:1;
-}
-.mag-hero .hero-info h3{
-  margin:0 0 4px;
-  font-size:24px;
-  font-weight:800;
-}
-.mag-hero .hero-info .league{
-  color:var(--muted);
-  font-size:14px;
-  margin-bottom:2px;
-}
-.mag-hero .hero-info .time{
-  color:var(--muted);
-  font-size:14px;
-  margin-bottom:8px;
-}
-.mag-hero .hero-info .btn-watch{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  background:var(--accent);
-  color:#fff;
-  padding:10px 14px;
-  border-radius:8px;
-  text-decoration:none;
-  font-weight:700;
-}
-.mag-hero .hero-info .btn-watch:hover{
-  background:#699cff;
-}
-.mag-hero .fav{
-  position:absolute;
-  top:8px;
-  right:8px;
-  font-size:20px;
-  color:#485b75;
-  cursor:pointer;
-  user-select:none;
-  transition:color 0.2s ease;
-}
-.mag-hero .fav.active{
-  color:#facc15;
-}
-
-/* Up next and favourites lists */
-.mag-upnext{
-  background:var(--card);
-  border:1px solid var(--edge);
-  border-radius:14px;
-  padding:12px;
-  margin-bottom:24px;
-}
-.mag-upnext h4{
-  margin:0 0 8px;
-  font-size:18px;
-  font-weight:700;
-  color:#dbe6ff;
-}
-.mag-upnext .up-item{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  padding:8px 0;
-  border-bottom:1px solid var(--edge);
-  cursor:pointer;
-}
-.mag-upnext .up-item:last-child{
-  border-bottom:none;
-}
-.mag-upnext .up-item img{
-  width:32px;
-  height:32px;
-  border-radius:50%;
-  border:1px solid #233048;
-  object-fit:contain;
-}
-.mag-upnext .up-item .match-name{
-  flex:1;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-.mag-upnext .up-item .match-time{
-  color:var(--muted);
-  font-size:12px;
-  white-space:nowrap;
-}
-
-/* Grid of match cards */
-.mag-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));
-  gap:16px;
-}
-.mag-card{
-  position:relative;
-  background:var(--card);
-  border:1px solid var(--edge);
-  border-radius:14px;
-  padding:16px;
-  box-shadow:0 4px 12px rgba(0,0,0,0.4);
-  transition:transform 0.2s ease, box-shadow 0.2s ease;
-  cursor:pointer;
-}
-.mag-card:hover{
-  transform:translateY(-2px);
-  box-shadow:0 6px 16px rgba(0,0,0,0.5);
-}
-.mag-card .fav{
-  position:absolute;
-  top:8px;
-  right:8px;
-  font-size:18px;
-  color:#485b75;
-  cursor:pointer;
-  user-select:none;
-  transition:color 0.2s ease;
-}
-.mag-card .fav.active{
-  color:#facc15;
-}
-.mag-card .match-info{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  margin-bottom:8px;
-}
-.mag-card .match-info .league{
-  color:var(--muted);
-  font-size:12px;
-  font-weight:600;
-}
-.mag-card .match-info .status{
-  color:var(--muted);
-  font-size:12px;
-  font-weight:600;
-  text-transform:uppercase;
-}
-.mag-card .teams{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-}
-.mag-card .team{
-  display:flex;
-  align-items:center;
-  gap:8px;
-}
-.mag-card .team img{
-  width:40px;
-  height:40px;
-  border-radius:50%;
-  border:1px solid #233048;
-  object-fit:contain;
-}
-.mag-card .team .name{
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  max-width:140px;
-  font-weight:600;
-}
-.mag-card .watch-wrap{
-  margin-top:12px;
-  display:flex;
-}
-.mag-card .watch-btn{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  background:#2b3f61;
-  border:1px solid #2a3650;
-  color:#e5eeff;
-  padding:8px 12px;
-  border-radius:8px;
-  text-decoration:none;
-  font-weight:600;
-}
-.mag-card .watch-btn:hover{
-  background:#344465;
-  border-color:#41527a;
-}
-
-/* Embed videos or photos inside cards and hero
-   These styles ensure the video or photo element fills the card width,
-   maintains aspect ratio, and has rounded corners. The max-height
-   prevents extremely tall videos from pushing other content off-screen.
-*/
-.mag-card video,
-.mag-hero video{
-  width:100%;
-  height:auto;
-  margin-top:8px;
-  border-radius:12px;
-  object-fit:cover;
-  max-height:160px;
-}
-
-/* Highlight images used for each sport */
-.mag-card .highlight,
-.mag-hero .highlight{
-  width:100%;
-  height:auto;
-  margin-top:8px;
-  border-radius:12px;
-  object-fit:cover;
-  max-height:160px;
-}
-
-@media(max-width:768px){
-  .mag-container{
-    flex-direction:column;
-  }
-  .mag-aside{
-    order:-1;
-    margin-bottom:16px;
-  }
-  .mag-hero{
-    flex-direction:column;
-    align-items:flex-start;
-  }
-  .mag-hero .logo-wrap{
-    flex-direction:row;
-    margin-right:0;
-    margin-bottom:12px;
-  }
-  .mag-hero .logo-wrap img{
-    width:64px;
-    height:64px;
-  }
-}
-
-/* Additional mobile tweaks for very small screens */
-@media(max-width:480px){
-  .mag-container{
-    padding:12px;
-    gap:12px;
-  }
-  .mag-hero{
-    padding:16px;
-    margin-bottom:16px;
-  }
-  .mag-hero .logo-wrap{
-    gap:6px;
-  }
-  .mag-hero .logo-wrap img{
-    width:48px;
-    height:48px;
-  }
-  .mag-hero .hero-info h3{
-    font-size:18px;
-  }
-  .mag-hero .hero-info .league,
-  .mag-hero .hero-info .time{
-    font-size:12px;
-  }
-  .mag-card{
-    padding:14px;
-  }
-  .mag-card .team img{
-    width:32px;
-    height:32px;
-  }
-  .mag-grid{
-    grid-template-columns:1fr;
-  }
-  .mag-upnext .up-item img{
-    width:24px;
-    height:24px;
-  }
-}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial}
+.hdr{position:sticky;top:0;z-index:30;background:rgba(11,15,20,.7);backdrop-filter:blur(8px);border-bottom:1px solid var(--edge)}
+.hdr .inner{max-width:1040px;margin:0 auto;padding:12px 16px;display:flex;gap:12px;align-items:center}
+.brand{display:flex;gap:10px;align-items:center}
+.brand img{width:40px;height:40px;border-radius:10px;border:1px solid #233048;padding:6px;background:radial-gradient(ellipse at 50% 50%,rgba(255,255,255,.1),transparent)}
+.actions{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.search{background:#0e1620;border:1px solid #223145;color:var(--text);border-radius:12px;padding:10px 12px;min-width:200px;outline:none}
+.pills{display:flex;gap:8px}
+.pill{background:#0f1624;border:1px solid #24324a;border-radius:999px;padding:8px 12px;color:#c7d2fe;cursor:pointer;font-weight:600}
+.pill.active{background:#1c2230;border-color:#334564;color:#eaf2ff}
+.toggle{display:flex;gap:8px;align-items:center;font-size:12px}
+.toggle input{width:38px;height:22px;appearance:none;background:#1b2432;border-radius:999px;position:relative;cursor:pointer}
+.toggle input:checked{background:linear-gradient(120deg,#06B6D4,#8B5CF6)}
+.toggle input::after{content:"";position:absolute;top:3px;left:4px;width:16px;height:16px;background:#0b0f14;border-radius:50%;transition:left .18s}
+.toggle input:checked::after{left:18px}
+.wrap{max-width:1040px;margin:0 auto;padding:16px;display:grid;grid-template-columns:2fr 1fr;gap:16px}
+.hero{position:relative;border:1px solid #1b2740;border-radius:16px;min-height:220px;overflow:hidden;background:linear-gradient(135deg,#172036,#111827 60%,#0b0f14)}
+.hero .bg{position:absolute;inset:0;background:radial-gradient(60% 80% at 80% 0%,rgba(139,92,246,.25),transparent);}
+.hero-content{position:relative;padding:18px}
+.eyebrow{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:12px}
+.dot{width:8px;height:8px;border-radius:50%;background:#7a8597}
+.dot.live{background:#ff4d4d;box-shadow:0 0 0 4px rgba(255,77,77,.12)}
+.hero h1{margin:6px 0 0;font-size:26px}
+.hero .muted{color:var(--muted)}
+.cta-row{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(145deg,var(--btn),var(--btn2));border:1px solid #2a3a53;color:#e5eeff;padding:10px 14px;border-radius:10px;font-weight:800;text-decoration:none}
+.btn.ghost{background:transparent;border:1px solid #2a3a53;color:var(--text)}
+.rail{display:flex;flex-direction:column;gap:16px}
+.card{background:var(--card2);border:1px solid #223145;border-radius:14px;padding:14px}
+.card-title{font-weight:700;margin-bottom:10px}
+.list{display:flex;flex-direction:column;gap:8px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.game{position:relative;background:var(--card);border:1px solid #223145;border-radius:14px;padding:14px;transition:transform .15s,box-shadow .15s}
+.game:hover{transform:translateY(-2px);box-shadow:0 8px 16px rgba(0,0,0,.45),0 4px 8px rgba(0,0,0,.3)}
+.game .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.muted{color:var(--muted)}
+.badge{width:36px;height:36px;border-radius:50%;object-fit:contain;background:#0f1622;border:1px solid #233048}
+.team{display:flex;align-items:center;gap:10px;min-width:0}
+.team.right{justify-content:flex-end}
+.name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+.score{display:flex;flex-direction:column;align-items:center;min-width:100px}
+.score .vs{font-size:14px;font-weight:800;letter-spacing:1px;color:#c7d2fe}
+.score .when{margin-top:2px;color:var(--muted);font-size:12px}
+.fav{position:absolute;top:8px;right:8px;font-size:18px;color:#485b75;cursor:pointer;user-select:none}
+.fav.active{color:#facc15}
+.ftr{border-top:1px solid var(--edge);margin-top:28px}
+.ftr .inner{max-width:1040px;margin:0 auto;padding:16px;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+@media(max-width:900px){.wrap{grid-template-columns:1fr}.grid{grid-template-columns:1fr}}
