@@ -179,10 +179,7 @@ main{max-width:1040px;margin:0 auto;padding:16px}
      (home → score → away).  Centre each row and reduce spacing to keep
      cards compact. */
   .gc-main{
-    /* Use !important on display to override the default grid rule defined
-       later in the stylesheet. Without this, the base `.gc-main{display:grid}`
-       declaration takes precedence because it appears after this block. */
-    display:flex !important;
+    display:flex;
     flex-wrap:wrap;
     gap:8px;
     padding:8px 8px;
