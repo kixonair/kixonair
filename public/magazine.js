@@ -308,9 +308,11 @@ function render(){
   // Render hero
   if (hero){
     const slugVal = slug(`${hero.home.name}-vs-${hero.away.name}`);
-    const watchHref = '/watch.html?m=' + encodeURIComponent(slugVal);
+    // Build the watch page URL using the legacy `id` parameter so it works with watch.html
+    const watchHref = '/watch.html?id=' + encodeURIComponent(slugVal);
     heroDiv.innerHTML = '';
     const favClass = isFav(slugVal) ? 'active' : '';
+    // Render hero without photo or video — only logos, info and favourite star
     heroDiv.innerHTML = `
       <div class="logo-wrap">
         <img src="${fixLogo(hero.home.logo)}" alt="${hero.home.name}" />
@@ -322,10 +324,6 @@ function render(){
         <div class="time">${fmtTime(hero.start_utc)}</div>
         <a class="btn-watch" href="${watchHref}" target="_blank">Watch Now</a>
       </div>
-      <!-- Highlight image for this sport -->
-      <img class="highlight" src="${HIGHLIGHT_IMAGES[hero.sport] || ''}" alt="" />
-      <!-- Sample video placeholder -->
-      <video src="/sample.mp4" muted autoplay playsinline loop></video>
       <span class="fav ${favClass}">★</span>
     `;
     const favEl = heroDiv.querySelector('.fav');
@@ -341,7 +339,7 @@ function render(){
     upnextDiv.appendChild(h);
     upList.forEach(fx => {
       const slugVal = slug(`${fx.home.name}-vs-${fx.away.name}`);
-      const watchHref = '/watch.html?m=' + encodeURIComponent(slugVal);
+      const watchHref = '/watch.html?id=' + encodeURIComponent(slugVal);
       const item = document.createElement('div');
       item.className = 'up-item';
       item.innerHTML = `
@@ -363,7 +361,7 @@ function render(){
     favesDiv.appendChild(h);
     favFixtures.forEach(fx => {
       const slugVal = slug(`${fx.home.name}-vs-${fx.away.name}`);
-      const watchHref = '/watch.html?m=' + encodeURIComponent(slugVal);
+      const watchHref = '/watch.html?id=' + encodeURIComponent(slugVal);
       const item = document.createElement('div');
       item.className = 'up-item';
       item.innerHTML = `
@@ -385,7 +383,7 @@ function render(){
   const rest = others.filter(fx => !skip.has(fx));
   rest.forEach(fx => {
     const slugVal = slug(`${fx.home.name}-vs-${fx.away.name}`);
-    const watchHref = '/watch.html?m=' + encodeURIComponent(slugVal);
+      const watchHref = '/watch.html?id=' + encodeURIComponent(slugVal);
     const card = document.createElement('div');
     card.className = 'mag-card';
     const favClass = isFav(slugVal) ? 'active' : '';
@@ -399,10 +397,6 @@ function render(){
         <div class="team"><img src="${fixLogo(fx.home.logo)}" alt="${fx.home.name}" /><span class="name">${fx.home.name}</span></div>
         <div class="team"><span class="name">${fx.away.name}</span><img src="${fixLogo(fx.away.logo)}" alt="${fx.away.name}" /></div>
       </div>
-      <!-- Highlight image for this sport -->
-      <img class="highlight" src="${HIGHLIGHT_IMAGES[fx.sport] || ''}" alt="" />
-      <!-- Sample video placeholder -->
-      <video src="/sample.mp4" muted autoplay playsinline loop></video>
       <div class="watch-wrap"><a class="watch-btn" href="${watchHref}" target="_blank">Watch</a></div>
     `;
     // Favourite star toggle
