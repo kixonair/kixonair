@@ -148,19 +148,27 @@ main{max-width:1040px;margin:0 auto;padding:16px}
  * each card.
  */
 @media (max-width: 500px){
+  /* Let team names wrap onto up to two lines to avoid ellipsis */
   .team-name,
   .home-name,
   .away-name{
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
     white-space:normal;
-    overflow:visible;
-    text-overflow:unset;
   }
+  /* Reposition the favourite star near the bottom right on phones */
   .game-card .fav{
     top:auto;
-    bottom:16px;
-    right:16px;
+    bottom:14px;
+    right:14px;
   }
-  /* give extra space on the right to avoid crowding */
+  /* Give the watch button space for the star */
+  .watch-btn{
+    margin-right:40px;
+  }
+  /* Additional padding on sport tag to separate it from other elements */
   .sport-tag{
     margin-right:20px;
   }
