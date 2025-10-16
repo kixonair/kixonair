@@ -214,6 +214,53 @@ main{max-width:1040px;margin:0 auto;padding:16px}
     overflow-wrap:anywhere;
   }
 
+  /* Reorder elements so the countdown row appears first, followed by the
+     home team and then the away team.  This better matches the compact
+     card style seen in the example. */
+  .gc-main > .score{ order:1; }
+  .gc-main > .team.left{ order:2; }
+  .gc-main > .team.right{ order:3; }
+
+  /* Compact the countdown row.  Hide the static score/time elements and
+     replace them with a "Starts in:" prefix before the live countdown. */
+  .score .num,
+  .score .sep,
+  .score .when{
+    display:none;
+  }
+  .score{
+    display:flex;
+    gap:4px;
+    align-items:center;
+    min-width:auto;
+  }
+  .score::before{
+    content:'Starts in:';
+    font-weight:600;
+    color:var(--muted);
+  }
+  .score .countdown{
+    font-weight:600;
+  }
+
+  /* Add a subtle coloured bar on the left side of cards on mobile, similar
+     to the example design.  Adjust the card padding to make room for the bar. */
+  .game-card{
+    position:relative;
+    padding-left:22px;
+  }
+  .game-card::before{
+    content:'';
+    position:absolute;
+    top:0;
+    bottom:0;
+    left:0;
+    width:6px;
+    border-top-left-radius:14px;
+    border-bottom-left-radius:14px;
+    background:linear-gradient(180deg,#f59e0b,#f97316);
+  }
+
   /* Allow the scoreboard row to shrink vertically.  The default `.score`
      has a `min-width` that adds extra height when stacked.  Reset it and
      remove default margins on the time string to reduce empty space. */
