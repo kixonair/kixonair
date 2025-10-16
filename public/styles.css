@@ -173,36 +173,32 @@ main{max-width:1040px;margin:0 auto;padding:16px}
     margin-right:20px;
   }
 
-  /* Stack team rows vertically on very small screens so long names fit better.  The
-     grid becomes a single column, placing the home team, kickoff info and away
-     team each on their own row.  This preserves all existing elements while
-     giving names more horizontal space. */
+  /* On very small screens, stack the home team, score/time and away team
+     vertically.  Use a wrapping flexbox so each child occupies the full
+     width, and specify explicit ordering to maintain the desired order
+     (home → score → away).  Centre each row and reduce spacing to keep
+     cards compact. */
   .gc-main{
-    display:grid;
-    grid-template-columns:1fr;
-    grid-template-rows:auto auto auto;
+    display:flex;
+    flex-wrap:wrap;
     gap:8px;
     padding:8px 8px;
     text-align:center;
     align-items:center;
   }
-  .team{
+  .gc-main > .team.left,
+  .gc-main > .score,
+  .gc-main > .team.right{
+    flex:1 0 100%;
     justify-content:center;
   }
-  .team.right{
-    justify-content:center;
-  }
-  .score .num{
-    font-size:22px;
-  }
+  .gc-main > .team.left{ order:1; }
+  .gc-main > .score{ order:2; }
+  .gc-main > .team.right{ order:3; }
+  .score .num{ font-size:22px; }
   /* Reduce padding and watch button size on small screens */
-  .game-card{
-    padding:10px;
-  }
-  .watch-btn{
-    padding:8px 12px;
-    font-size:14px;
-  }
+  .game-card{ padding:10px; }
+  .watch-btn{ padding:8px 12px; font-size:14px; }
 }
 .game-card .fav.active{
   color:#facc15;
@@ -265,7 +261,10 @@ main{max-width:1040px;margin:0 auto;padding:16px}
 @media(max-width:640px){
   .controls{width:100%}
   .controls input[type="text"]{flex:1 1 100%}
-  .name{max-width:140px}
+  /* Allow team names to fill the available width on mobile.  A fixed
+     maximum width can cut off longer names when combined with the
+     stacked layout. */
+  .name{max-width:100%}
 }
 .empty{color:var(--muted);padding:10px;text-align:center;border:1px dashed var(--edge);border-radius:12px}
 

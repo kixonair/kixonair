@@ -77,31 +77,31 @@ main{max-width:1040px;margin:0 auto;padding:16px}
 
 /* Stack teams vertically and shrink card elements on smaller screens */
 @media (max-width: 600px){
+  /* On very small screens, stack the home team, score/time and away team
+     vertically.  Use a wrapping flexbox so each child occupies the full
+     width, and specify explicit ordering to maintain the desired order
+     (home → score → away).  Centre each row and reduce spacing to keep
+     cards compact. */
   .gc-main{
-    display:grid;
-    grid-template-columns:1fr;
-    grid-template-rows:auto auto auto;
+    display:flex;
+    flex-wrap:wrap;
     gap:8px;
     padding:8px 8px;
     text-align:center;
     align-items:center;
   }
-  .team{
+  .gc-main > .team.left,
+  .gc-main > .score,
+  .gc-main > .team.right{
+    flex:1 0 100%;
     justify-content:center;
   }
-  .team.right{
-    justify-content:center;
-  }
-  .score .num{
-    font-size:22px;
-  }
-  .game-card{
-    padding:10px;
-  }
-  .watch-btn{
-    padding:8px 12px;
-    font-size:14px;
-  }
+  .gc-main > .team.left{ order:1; }
+  .gc-main > .score{ order:2; }
+  .gc-main > .team.right{ order:3; }
+  .score .num{ font-size:22px; }
+  .game-card{ padding:10px; }
+  .watch-btn{ padding:8px 12px; font-size:14px; }
 }
 .empty{color:var(--muted);padding:10px;text-align:center;border:1px dashed var(--edge);border-radius:12px}
 .footer{border-top:1px solid #0a121c;margin-top:28px}
