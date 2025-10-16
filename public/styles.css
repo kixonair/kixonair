@@ -172,6 +172,22 @@ main{max-width:1040px;margin:0 auto;padding:16px}
   .sport-tag{
     margin-right:20px;
   }
+
+  /* Stack team rows vertically on very small screens so long names fit better.  The
+     grid becomes a single column, placing the home team, kickoff info and away
+     team each on their own row.  This preserves all existing elements while
+     giving names more horizontal space. */
+  .gc-main{
+    display:grid;
+    grid-template-columns:1fr;
+    grid-template-rows:auto auto auto;
+    align-items:center;
+    text-align:center;
+    gap:8px;
+  }
+  .team.right{
+    justify-content:flex-start;
+  }
 }
 .game-card .fav.active{
   color:#facc15;
