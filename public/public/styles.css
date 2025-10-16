@@ -120,9 +120,9 @@ main{max-width:1040px;margin:0 auto;padding:16px}
   /* Reorder elements so the countdown row appears first, followed by the
      home team and then the away team.  This better matches the compact
      card style seen in the example. */
-  .gc-main > .score{ order:1; }
-  .gc-main > .team.left{ order:2; }
-  .gc-main > .team.right{ order:3; }
+  .gc-main > .score{ order:1 !important; }
+  .gc-main > .team.left{ order:2 !important; }
+  .gc-main > .team.right{ order:3 !important; }
 
   /* Compact the countdown row.  Hide the static score/time elements and
      replace them with a "Starts in:" prefix before the live countdown. */
@@ -138,9 +138,19 @@ main{max-width:1040px;margin:0 auto;padding:16px}
     min-width:auto;
   }
   .score::before{
-    content:'Starts in:';
+    /* Override the default VS label defined in scoreless.css.  Use !important
+       on content so the prefix can’t be replaced by later rules. */
+    content:'Starts in:' !important;
+    display:inline;
     font-weight:600;
     color:var(--muted);
+    margin-right:4px;
+  }
+  /* Hide the scheduled kickoff time on mobile; the live countdown
+     provides the necessary context.  Use !important to ensure it
+     overrides scoreless.css. */
+  .score .when{
+    display:none !important;
   }
   .score .countdown{
     font-weight:600;
@@ -179,6 +189,94 @@ main{max-width:1040px;margin:0 auto;padding:16px}
 .footer .inner{max-width:1040px;margin:0 auto;padding:16px;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
 .muted{color:var(--muted)} .small{font-size:12px}
 .hidden{display:none !important}
+
+/*
+ * Override styles for small screens.  This block is appended at the
+ * end of the stylesheet so it takes precedence over earlier rules.  It
+ * increases the breakpoint to 850px to ensure the stacked layout
+ * activates on most modern phones (many of which exceed 600px in
+ * reported width).  It also restructures the card layout to more
+ * closely match the compact style shown in the reference screenshot.
+ */
+@media (max-width: 850px){
+  /* Stack the countdown, home team and away team vertically.  Use a
+     wrapping flex container to allow each row to occupy the full width.
+     The !important ensures this overrides the base grid definition. */
+  .gc-main{
+    display:flex !important;
+    flex-wrap:wrap;
+    gap:4px;
+    padding:6px 8px;
+    text-align:center;
+    align-items:center;
+  }
+  .gc-main > .team.left,
+  .gc-main > .score,
+  .gc-main > .team.right{
+    flex:1 0 100%;
+    justify-content:center;
+  }
+  /* Order the rows: countdown first, then home, then away. */
+  .gc-main > .score{ order:1 !important; }
+  .gc-main > .team.left{ order:2 !important; }
+  .gc-main > .team.right{ order:3 !important; }
+
+  /* Hide numeric scores and separators; only show the countdown. */
+  .score .num,
+  .score .sep,
+  .score .when{
+    display:none !important;
+  }
+  .score{
+    display:flex;
+    align-items:center;
+    gap:4px;
+    min-width:auto;
+  }
+  .score::before{
+    content:'Starts in:' !important;
+    font-weight:600;
+    color:var(--muted);
+    margin-right:4px;
+  }
+  .score .countdown{
+    font-weight:600;
+  }
+
+  /* Compress card padding and button size for a tighter mobile layout. */
+  .game-card{ padding:12px 10px; position:relative; padding-left:24px; }
+  .watch-btn{ padding:8px 12px; font-size:14px; margin-right:0; }
+
+  /* Let long team names wrap gracefully with a slightly smaller font. */
+  .team .name{
+    font-size:14px;
+    line-height:1.2;
+    overflow-wrap:anywhere;
+  }
+
+  /* Add a vertical accent bar on the left edge of each card. */
+  .game-card::before{
+    content:'';
+    position:absolute;
+    top:0;
+    bottom:0;
+    left:0;
+    width:6px;
+    border-top-left-radius:14px;
+    border-bottom-left-radius:14px;
+    background:linear-gradient(180deg,#f59e0b,#f97316);
+  }
+
+  /* Position the favourite star near the bottom-right on narrow cards. */
+  .game-card .fav{
+    top:auto;
+    bottom:12px;
+    right:12px;
+  }
+
+  /* Remove any leftover margin on the hidden kickoff time. */
+  .score .when{ margin-top:0; }
+}
 
 /* === Mobile menu toggle styles ========================================= */
 /* Button to toggle the collapsible menu. Hidden on desktops by default. */
