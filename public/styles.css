@@ -147,7 +147,7 @@ main{max-width:1040px;margin:0 auto;padding:16px}
  * long team names are readable and the star sits unobtrusively near the bottom of
  * each card.
  */
-@media (max-width: 500px){
+@media (max-width: 600px){
   /* Let team names wrap onto up to two lines to avoid ellipsis */
   .team-name,
   .home-name,
@@ -181,12 +181,27 @@ main{max-width:1040px;margin:0 auto;padding:16px}
     display:grid;
     grid-template-columns:1fr;
     grid-template-rows:auto auto auto;
-    align-items:center;
-    text-align:center;
     gap:8px;
+    padding:8px 8px;
+    text-align:center;
+    align-items:center;
+  }
+  .team{
+    justify-content:center;
   }
   .team.right{
-    justify-content:flex-start;
+    justify-content:center;
+  }
+  .score .num{
+    font-size:22px;
+  }
+  /* Reduce padding and watch button size on small screens */
+  .game-card{
+    padding:10px;
+  }
+  .watch-btn{
+    padding:8px 12px;
+    font-size:14px;
   }
 }
 .game-card .fav.active{

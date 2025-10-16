@@ -74,6 +74,35 @@ main{max-width:1040px;margin:0 auto;padding:16px}
   .controls input[type="text"]{flex:1 1 100%}
   .name{max-width:100%}
 }
+
+/* Stack teams vertically and shrink card elements on smaller screens */
+@media (max-width: 600px){
+  .gc-main{
+    display:grid;
+    grid-template-columns:1fr;
+    grid-template-rows:auto auto auto;
+    gap:8px;
+    padding:8px 8px;
+    text-align:center;
+    align-items:center;
+  }
+  .team{
+    justify-content:center;
+  }
+  .team.right{
+    justify-content:center;
+  }
+  .score .num{
+    font-size:22px;
+  }
+  .game-card{
+    padding:10px;
+  }
+  .watch-btn{
+    padding:8px 12px;
+    font-size:14px;
+  }
+}
 .empty{color:var(--muted);padding:10px;text-align:center;border:1px dashed var(--edge);border-radius:12px}
 .footer{border-top:1px solid #0a121c;margin-top:28px}
 .footer .inner{max-width:1040px;margin:0 auto;padding:16px;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
