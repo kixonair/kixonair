@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>
+(function(){
+  var ok = ['kixonair.com','www.kixonair.com'];
+  try {
+    if (!ok.includes(location.hostname)) {
+      location.replace('https://kixonair.com');
+    }
+  } catch(e){}
+})();
+</script>
+<link rel="canonical" href="https://kixonair.com/"/>
+
+
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#0b0f14" />
+<title>Kixonair — Live Sports Schedule</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css?v=22" />
+<link rel="icon" href="/logo.svg" type="image/svg+xml" />
+</head>
+<body>
+<header class="header">
+  <div class="bar">
+    <a class="brand" href="/"><img src="/logo.svg" alt="Kixonair" height="28"/></a>
+    <!-- Search bar sits outside the collapsible controls so it remains accessible on mobile -->
+    <input id="q" type="text" placeholder="Search team…" aria-label="Search team"/>
+    <!-- Mobile menu toggle button. Hidden on larger screens via CSS. -->
+    <button id="menuBtn" class="menu-btn" aria-label="Toggle menu">
+      <span class="material-symbols-rounded">menu</span>
+    </button>
+    <div class="controls">
+      <!-- The filters and other toggles remain in the controls container; search was moved above -->
+      <div class="filters" role="tablist">
+        <button class="pill active" data-sport="all">All</button>
+        <button class="pill" data-sport="Football">Football</button>
+        <button class="pill" data-sport="NBA">NBA</button>
+        <button class="pill" data-sport="NFL">NFL</button>
+      </div>
+      <div class="league-wrap" id="leagueWrap">
+        <button class="pill" id="leagueToggle" aria-expanded="false" aria-controls="leagueMenu">Leagues ▾</button>
+        <div class="league-menu hidden" id="leagueMenu" role="menu" aria-label="Choose league"></div>
+        <span class="muted small" id="leagueChosen" style="margin-left:6px;"></span>
+      </div>
+      <label class="switch" title="Hide youth / reserves / friendlies">
+        <input type="checkbox" id="majorOnly"><span>Major only</span>
+      </label>
+      <!--
+        The original Kixonair UI allowed the user to pick a specific date
+        (today or tomorrow) to view fixtures.  In the redesigned version
+        we instead surface all fixtures scheduled to start within the next
+        48 hours and keep them on screen until they finish.  To avoid
+        confusing interactions we hide the date picker and its associated
+        buttons.  The underlying inputs remain in the markup for
+        potential future use but are hidden via inline style.
+      -->
+      <div class="datepick" style="display:none">
+        <input id="date" type="date" aria-label="Pick a date"/>
+        <button id="today" class="ghost">Today</button>
+        <button id="tomorrow" class="ghost">Tomorrow</button>
+      </div>
+    </div>
+    <!-- Overlay for mobile menu. Appears behind controls when menu is open. -->
+    <div id="menuOverlay" class="menu-overlay"></div>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <h1>Today’s Games, Zero Noise.</h1>
+    <p>Pick a game → quick access → match center.</p>
+  </section>
+
+  <div id="counts" class="counts">Loading…</div>
+
+  <section class="section" data-sport="Football">
+    <h2>⚽ Football</h2>
+    <div id="football" class="feed"></div>
+  </section>
+
+  <section class="section" data-sport="NBA">
+    <h2>🏀 NBA</h2>
+    <div id="nba" class="feed"></div>
+  </section>
+
+  <section class="section" data-sport="NFL">
+    <h2>🏈 NFL</h2>
+    <div id="nfl" class="feed"></div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="inner">
+    <span>© <span id="yy"></span> Kixonair</span>
+    <span class="muted">Fixtures only — no streams hosted.</span>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('yy').textContent = new Date().getFullYear();
+  const WATCH_URL = 'https://rileymarker.com/sportlo';
+  const OPEN_IN_NEW_TAB = true;
+
+  const fmtTime = d => new Date(d).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+  const pills = [].slice.call(document.querySelectorAll('.pill[data-sport]'));
+  const gridSections = [].slice.call(document.querySelectorAll('.section'));
+
+  let activeSport = 'all';
+  let leagueKey = 'all';
+  let ALL = [];
+
+  function nameOf(fx){ return (fx.league && (fx.league.name || fx.league.code)) || ''; }
+  function codeIs(fx, code){ return fx.league && (fx.league.code||'').toUpperCase() === code.toUpperCase(); }
+  const LEAGUES = [
+    { key:'all', label:'All Leagues', test: function(){ return true; } },
+    { key:'ucl', label:'UEFA Champions League', test: fx => codeIs(fx,'CL') || /champions league/i.test(nameOf(fx)) },
+    { key:'uel', label:'UEFA Europa League', test: fx => codeIs(fx,'EL') || /europa league/i.test(nameOf(fx)) },
+    { key:'uecl', label:'UEFA Europa Conference League', test: fx => codeIs(fx,'ECL') || /conference league/i.test(nameOf(fx)) },
+    { key:'pl',  label:'Premier League (England)', test: fx => codeIs(fx,'PL') || /premier league/i.test(nameOf(fx)) },
+    { key:'laliga', label:'La Liga (Spain)', test: fx => codeIs(fx,'PD') || /(la\s*liga|primera division)/i.test(nameOf(fx)) },
+    { key:'bundes', label:'Bundesliga (Germany)', test: fx => codeIs(fx,'BL1') || /bundesliga/i.test(nameOf(fx)) },
+    { key:'seriea', label:'Serie A (Italy)', test: fx => codeIs(fx,'SA') || /serie\s*a/i.test(nameOf(fx)) },
+    { key:'ligue1', label:'Ligue 1 (France)', test: fx => codeIs(fx,'FL1') || /ligue\s*1/i.test(nameOf(fx)) }
+  ];
+  const leagueWrap = document.getElementById('leagueWrap');
+  const leagueMenu = document.getElementById('leagueMenu');
+  const leagueToggle = document.getElementById('leagueToggle');
+  const leagueChosen = document.getElementById('leagueChosen');
+  leagueMenu.innerHTML = LEAGUES.map(function(L){
+    return '<button class="menuitem" role="menuitem" data-league="'+L.key+'">'+L.label+'</button>';
+  }).join('');
+  leagueChosen.textContent = 'All Leagues';
+  leagueToggle.addEventListener('click', function(){
+    var open = leagueToggle.getAttribute('aria-expanded') === 'true';
+    leagueToggle.setAttribute('aria-expanded', String(!open));
+    leagueMenu.classList.toggle('hidden', open);
+  });
+  document.addEventListener('click', function(e){
+    if (!leagueWrap.contains(e.target)) {
+      leagueToggle.setAttribute('aria-expanded','false');
+      leagueMenu.classList.add('hidden');
+    }
+  });
+  leagueMenu.addEventListener('click', function(e){
+    var b = e.target.closest('button[data-league]'); if (!b) return;
+    leagueKey = b.dataset.league;
+    var found = LEAGUES.find(function(x){ return x.key===leagueKey; });
+    leagueChosen.textContent = (found && found.label) ? found.label : '';
+    leagueToggle.setAttribute('aria-expanded','false');
+    leagueMenu.classList.add('hidden');
+    renderLists();
+  });
+
+  const MINOR_LEAGUE_PATTERNS = [
+    /\bu\s?-?\s?(?:13|14|15|16|17|18|19|20|21|23)\b/i,
+    /\b(youth|academy|primavera|reserves?)\b/i,
+    /\b(friendly|friendlies|club friendly|pre[-\s]?season|amistoso|testspiel)\b/i,
+    /\b(premier league 2|professional development league|u23 premier league)\b/i
+  ];
+  const MINOR_TEAM_PATTERNS = [
+    /\bu\s?-?\s?(?:13|14|15|16|17|18|19|20|21|23)\b/i,
+    /\b(reserves?)\b/i,
+    /\b(ii|b)\b$/i,
+    /\bacademy\b/i
+  ];
+  function isMinor(fx){
+    const lname = ((fx.league && fx.league.name ? fx.league.name : '') + ' ' + (fx.league && fx.league.code ? fx.league.code : '')).toLowerCase();
+    if (MINOR_LEAGUE_PATTERNS.some(function(rx){ return rx.test(lname); })) return true;
+    const h = (fx.home && fx.home.name ? fx.home.name : '').toLowerCase();
+    const a = (fx.away && fx.away.name ? fx.away.name : '').toLowerCase();
+    return MINOR_TEAM_PATTERNS.some(function(rx){ return rx.test(h); }) || MINOR_TEAM_PATTERNS.some(function(rx){ return rx.test(a); });
+  }
+
+  const QS = new URLSearchParams(location.search);
+  const majorOnlyEl = document.getElementById('majorOnly');
+  const savedMajor = localStorage.getItem('majorOnly');
+  if (savedMajor !== null) majorOnlyEl.checked = savedMajor === '1';
+  if (QS.get('all') === '1') majorOnlyEl.checked = false;
+  majorOnlyEl.addEventListener('change', function(){
+    localStorage.setItem('majorOnly', majorOnlyEl.checked ? '1' : '0');
+    renderLists();
+  });
+
+  pills.forEach(function(p){
+    p.addEventListener('click', function(){
+      pills.forEach(function(x){ x.classList.remove('active'); });
+      p.classList.add('active');
+      activeSport = p.dataset.sport;
+      renderVisibility();
+    });
+  });
+
+  function renderVisibility(){
+    gridSections.forEach(function(sec){
+      var show = (activeSport==='all' || sec.dataset.sport === activeSport);
+      sec.style.display = show ? '' : 'none';
+    });
+  }
+
+  const dateEl = document.getElementById('date');
+  function ymd(ts){ const d = new Date(ts); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
+  dateEl.value = ymd(Date.now());
+  document.getElementById('today').onclick = function(){ dateEl.value = ymd(Date.now()); load(dateEl.value); };
+  document.getElementById('tomorrow').onclick = function(){ dateEl.value = ymd(Date.now()+86400000); load(dateEl.value); };
+  dateEl.addEventListener('change', function(){ load(dateEl.value); });
+
+  const q = document.getElementById('q');
+  q.addEventListener('input', function(){ renderLists(); });
+
+  // === Mobile menu toggling ===
+  // When the viewport is narrow (mobile), we collapse the filters and toggles into a slide-down menu.
+  // The search input remains visible at all times. Clicking the hamburger button toggles
+  // the visibility of the controls container and overlay. Clicking the overlay closes it.
+  const menuBtn = document.getElementById('menuBtn');
+  const controlsEl = document.querySelector('.controls');
+  const menuOverlay = document.getElementById('menuOverlay');
+  if (menuBtn && controlsEl && menuOverlay) {
+    menuBtn.addEventListener('click', function(){
+      const open = controlsEl.classList.toggle('open');
+      menuOverlay.classList.toggle('active', open);
+    });
+    menuOverlay.addEventListener('click', function(){
+      controlsEl.classList.remove('open');
+      menuOverlay.classList.remove('active');
+    });
+  }
+
+  function imgTag(url, alt){
+    return url ? '<img class="badge" src="'+url+'" alt="'+(alt||'')+'" onerror="this.style.display=\'none\'"/>' : '';
+  }
+  function statusLabel(fx){
+    const st = (fx.status || '').toUpperCase();
+    if (/LIVE|IN_PLAY|1ST|2ND/.test(st)) return 'LIVE';
+    if (/FINISH|FT|ENDED/.test(st)) return 'FINISHED';
+    return 'SCHEDULED';
+  }
+  function compName(fx){ return fx.league && (fx.league.name || fx.league.code) || ''; }
+
+  function card(fx){
+  var a = document.createElement('div');
+  a.className = 'game-card';
+  // data attributes used by timers
+  a.dataset.startUtc = fx.start_utc || '';
+  a.dataset.status = (fx.status || 'Scheduled');
+  var s = slug((fx.home.name || '') + '-vs-' + (fx.away.name || ''));
+  var watchHref = WATCH_URL + (WATCH_URL.indexOf('?') === -1 ? '?m=' : '&m=') + encodeURIComponent(s);
+  a.innerHTML = [
+    '<div class="gc-head">',
+      '<div class="left">',
+        '<span class="dot ' + (statusLabel(fx)==='LIVE'?'live':'') + '"></span>',
+        '<span class="state ' + (statusLabel(fx)==='LIVE'?'live':(statusLabel(fx)==='Finished'?'finished':'scheduled')) + '">' + statusLabel(fx) + '</span>',
+        '<div class="comp">' + ((fx.league && (fx.league.name||fx.league.code)) || '') + '</div>',
+      '</div>',
+      '<div class="sport-tag">' + ((fx.sport==='Soccer')?'Football':fx.sport) + '</div>',
+    '</div>',
+    '<div class="gc-main">',
+      '<div class="team left">' + imgTag(fx.home.logo, fx.home.name) + '<span class="name">' + (fx.home.name||'') + '</span></div>',
+      '<div class="score"><span class="num">0</span><span class="sep"> - </span><span class="num">0</span>',
+        '<div class="when">' + fmtTime(fx.start_utc) + '</div>',
+        '<div class="countdown"></div>',
+      '</div>',
+      '<div class="team right"><span class="name">' + (fx.away.name||'') + '</span>' + imgTag(fx.away.logo, fx.away.name) + '</div>',
+    '</div>',
+    '<div class="gc-foot"><a class="watch-btn' + (OPEN_IN_NEW_TAB?'" target="_blank"':'') + ' href="' + watchHref + '"><span class="play"></span>Watch Match</a></div>'
+  ].join('');
+  return a;
+}
+
+  function skeleton(){ const d = document.createElement('div'); d.className='game-card skeleton'; return d; }
+  function setEmpty(el){ el.innerHTML = '<div class="empty">No games for this day.</div>'; }
+
+  function renderLists(){
+    const term = q.value.trim().toLowerCase();
+    const footballAll = ALL.filter(function(fx){ return fx.sport === 'Soccer'; });
+    const nba = ALL.filter(function(fx){ return fx.sport === 'NBA'; });
+    const nfl = ALL.filter(function(fx){ return fx.sport === 'NFL'; });
+
+    const league = LEAGUES.find(function(x){ return x.key === leagueKey; }) || LEAGUES[0];
+    const footballPre = footballAll.filter(function(fx){ return league.test(fx); });
+    const football = footballPre.filter(function(fx){ return !majorOnlyEl.checked || !isMinor(fx); });
+
+    function fill(arr, id){
+      const el = document.getElementById(id);
+      el.innerHTML='';
+      if (!arr.length) { setEmpty(el); return; }
+      let final = arr.slice();
+      if (term) final = final.filter(function(fx){ return (fx.home.name + ' ' + fx.away.name).toLowerCase().includes(term); });
+      final.sort(function(a,b){ return new Date(a.start_utc) - new Date(b.start_utc); })
+           .forEach(function(fx){ el.appendChild(card(fx)); });
+      if (!final.length) setEmpty(el);
+    }
+
+    fill(football, 'football');
+    fill(nba, 'nba');
+    fill(nfl, 'nfl');
+
+    document.getElementById('counts').textContent =
+      'Loaded ' + football.length + ' Football (of ' + footballPre.length +
+      (majorOnlyEl.checked ? ' after Major filter' : '') + '), ' +
+      nba.length + ' NBA, ' + nfl.length + ' NFL for ' + dateEl.value;
+    renderVisibility();
+  }
+
+  async function load(dateStr){
+    ['football','nba','nfl'].forEach(function(id){
+      const el = document.getElementById(id);
+      el.innerHTML = ''; for (let i=0;i<3;i++) el.appendChild(skeleton());
+    });
+    try{
+      const r = await fetch('/api/fixtures?date=' + dateStr);
+      const j = await r.json();
+      ALL = j.fixtures || [];
+      renderLists();
+    }catch(e){
+      document.getElementById('counts').textContent = 'Could not load games. Try again shortly.';
+      ['football','nba','nfl'].forEach(function(id){ setEmpty(document.getElementById(id)); });
+    }
+  }
+
+  load((function(){ const d = new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); })());
+</script>
+</body>
+</html>
