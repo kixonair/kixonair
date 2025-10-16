@@ -272,3 +272,43 @@
     height:64px;
   }
 }
+
+/* Additional mobile tweaks for very small screens */
+@media(max-width:480px){
+  .mag-container{
+    padding:12px;
+    gap:12px;
+  }
+  .mag-hero{
+    padding:16px;
+    margin-bottom:16px;
+  }
+  .mag-hero .logo-wrap{
+    gap:6px;
+  }
+  .mag-hero .logo-wrap img{
+    width:48px;
+    height:48px;
+  }
+  .mag-hero .hero-info h3{
+    font-size:18px;
+  }
+  .mag-hero .hero-info .league,
+  .mag-hero .hero-info .time{
+    font-size:12px;
+  }
+  .mag-card{
+    padding:14px;
+  }
+  .mag-card .team img{
+    width:32px;
+    height:32px;
+  }
+  .mag-grid{
+    grid-template-columns:1fr;
+  }
+  .mag-upnext .up-item img{
+    width:24px;
+    height:24px;
+  }
+}

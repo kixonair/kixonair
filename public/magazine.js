@@ -309,7 +309,8 @@ function render(){
   if (hero){
     const slugVal = slug(`${hero.home.name}-vs-${hero.away.name}`);
     // Build the watch page URL using the legacy `id` parameter so it works with watch.html
-    const watchHref = '/watch.html?id=' + encodeURIComponent(slugVal);
+    // Append the match start time to the slug (slug@ISO) so the watch page can resolve the correct fixture
+    const watchHref = '/watch.html?id=' + encodeURIComponent(slugVal + '@' + hero.start_utc);
     heroDiv.innerHTML = '';
     const favClass = isFav(slugVal) ? 'active' : '';
     // Render hero without photo or video — only logos, info and favourite star
@@ -339,7 +340,8 @@ function render(){
     upnextDiv.appendChild(h);
     upList.forEach(fx => {
       const slugVal = slug(`${fx.home.name}-vs-${fx.away.name}`);
-      const watchHref = '/watch.html?id=' + encodeURIComponent(slugVal);
+      // Include the fixture start time for precise identification
+      const watchHref = '/watch.html?id=' + encodeURIComponent(slugVal + '@' + fx.start_utc);
       const item = document.createElement('div');
       item.className = 'up-item';
       item.innerHTML = `
@@ -361,7 +363,8 @@ function render(){
     favesDiv.appendChild(h);
     favFixtures.forEach(fx => {
       const slugVal = slug(`${fx.home.name}-vs-${fx.away.name}`);
-      const watchHref = '/watch.html?id=' + encodeURIComponent(slugVal);
+      // Include the fixture start time for precise identification
+      const watchHref = '/watch.html?id=' + encodeURIComponent(slugVal + '@' + fx.start_utc);
       const item = document.createElement('div');
       item.className = 'up-item';
       item.innerHTML = `
@@ -383,7 +386,8 @@ function render(){
   const rest = others.filter(fx => !skip.has(fx));
   rest.forEach(fx => {
     const slugVal = slug(`${fx.home.name}-vs-${fx.away.name}`);
-      const watchHref = '/watch.html?id=' + encodeURIComponent(slugVal);
+    // Include the fixture start time for precise identification
+    const watchHref = '/watch.html?id=' + encodeURIComponent(slugVal + '@' + fx.start_utc);
     const card = document.createElement('div');
     card.className = 'mag-card';
     const favClass = isFav(slugVal) ? 'active' : '';
