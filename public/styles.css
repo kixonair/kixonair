@@ -208,7 +208,12 @@ main{max-width:1040px;margin:0 auto;padding:16px}
 .team{display:flex;align-items:center;gap:10px;min-width:0}
 .team.right{justify-content:flex-end}
 .badge{width:36px;height:36px;border-radius:50%;object-fit:contain;background:var(--card);border:1px solid var(--edge)}
-.name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+.name{
+  /* Allow team names to wrap on smaller screens instead of truncating with an ellipsis */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width:100%;
+}
 .score{display:flex;flex-direction:column;align-items:center;min-width:100px}
 .score .num{font-size:26px;font-weight:800}
 .score .when{margin-top:4px;color:var(--muted);font-size:12px}

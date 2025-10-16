@@ -111,10 +111,11 @@
       font-weight:600;
       line-height:1.3;
       color: var(--text-col);
-      /* prevent awkward line breaks on long names and truncate with ellipsis */
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      /* Allow long team names to wrap on small screens instead of truncating.
+         Removing the truncation styles lets the browser break names onto multiple lines
+         so they remain readable on phone‑sized viewports. */
+      white-space: normal;
+      overflow-wrap: anywhere;
       max-width:100%;
     }
     .h1{

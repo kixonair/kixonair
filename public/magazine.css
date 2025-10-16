@@ -44,7 +44,12 @@ body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 Inter,system-
 .badge{width:36px;height:36px;border-radius:50%;object-fit:contain;background:#0f1622;border:1px solid #233048}
 .team{display:flex;align-items:center;gap:10px;min-width:0}
 .team.right{justify-content:flex-end}
-.name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+.name{
+  /* Allow team names to wrap on smaller screens instead of truncating */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width:100%;
+}
 .score{display:flex;flex-direction:column;align-items:center;min-width:100px}
 .score .vs{font-size:14px;font-weight:800;letter-spacing:1px;color:#c7d2fe}
 .score .when{margin-top:2px;color:var(--muted);font-size:12px}
