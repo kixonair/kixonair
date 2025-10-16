@@ -3,11 +3,8 @@
 <head>
   <script>
     (function () {
-      // Permit local development hosts in addition to the production domains.
-      var ok = ['kixonair.com', 'www.kixonair.com', '', 'localhost', '127.0.0.1'];
-      try {
-        if (!ok.includes(location.hostname)) location.replace('https://kixonair.com');
-      } catch (e) {}
+      var ok = ['kixonair.com', 'www.kixonair.com'];
+      try { if (!ok.includes(location.hostname)) location.replace('https://kixonair.com'); } catch (e) {}
     })();
   </script>
   <meta charset="utf-8" />
@@ -17,247 +14,33 @@
   <link rel="stylesheet" href="/styles.css?v=34" />
   <link rel="icon" href="/logo.svg" type="image/svg+xml" />
   <style>
-    /*
-     * Premium match centre styling
-     *
-     * The original layout has been preserved but colours, spacing,
-     * typography and components are upgraded for a more upscale look.
-     */
-    :root{
-      /* base spacing */
-      --pad: clamp(12px, 3vw, 22px);
-      /* colour palette */
-      --primary-bg: #0f172a;        /* darkest panel background */
-      --secondary-bg: #1e293b;      /* card background */
-      --border-col: #334155;        /* soft border colour */
-      --accent: #6366f1;            /* violet accent for buttons */
-      --accent-hover: #7c3aed;      /* deeper violet for hover */
-      --text-col: #f1f5f9;          /* near white for text */
-      --muted-col: #94a3b8;         /* muted grey for secondary text */
-      --success-col: #10b981;       /* green for loading indicator */
-    }
-
-    /* global resets and typography */
-    html, body{
-      margin:0; padding:0;
-      background: radial-gradient(circle at top left, var(--primary-bg), var(--secondary-bg));
-      color: var(--text-col);
-      font-family: 'Segoe UI', Tahoma, sans-serif;
-      line-height: 1.5;
-    }
-
-    a{ color: inherit; }
-
-    .wrap{
-      max-width:980px;
-      margin:0 auto;
-      padding:var(--pad);
-    }
-
-    /* header bar */
-    .headerbar{
-      display:grid;
-      grid-template-columns:auto 1fr auto;
-      align-items:center;
-      margin-bottom:16px;
-      color: var(--text-col);
-    }
+    :root{ --pad: clamp(12px, 3vw, 22px); }
+    .wrap{max-width:980px;margin:0 auto;padding:var(--pad)}
+    .headerbar{display:grid;grid-template-columns:auto 1fr auto;align-items:center;margin-bottom:10px}
     .headerbar .center{justify-self:center;}
-
-    /* competition badge */
-    .badge{
-      display:inline-block;
-      border:1px solid var(--border-col);
-      background: var(--secondary-bg);
-      color: var(--text-col);
-      border-radius:999px;
-      padding:4px 12px;
-      font-size:12px;
-      max-width:50vw;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-
-    /* teams grid */
-    .teams{
-      display:grid;
-      grid-template-columns:1fr auto 1fr;
-      gap:18px;
-      align-items:center;
-      justify-items:center;
-      margin:20px 0 8px;
-      background: var(--secondary-bg);
-      border:1px solid var(--border-col);
-      border-radius:16px;
-      padding:16px;
-      box-shadow:0 4px 8px rgba(0,0,0,0.3);
-    }
-    .side{
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      gap:10px;
-      text-align:center;
-    }
-    .side img{
-      width:clamp(64px,14vw,96px);
-      height:clamp(64px,14vw,96px);
-      object-fit:contain;
-      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
-    }
-    .teamName{
-      font-size:clamp(18px,4.5vw,24px);
-      font-weight:600;
-      line-height:1.3;
-      color: var(--text-col);
-      /* prevent awkward line breaks on long names and truncate with ellipsis */
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width:100%;
-    }
-    .h1{
-      font-size:clamp(28px,8vw,42px);
-      font-weight:800;
-      text-align:center;
-      letter-spacing:.08em;
-      color: var(--accent);
-    }
-    .muted{
-      color: var(--muted-col);
-    }
-    .statusBig{
-      margin-top:8px;
-      margin-bottom:6px;
-      text-align:center;
-      font-size:18px;
-      font-weight:500;
-      color: var(--accent);
-    }
-
-    /* meta information grid */
-    .meta{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:12px;
-      margin:20px 0;
-      background: var(--secondary-bg);
-      border:1px solid var(--border-col);
-      border-radius:16px;
-      padding:16px;
-      box-shadow:0 4px 8px rgba(0,0,0,0.3);
-    }
+    .badge{display:inline-block;border:1px solid #2a2f37;border-radius:999px;padding:4px 10px;font-size:12px;max-width:50vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .teams{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;justify-items:center;margin:10px 0 4px}
+    .side{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+    .side img{width:clamp(56px,14vw,84px);height:clamp(56px,14vw,84px);object-fit:contain}
+    .teamName{font-size:clamp(16px,4.5vw,22px);font-weight:700;line-height:1.2}
+    .h1{font-size:clamp(22px,8vw,34px);font-weight:900;text-align:center;letter-spacing:.06em}
+    .muted{opacity:.78}
+    .statusBig{margin-top:6px;margin-bottom:2px;text-align:center}
+    .meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0}
     @media(max-width:720px){ .meta{grid-template-columns:repeat(2,minmax(0,1fr));} }
-
-    /* server bar */
-    .serverbar{
-      display:flex;
-      flex-wrap:wrap;
-      gap:14px;
-      justify-content:center;
-      margin:18px 0 4px;
-      background: var(--secondary-bg);
-      border:1px solid var(--border-col);
-      border-radius:16px;
-      padding:16px;
-      box-shadow:0 4px 8px rgba(0,0,0,0.3);
-    }
-    .serverbar .sbtn{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-width:120px;
-      border-radius:12px;
-      padding:12px 18px;
-      text-decoration:none;
-      color:var(--text-col);
-      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
-      transition: background 0.3s ease, transform 0.1s ease;
-      font-weight:500;
-    }
-    .serverbar .sbtn:hover{
-      background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%);
-      transform: translateY(-2px);
-    }
-
-    /* loading overlay */
-    .loading{
-      position:fixed;
-      inset:0;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      background:rgba(5,12,23,0.8);
-      backdrop-filter:saturate(120%) blur(4px);
-      z-index:50;
-      transition:opacity .25s ease;
-    }
-    .loading.hidden{ opacity:0; pointer-events:none; }
-    .spinner{
-      position:relative;
-      width:74px;
-      height:74px;
-      margin-bottom:10px;
-    }
-    .ring{
-      position:absolute;
-      inset:0;
-      border-radius:50%;
-      border:4px solid rgba(255,255,255,.1);
-      border-top-color: var(--accent);
-      animation:spin 1s linear infinite;
-    }
-    .dot{
-      position:absolute;
-      top:50%; left:50%;
-      width:16px; height:16px;
-      background: var(--success-col);
-      border-radius:50%;
-      transform:translate(-50%,-50%);
-      animation:pulse 1.4s ease-in-out infinite;
-    }
-    .loadingText{
-      font-size:14px;
-      color: var(--muted-col);
-      letter-spacing:.02em;
-    }
-    @keyframes spin{ to{ transform:rotate(360deg) } }
-    @keyframes pulse{ 0%,100%{ transform:translate(-50%,-50%) scale(.85); opacity:.85 } 50%{ transform:translate(-50%,-50%) scale(1.1); opacity:1 } }
-
-    /* hide league badge on small screens */
-    @media(max-width:600px){ #leagueBadge{ display:none; } }
-
-    /* back button styling */
-    .btn{
-      display:inline-block;
-      padding:8px 14px;
-      border:1px solid var(--accent);
-      background: transparent;
-      color: var(--accent);
-      border-radius:8px;
-      text-decoration:none;
-      font-weight:500;
-      transition: background 0.25s ease, color 0.25s ease;
-    }
-    .btn:hover{
-      background: var(--accent);
-      color:#ffffff;
-    }
-
-    /* header */
-    header.header{
-      background: var(--secondary-bg);
-      border-bottom:1px solid var(--border-col);
-    }
-    header .bar{
-      max-width:980px;
-      margin:0 auto;
-      padding: var(--pad);
-      display:flex;
-      align-items:center;
-    }
+    .serverbar{ display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin:12px 0 4px; }
+    .serverbar .sbtn{ display:inline-flex; align-items:center; justify-content:center; min-width:110px;
+      border:1px solid #2a2f37; border-radius:12px; padding:10px 14px; text-decoration:none; color:#cbd5e1 }
+    .serverbar .sbtn:hover{ background:#121821 }
+    .loading{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(3,8,14,.78);backdrop-filter:saturate(120%) blur(3px);z-index:50;transition:opacity .25s ease}
+    .loading.hidden{opacity:0;pointer-events:none}
+    .spinner{position:relative;width:74px;height:74px;margin-bottom:10px}
+    .ring{position:absolute;inset:0;border-radius:50%;border:4px solid rgba(255,255,255,.14);border-top-color:rgba(255,255,255,.6);animation:spin 1s linear infinite}
+    .dot{position:absolute;top:50%;left:50%;width:14px;height:14px;background:#22c55e;border-radius:50%;transform:translate(-50%,-50%);animation:pulse 1.2s ease-in-out infinite}
+    .loadingText{font-size:14px;opacity:.9}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(.85);opacity:.85}50%{transform:translate(-50%,-50%) scale(1.12);opacity:1}}
+    @media(max-width:600px){ #leagueBadge{display:none} }
   </style>
 </head>
 <body>
@@ -322,87 +105,6 @@
   function ymdFromIso(x){ try{ return String(x||'').slice(0,10) || null; }catch{return null;} }
   function addDays(dateStr, delta){ const dt = new Date(Date.UTC(+dateStr.slice(0,4), +dateStr.slice(5,7)-1, +dateStr.slice(8,10))); dt.setUTCDate(dt.getUTCDate()+delta); return dt.toISOString().slice(0,10); }
 
-  /**
-   * Map various status codes coming from the fixture API into human friendly labels.
-   * The API can return statuses such as "IN_PLAY", "PAUSED", "SCHEDULED", "FINISHED",
-   * "HALF-TIME" etc. We normalise them to four distinct states:
-   *  - Scheduled: the match has not started yet
-   *  - Live: the match is currently in progress (1st or 2nd half)
-   *  - Half Time: the match is in its half‑time break
-   *  - Finished: the match has concluded
-   * If none of the above patterns are detected the original status string is returned.
-   */
-  function formatStatus(status){
-    const raw = String(status || '').toUpperCase();
-    // patterns representing a live match
-    const livePatterns = ['IN_PLAY','LIVE','PLAYING','1ST HALF','FIRST HALF','2ND HALF','SECOND HALF'];
-    for (const p of livePatterns){ if (raw.includes(p)) return 'Live'; }
-    // patterns representing half time
-    const halfPatterns = ['HALF-TIME','HALFTIME','HT','HALF TIME','PAUSED'];
-    for (const p of halfPatterns){ if (raw.includes(p)) return 'Half Time'; }
-    // patterns representing finished matches
-    const finPatterns = ['FINISHED','FULL-TIME','FT','FINAL','ENDED'];
-    for (const p of finPatterns){ if (raw.includes(p)) return 'Finished'; }
-    // scheduled / not started
-    const schedPatterns = ['SCHEDULED','NOT_STARTED','NS'];
-    for (const p of schedPatterns){ if (raw.includes(p)) return 'Scheduled'; }
-    return status || '';
-  }
-
-  /**
-   * Map various status codes coming from the fixture API into human friendly labels.
-   * The API can return statuses such as "IN_PLAY", "PAUSED", "SCHEDULED", "FINISHED",
-   * "HALF-TIME" etc. We normalise them to four distinct states:
-   *  - Scheduled: the match has not started yet
-   *  - Live: the match is currently in progress (1st or 2nd half)
-   *  - Half Time: the match is in its half‑time break
-   *  - Finished: the match has concluded
-   * If none of the above patterns are detected the original status string is returned.
-   */
-  function formatStatus(status){
-    const raw = String(status || '').toUpperCase();
-    // patterns representing a live match
-    const livePatterns = ['IN_PLAY','LIVE','PLAYING','1ST HALF','FIRST HALF','2ND HALF','SECOND HALF'];
-    for (const p of livePatterns){ if (raw.includes(p)) return 'Live'; }
-    // patterns representing half time
-    const halfPatterns = ['HALF-TIME','HALFTIME','HT','HALF TIME','PAUSED'];
-    for (const p of halfPatterns){ if (raw.includes(p)) return 'Half Time'; }
-    // patterns representing finished matches
-    const finPatterns = ['FINISHED','FULL-TIME','FT','FINAL','ENDED'];
-    for (const p of finPatterns){ if (raw.includes(p)) return 'Finished'; }
-    // scheduled / not started
-    const schedPatterns = ['SCHEDULED','NOT_STARTED','NS'];
-    for (const p of schedPatterns){ if (raw.includes(p)) return 'Scheduled'; }
-    return status || '';
-  }
-
-  /**
-   * Map various status codes coming from the fixture API into human friendly labels.
-   * The API can return statuses such as "IN_PLAY", "PAUSED", "SCHEDULED", "FINISHED",
-   * "HALF-TIME" etc.  We normalise them to four distinct states:
-   *  - Scheduled: the match has not started yet
-   *  - Live: the match is currently in progress (1st or 2nd half)
-   *  - Half Time: the match is in its half‑time break
-   *  - Finished: the match has concluded
-   * If none of the above patterns are detected the original status string is returned.
-   */
-  function formatStatus(status){
-    const raw = String(status || '').toUpperCase();
-    // Normalise live statuses
-    const livePatterns = ['IN_PLAY','LIVE','PLAYING','1ST HALF','FIRST HALF','2ND HALF','SECOND HALF'];
-    for (const p of livePatterns){ if (raw.includes(p)) return 'Live'; }
-    // Half-time patterns
-    const halfPatterns = ['HALF-TIME','HALFTIME','HT','HALF TIME','PAUSED'];
-    for (const p of halfPatterns){ if (raw.includes(p)) return 'Half Time'; }
-    // Finished patterns
-    const finPatterns = ['FINISHED','FULL-TIME','FT','FINAL','ENDED'];
-    for (const p of finPatterns){ if (raw.includes(p)) return 'Finished'; }
-    // Scheduled / not started patterns
-    const schedPatterns = ['SCHEDULED','NOT_STARTED','NS'];
-    for (const p of schedPatterns){ if (raw.includes(p)) return 'Scheduled'; }
-    return status || '';
-  }
-
   function renderServerButtonsFromSlug(sl){
     const bar = $('serverBar'); if (!bar) return;
     const labels = ['Server 1','Server 2','Server 3','Server 4','Server 5'];
@@ -463,8 +165,7 @@
     const homeLogo = fx.home?.logo || '';
     const awayLogo = fx.away?.logo || '';
     const league   = fx.league?.name || '';
-    // raw status string provided by the API
-    const statusRaw = fx.status || 'SCHEDULED';
+    const status   = fx.status || 'SCHEDULED';
     const kickoff  = fx.start_utc || '';
 
     $('homeName').textContent = homeName;
@@ -472,11 +173,9 @@
     $('homeLogo').src = homeLogo || '/logo.svg';
     $('awayLogo').src = awayLogo || '/logo.svg';
     $('leagueBadge').textContent = league || ''; $('league').textContent = league || '-';
-    // derive a human friendly status from the API value
-    const friendlyStatus = formatStatus(statusRaw);
-    $('state').textContent = friendlyStatus || '-';
+    $('state').textContent = status || '-';
     $('kickoff').textContent = kickoff ? new Date(kickoff).toLocaleString() : '-';
-    $('statusLine').textContent = friendlyStatus || '';
+    $('statusLine').textContent = status || '';
 
     renderServerButtonsFromFixture(fx);
     hideLoading();
