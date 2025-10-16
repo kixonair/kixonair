@@ -138,6 +138,33 @@ main{max-width:1040px;margin:0 auto;padding:16px}
   user-select:none;
   transition:color 0.2s ease;
 }
+
+/*
+ * Mobile improvements:
+ * On narrow screens, allow team names to wrap instead of clipping them with ellipsis,
+ * and reposition the favourite star so it doesn’t overlap the sport label. These
+ * changes apply at widths below 500px, which covers most phones. They ensure
+ * long team names are readable and the star sits unobtrusively near the bottom of
+ * each card.
+ */
+@media (max-width: 500px){
+  .team-name,
+  .home-name,
+  .away-name{
+    white-space:normal;
+    overflow:visible;
+    text-overflow:unset;
+  }
+  .game-card .fav{
+    top:auto;
+    bottom:16px;
+    right:16px;
+  }
+  /* give extra space on the right to avoid crowding */
+  .sport-tag{
+    margin-right:20px;
+  }
+}
 .game-card .fav.active{
   color:#facc15;
 }
