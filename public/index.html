@@ -3,7 +3,9 @@
 <head>
 <script>
 (function(){
-  var ok = ['kixonair.com','www.kixonair.com'];
+  // Allow local development by whitelisting empty and local hostnames in addition to
+  // the production domains.
+  var ok = ['kixonair.com','www.kixonair.com','','localhost','127.0.0.1'];
   try {
     if (!ok.includes(location.hostname)) {
       location.replace('https://kixonair.com');
