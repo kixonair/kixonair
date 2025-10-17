@@ -308,16 +308,15 @@
   // "HT" or contains the word "HALF" we treat it as half time.  Live
   // play in either the first or second half continues to show as LIVE.
   function statusLabel(fx){
-    const st = (fx.status || '').toUpperCase();
-    // halftime variants
-    if (/\bHT\b/.test(st) || /HALF/.test(st)) return 'HALF';
-    // live play including 1st or 2nd half
-    if (/LIVE|IN_PLAY|1ST|2ND/.test(st)) return 'LIVE';
-    // finished matches: treat final, post‑game and full‑time codes as finished.  Use word boundaries
-    // for FT so that "HALFTIME" does not trigger a finished state.
-    if (/STATUS_FINAL|STATUS_POSTGAME|POSTGAME|FINAL|FULL\s?TIME|FULLTIME|ENDED|FINISH(?:ED)?|\bFT\b/.test(st)) return 'FINISHED';
-    return 'SCHEDULED';
-  }
+  const st = (fx.status || '').toUpperCase();
+  // halftime
+  if (/\bHT\b/.test(st) || /HALF/.test(st)) return 'HALF';
+  // live
+  if (/LIVE|IN_PLAY|1ST|2ND/.test(st)) return 'LIVE';
+  // finished (word boundary on FT so HALFTIME doesn't match)
+  if (/STATUS_FINAL|STATUS_POSTGAME|POSTGAME|FINAL|FULL\s?TIME|FULLTIME|ENDED|FINISH(?:ED)?|\bFT\b/.test(st)) return 'FINISHED';
+  return 'SCHEDULED';
+}
   function compName(fx){ return fx.league && (fx.league.name || fx.league.code) || ''; }
 
   function card(fx){
@@ -582,3 +581,14 @@ var watchHref = WATCH_URL + '?id=' + encodeURIComponent(fixtureId);
 </script>
 </body>
 </html>
+
+    // Halftime overlay (soccer): if Live and 45'–60' after kickoff, show HALF
+    if (st === 'LIVE') {
+      const sport = (el.dataset.sport || '').toUpperCase();
+      if (sport === 'SOCCER' || sport === 'FOOTBALL') {
+        const sinceKO = now - start;
+        if (sinceKO >= 45 * 60 * 1000 && sinceKO < 60 * 60 * 1000) {
+          st = 'HALF';
+        }
+      }
+    }
