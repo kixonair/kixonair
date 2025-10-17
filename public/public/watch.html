@@ -1,33 +1,3 @@
-// Derive a friendly status using API status and kickoff time (adds halftime sensitivity)
-function deriveFriendlyStatus(statusRaw, kickoffIso, sportGuess) {
-  // First map raw codes to friendly labels
-  const st = String(statusRaw || '').toUpperCase();
-  if (/\bHT\b/.test(st) || /HALF/.test(st)) return 'Half Time';
-  if (/LIVE|IN_PLAY|1ST|2ND/.test(st)) return 'Live';
-  if (/STATUS_FINAL|STATUS_POSTGAME|POSTGAME|FINAL|FULL\s?TIME|FULLTIME|ENDED|FINISH(?:ED)?|\bFT\b/.test(st)) return 'Finished';
-
-  // If still scheduled, derive by time
-  if (kickoffIso) {
-    const H = 60 * 60 * 1000, M = 60 * 1000;
-    const now = Date.now();
-    const ko = Date.parse(kickoffIso);
-    if (!Number.isNaN(ko)) {
-      let halfDurationMin = 45, halftimeBreakMin = 15, totalDurationMin = 105;
-      const s = String(sportGuess || '').toUpperCase();
-      if (s.includes('NBA')) { halfDurationMin = 24; halftimeBreakMin = 15; totalDurationMin = 60; }
-      else if (s.includes('NFL')) { halfDurationMin = 90; halftimeBreakMin = 15; totalDurationMin = 210; }
-
-      const diff = now - ko;
-      if (diff < 0) return 'Scheduled';
-      if (diff < halfDurationMin * M) return 'Live';
-      if (diff < (halfDurationMin + halftimeBreakMin) * M) return 'Half Time';
-      if (diff < totalDurationMin * M) return 'Live';
-      return 'Finished';
-    }
-  }
-  return 'Scheduled';
-}
-
 <!doctype html>
 <html lang="en">
 <head>

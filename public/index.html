@@ -308,16 +308,16 @@
   // "HT" or contains the word "HALF" we treat it as half time.  Live
   // play in either the first or second half continues to show as LIVE.
   function statusLabel(fx){
-  const st = (fx.status || '').toUpperCase();
-  // halftime variants
-  if (/\bHT\b/.test(st) || /HALF/.test(st)) return 'HALF';
-  // live play including 1st or 2nd half
-  if (/LIVE|IN_PLAY|1ST|2ND/.test(st)) return 'LIVE';
-  // finished matches: treat final, post‑game and full‑time codes as finished. Use word boundaries for FT
-  // so that "HALFTIME" does not trigger a finished state.
-  if (/STATUS_FINAL|STATUS_POSTGAME|POSTGAME|FINAL|FULL\s?TIME|FULLTIME|ENDED|FINISH(?:ED)?|\bFT\b/.test(st)) return 'FINISHED';
-  return 'SCHEDULED';
-}
+    const st = (fx.status || '').toUpperCase();
+    // halftime variants
+    if (/\bHT\b/.test(st) || /HALF/.test(st)) return 'HALF';
+    // live play including 1st or 2nd half
+    if (/LIVE|IN_PLAY|1ST|2ND/.test(st)) return 'LIVE';
+    // finished matches: treat final, post‑game and full‑time codes as finished.  Use word boundaries
+    // for FT so that "HALFTIME" does not trigger a finished state.
+    if (/STATUS_FINAL|STATUS_POSTGAME|POSTGAME|FINAL|FULL\s?TIME|FULLTIME|ENDED|FINISH(?:ED)?|\bFT\b/.test(st)) return 'FINISHED';
+    return 'SCHEDULED';
+  }
   function compName(fx){ return fx.league && (fx.league.name || fx.league.code) || ''; }
 
   function card(fx){
@@ -526,28 +526,21 @@ var watchHref = WATCH_URL + '?id=' + encodeURIComponent(fixtureId);
 
     // derive status: prefer dataset, otherwise by time
     let st = String(el.dataset.status||'').toUpperCase();
-    if (!st || st === 'SCHEDULED') {
-  // Derive by time with halftime window fallbacks when API is silent/lagging
-  const sport = (el.dataset.sport || '').toUpperCase();
-  const H = 3600 * 1000, M = 60 * 1000;
-  // soccer defaults
-  let halfDurationMin = 45, halftimeBreakMin = 15, totalDurationMin = 105;
-  if (sport === 'NBA' || sport === 'BASKETBALL') { halfDurationMin = 24; halftimeBreakMin = 15; totalDurationMin = 60; }
-  else if (sport === 'NFL' || sport === 'AMERICAN FOOTBALL' || sport === 'NCAAF') { halfDurationMin = 90; halftimeBreakMin = 15; totalDurationMin = 210; }
-
-  const sinceKO = now - start;
-  if (sinceKO < 0) {
-    st = 'SCHEDULED';
-  } else if (sinceKO < halfDurationMin * M) {
-    st = 'LIVE';
-  } else if (sinceKO < (halfDurationMin + halftimeBreakMin) * M) {
-    st = 'HALF';
-  } else if (sinceKO < totalDurationMin * M) {
-    st = 'LIVE';
-  } else {
-    st = 'FINISHED';
-  }
-} else if (diff <= -fallbackMs) {
+    if (!st || st==='SCHEDULED'){
+      // When no explicit status is provided (SCHEDULED), derive status by comparing
+      // the current time against kickoff with sport‑specific fallbacks.  If a match
+      // has started but not finished according to the API, we treat it as LIVE until
+      // a reasonable duration has elapsed.  This prevents long matches (e.g. NFL)
+      // from staying perpetually live when the upstream feed fails to update.
+      const sport = (el.dataset.sport || '').toUpperCase();
+      let fallbackHours = 4; // default fallback for unknown sports
+      if (sport === 'SOCCER' || sport === 'FOOTBALL') fallbackHours = 2;
+      else if (sport === 'NBA') fallbackHours = 3;
+      else if (sport === 'NFL') fallbackHours = 4;
+      const fallbackMs = fallbackHours * H;
+      if (diff <= 0 && diff > -fallbackMs) {
+        st = 'LIVE';
+      } else if (diff <= -fallbackMs) {
         st = 'FINISHED';
       } else {
         st = 'SCHEDULED';
