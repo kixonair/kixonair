@@ -235,16 +235,11 @@
     return url ? '<img class="badge" src="'+url+'" alt="'+(alt||'')+'" onerror="this.style.display=\'none\'"/>' : '';
   }
   function statusLabel(fx){
-  const st = (fx.status || '').toUpperCase();
-  // halftime variants
-  if (/\bHT\b/.test(st) || /HALF/.test(st)) return 'HALF';
-  // live play including 1st or 2nd half
-  if (/LIVE|IN_PLAY|1ST|2ND/.test(st)) return 'LIVE';
-  // finished matches: treat final, post‑game and full‑time codes as finished. Use word boundaries for FT
-  // so that "HALFTIME" does not trigger a finished state.
-  if (/STATUS_FINAL|STATUS_POSTGAME|POSTGAME|FINAL|FULL\s?TIME|FULLTIME|ENDED|FINISH(?:ED)?|\bFT\b/.test(st)) return 'FINISHED';
-  return 'SCHEDULED';
-}
+    const st = (fx.status || '').toUpperCase();
+    if (/LIVE|IN_PLAY|1ST|2ND/.test(st)) return 'LIVE';
+    if (/FINISH|FT|ENDED/.test(st)) return 'FINISHED';
+    return 'SCHEDULED';
+  }
   function compName(fx){ return fx.league && (fx.league.name || fx.league.code) || ''; }
 
   function card(fx){

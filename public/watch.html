@@ -338,37 +338,6 @@
     // patterns representing a live match
     const livePatterns = ['IN_PLAY','LIVE','PLAYING','1ST HALF','FIRST HALF','2ND HALF','SECOND HALF'];
     for (const p of livePatterns){ if (raw.includes(p)) return 'Live'; }
-
-// Derive a friendly status using API status and kickoff time (adds halftime sensitivity)
-function deriveFriendlyStatus(statusRaw, kickoffIso, sportGuess) {
-  // First map raw codes to friendly labels
-  const st = String(statusRaw || '').toUpperCase();
-  if (/\bHT\b/.test(st) || /HALF/.test(st)) return 'Half Time';
-  if (/LIVE|IN_PLAY|1ST|2ND/.test(st)) return 'Live';
-  if (/STATUS_FINAL|STATUS_POSTGAME|POSTGAME|FINAL|FULL\s?TIME|FULLTIME|ENDED|FINISH(?:ED)?|\bFT\b/.test(st)) return 'Finished';
-
-  // If still scheduled, derive by time
-  if (kickoffIso) {
-    const H = 60 * 60 * 1000, M = 60 * 1000;
-    const now = Date.now();
-    const ko = Date.parse(kickoffIso);
-    if (!Number.isNaN(ko)) {
-      let halfDurationMin = 45, halftimeBreakMin = 15, totalDurationMin = 105;
-      const s = String(sportGuess || '').toUpperCase();
-      if (s.includes('NBA')) { halfDurationMin = 24; halftimeBreakMin = 15; totalDurationMin = 60; }
-      else if (s.includes('NFL')) { halfDurationMin = 90; halftimeBreakMin = 15; totalDurationMin = 210; }
-
-      const diff = now - ko;
-      if (diff < 0) return 'Scheduled';
-      if (diff < halfDurationMin * M) return 'Live';
-      if (diff < (halfDurationMin + halftimeBreakMin) * M) return 'Half Time';
-      if (diff < totalDurationMin * M) return 'Live';
-      return 'Finished';
-    }
-  }
-  return 'Scheduled';
-}
-
     // patterns representing half time
     const halfPatterns = ['HALF-TIME','HALFTIME','HT','HALF TIME','PAUSED'];
     for (const p of halfPatterns){ if (raw.includes(p)) return 'Half Time'; }
@@ -505,8 +474,7 @@ function deriveFriendlyStatus(statusRaw, kickoffIso, sportGuess) {
     $('awayLogo').src = awayLogo || '/logo.svg';
     $('leagueBadge').textContent = league || ''; $('league').textContent = league || '-';
     // derive a human friendly status from the API value
-    const sportGuess = fx.league?.sport || fx.sport || fx.league?.name || '';
-const friendlyStatus = deriveFriendlyStatus(statusRaw, kickoff, sportGuess);
+    const friendlyStatus = formatStatus(statusRaw);
     $('state').textContent = friendlyStatus || '-';
     $('kickoff').textContent = kickoff ? new Date(kickoff).toLocaleString() : '-';
     $('statusLine').textContent = friendlyStatus || '';
