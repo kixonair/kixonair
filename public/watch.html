@@ -404,11 +404,49 @@
     return status || '';
   }
 
+  
   function renderServerButtonsFromSlug(sl){
     const bar = $('serverBar'); if (!bar) return;
     const labels = ['Server 1','Server 2','Server 3','Server 4','Server 5'];
-    const url = 'https://rileymarker.com/sportlo?m=' + encodeURIComponent(sl);
-    bar.innerHTML = labels.map(l => `<a class="sbtn" href="${url}" target="_blank" rel="noopener">${l}</a>`).join('');
+    // Build player.html links, carrying match slug and names so the player header shows correctly
+    const home = $('homeName')?.textContent || '';
+    const away = $('awayName')?.textContent || '';
+    const league = $('leagueName')?.textContent || '';
+    const kickoff = $('kickoffText')?.textContent || '';
+    
+    // Save current match context so player.html can import it without long querystrings
+    try{
+      const ctx = {
+        title: (home ? (home+' vs '+away) : ($('homeName')?.textContent||'')+' vs '+($('awayName')?.textContent||'')),
+        home, away,
+        league,
+        kickoff,
+        homeLogo: $('homeLogo')?.src || '',
+        awayLogo: $('awayLogo')?.src || '',
+        slug: sl,
+        // five provider endpoints derived from slug (customize as needed)
+        servers: [
+          `https://rileymarker.com/sportlo?m=${encodeURIComponent(sl)}`,
+          `https://rileymarker.com/sportlo2?m=${encodeURIComponent(sl)}`,
+          `https://rileymarker.com/sportlo3?m=${encodeURIComponent(sl)}`,
+          `https://rileymarker.com/sportlo4?m=${encodeURIComponent(sl)}`,
+          `https://rileymarker.com/sportlo5?m=${encodeURIComponent(sl)}`
+        ]
+      };
+      localStorage.setItem('kx_current_match', JSON.stringify(ctx));
+    }catch(e){}
+
+  bar.innerHTML = labels.map((l,idx) => {
+      const u = new URL('/player.html', location.origin);
+      u.searchParams.set('title', `${home} vs ${away}`);
+      u.searchParams.set('home', home);
+      u.searchParams.set('away', away);
+      if (league) u.searchParams.set('league', league);
+      if (kickoff) u.searchParams.set('time', kickoff);
+      u.searchParams.set('m', sl);
+      u.searchParams.set('current', idx.toString());
+      return `<a class="sbtn" href="${u.pathname + u.search}">${l}</a>`;
+    }).join('');
   }
   function renderServerButtonsFromFixture(fx){
     const home = fx?.home?.name || ''; const away = fx?.away?.name || '';
