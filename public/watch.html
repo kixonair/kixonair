@@ -259,7 +259,15 @@
       display:flex;
       align-items:center;
     }
-  </style>
+  
+/* === Inline player block (servers dropdown) === */
+.playerBlock{background: var(--secondary-bg); border:1px solid var(--border-col); border-radius:16px; padding:16px; margin:16px 0; box-shadow:0 4px 8px rgba(0,0,0,.3);}
+.playerWrap{background:#000;border-radius:12px;overflow:hidden;border:1px solid var(--border-col);margin-top:12px}
+.playerEl{width:100%;aspect-ratio:16/9;border:0;display:block}
+.selectWrap{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.selectWrap select{background:var(--secondary-bg);border:1px solid var(--border-col);color:var(--text-col);padding:10px 12px;border-radius:10px}
+
+</style>
 </head>
 <body>
 <header class="header">
@@ -405,36 +413,58 @@
   }
 
   
+  
   function renderServerButtonsFromSlug(sl){
     const bar = $('serverBar'); if (!bar) return;
-    const labels = ['Server 1','Server 2','Server 3','Server 4','Server 5'];
-    // Build player.html links, carrying match slug and names so the player header shows correctly
-    const home = $('homeName')?.textContent || '';
-    const away = $('awayName')?.textContent || '';
-    const league = $('leagueName')?.textContent || '';
-    const kickoff = $('kickoffText')?.textContent || '';
-    
-    // Save current match context so player.html can import it without long querystrings
+    // Build 5 provider URLs based on slug
+    const providers = [
+      `https://rileymarker.com/sportlo?m=${encodeURIComponent(sl)}`,
+      `https://rileymarker.com/sportlo2?m=${encodeURIComponent(sl)}`,
+      `https://rileymarker.com/sportlo3?m=${encodeURIComponent(sl)}`,
+      `https://rileymarker.com/sportlo4?m=${encodeURIComponent(sl)}`,
+      `https://rileymarker.com/sportlo5?m=${encodeURIComponent(sl)}`
+    ];
+
+    // Render dropdown + mount (no redirects)
+    bar.innerHTML = `
+      <div class="playerBlock">
+        <div class="selectWrap">
+          <strong>Player:</strong>
+          <select id="playerSelect" aria-label="Choose player">
+            ${providers.map((_,i)=>`<option value="${i}">Server ${i+1}</option>`).join('')}
+          </select>
+        </div>
+        <div class="playerWrap">
+          <iframe id="watchPlayer" class="playerEl" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>
+        </div>
+      </div>
+    `;
+
+    // Save context (optional)
     try{
-      const ctx = {
-        title: (home ? (home+' vs '+away) : ($('homeName')?.textContent||'')+' vs '+($('awayName')?.textContent||'')),
-        home, away,
-        league,
-        kickoff,
-        homeLogo: $('homeLogo')?.src || '',
-        awayLogo: $('awayLogo')?.src || '',
-        slug: sl,
-        // five provider endpoints derived from slug (customize as needed)
-        servers: [
-          `https://rileymarker.com/sportlo?m=${encodeURIComponent(sl)}`,
-          `https://rileymarker.com/sportlo2?m=${encodeURIComponent(sl)}`,
-          `https://rileymarker.com/sportlo3?m=${encodeURIComponent(sl)}`,
-          `https://rileymarker.com/sportlo4?m=${encodeURIComponent(sl)}`,
-          `https://rileymarker.com/sportlo5?m=${encodeURIComponent(sl)}`
-        ]
-      };
-      localStorage.setItem('kx_current_match', JSON.stringify(ctx));
+      const home    = $('homeName')?.textContent || '';
+      const away    = $('awayName')?.textContent || '';
+      const league  = $('leagueName')?.textContent || '';
+      const kickoff = $('kickoffText')?.textContent || '';
+      const homeLogo= $('homeLogo')?.src || '';
+      const awayLogo= $('awayLogo')?.src || '';
+      localStorage.setItem('kx_current_match', JSON.stringify({
+        title:`${home} vs ${away}`, home, away, league, kickoff, homeLogo, awayLogo, slug: sl, servers: providers
+      }));
     }catch(e){}
+
+    // Wire selection to iframe
+    const sel = $('playerSelect');
+    const iframe = $('watchPlayer');
+    function setIdx(i){
+      const idx = Math.max(0, Math.min(providers.length-1, i|0));
+      sel.value = String(idx);
+      iframe.src = providers[idx];
+    }
+    sel.addEventListener('change', ()=> setIdx(parseInt(sel.value,10)));
+    setIdx(0);
+  }
+
 
   bar.innerHTML = labels.map((l,idx) => {
       const u = new URL('/player.html', location.origin);
