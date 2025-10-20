@@ -1,0 +1,214 @@
+/* SportBN-like card look (v21) */
+:root{
+  --bg:#0b0f14;--card:#161c26;--edge:#222c3b;--text:#e8eef6;--muted:#9fb0c8;
+  --pill:#111827;--accent:#4f8cff;--live:#ff4d4d
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:linear-gradient(180deg,#0b0f14 0%, #0b0f14 100%);color:var(--text)}
+.header{position:sticky;top:0;background:rgba(9,14,20,0.7);backdrop-filter:blur(8px);border-bottom:1px solid #0a121c;z-index:10}
+.bar{max-width:1040px;margin:0 auto;padding:12px 16px;display:flex;gap:12px;align-items:center}
+.controls{display:flex;gap:10px;margin-left:auto;align-items:center;flex-wrap:wrap}
+.controls input[type="text"], .controls input[type="date"]{background:#0e1620;border:1px solid var(--edge);color:var(--text);border-radius:12px;padding:10px 12px;min-width:160px;outline:none}
+.pill{background:var(--pill);border:1px solid var(--edge);color:var(--text);border-radius:999px;padding:8px 12px;cursor:pointer}
+.pill.active{border-color:transparent;background:#1c2230;color:#cde0ff;font-weight:700}
+.ghost{background:transparent;border:1px solid var(--edge);color:var(--text);border-radius:10px;padding:8px 12px;cursor:pointer}
+.league-wrap{position:relative;display:flex;align-items:center;gap:6px}
+.league-menu{position:absolute;top:110%;left:0;min-width:260px;background:#101621;border:1px solid var(--edge);border-radius:12px;padding:8px;box-shadow:0 10px 30px rgba(0,0,0,0.35)}
+.league-menu.hidden{display:none}
+.league-menu .menuitem{display:block;width:100%;text-align:left;border:1px solid transparent;background:transparent;color:var(--text);padding:8px 10px;border-radius:8px;cursor:pointer}
+.league-menu .menuitem:hover{background:rgba(255,255,255,0.06)}
+.switch{display:flex;align-items:center;gap:8px}
+.switch span{color:var(--muted);font-size:12px;font-weight:600}
+.switch input{appearance:none;-webkit-appearance:none;width:38px;height:22px;border-radius:999px;background:#1b2432;position:relative;cursor:pointer}
+.switch input:checked{background:linear-gradient(120deg,#06B6D4,#8B5CF6)}
+.switch input::after{content:"";position:absolute;top:3px;left:4px;width:16px;height:16px;border-radius:50%;background:#0b0f14;transition:left .18s}
+.switch input:checked::after{left:18px}
+
+main{max-width:1040px;margin:0 auto;padding:16px}
+.hero{margin:18px 0 10px;background:linear-gradient(120deg,rgba(6,182,212,0.10),rgba(139,92,246,0.10));border:1px solid #0f1622;border-radius:16px;padding:18px}
+.hero h1{margin:0 0 6px;font-size:22px}
+.hero p{margin:0;color:var(--muted)}
+.counts{margin:10px 2px;color:var(--muted)}
+
+.section{background:transparent;border:0;padding:0;margin-top:6px}
+.section>h2{margin:10px 0 10px;font-size:16px;color:#dbe6ff}
+
+.feed{display:flex;flex-direction:column;gap:14px}
+
+/* Game Card */
+.game-card{background:var(--card);border:1px solid var(--edge);border-radius:14px;padding:14px}
+.game-card .gc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.gc-head .left{display:flex;align-items:center;gap:10px}
+.dot{width:8px;height:8px;border-radius:50%;background:#7a8597;display:inline-block}
+.dot.live{background:var(--live);box-shadow:0 0 0 4px rgba(255,77,77,0.12)}
+.state{font-weight:700;letter-spacing:0.4px}
+.comp{color:var(--muted)}
+.sport-tag{color:#c6d2f3;font-weight:700}
+
+.gc-main{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;padding:12px 10px}
+.team{display:flex;align-items:center;gap:10px;min-width:0}
+.team.right{justify-content:flex-end}
+.badge{width:36px;height:36px;border-radius:50%;object-fit:contain;background:#0f1622;border:1px solid #233048}
+.name{
+  /* Allow long team names to wrap instead of truncating */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width:100%;
+}
+.score{display:flex;flex-direction:column;align-items:center;min-width:100px}
+.score .num{font-size:26px;font-weight:800}
+.score .when{margin-top:4px;color:var(--muted);font-size:12px}
+.gc-foot{display:flex;justify-content:flex-start;padding:8px 4px 0}
+.watch-btn{display:inline-flex;align-items:center;gap:10px;background:#21293a;border:1px solid #2a3650;color:#e5eeff;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:700}
+.watch-btn:hover{background:#27344a;border-color:#344465}
+.play{width:0;height:0;border-left:10px solid #e5eeff;border-top:6px solid transparent;border-bottom:6px solid transparent;display:inline-block}
+
+/* Skeleton */
+.skeleton{background:linear-gradient(90deg,#151b26,#1b2230,#151b26);background-size:200% 100%;animation:sh 1.2s infinite}
+@keyframes sh{0%{background-position:0 0}100%{background-position:-200% 0}}
+
+/* Mobile */
+@media(max-width:640px){
+  .controls{width:100%}
+  .controls input[type="text"]{flex:1 1 100%}
+  .name{max-width:100%}
+}
+
+/* Stack teams vertically and shrink card elements on smaller screens */
+@media (max-width: 600px){
+  /* On very small screens, stack the home team, score/time and away team
+     vertically.  Use a wrapping flexbox so each child occupies the full
+     width, and specify explicit ordering to maintain the desired order
+     (home → score → away).  Centre each row and reduce spacing to keep
+     cards compact. */
+  .gc-main{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    padding:8px 8px;
+    text-align:center;
+    align-items:center;
+  }
+  .gc-main > .team.left,
+  .gc-main > .score,
+  .gc-main > .team.right{
+    flex:1 0 100%;
+    justify-content:center;
+  }
+  .gc-main > .team.left{ order:1; }
+  .gc-main > .score{ order:2; }
+  .gc-main > .team.right{ order:3; }
+  .score .num{ font-size:22px; }
+  .game-card{ padding:10px; }
+  .watch-btn{ padding:8px 12px; font-size:14px; }
+
+  /* Reduce font size for long team names on small screens to prevent
+     awkward line breaks.  A slightly smaller font with tighter
+     line-height allows names like “Strasbourg” to fit cleanly. */
+  .team .name{
+    font-size:14px;
+    line-height:1.2;
+    overflow-wrap:anywhere;
+  }
+}
+.empty{color:var(--muted);padding:10px;text-align:center;border:1px dashed var(--edge);border-radius:12px}
+.footer{border-top:1px solid #0a121c;margin-top:28px}
+.footer .inner{max-width:1040px;margin:0 auto;padding:16px;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+.muted{color:var(--muted)} .small{font-size:12px}
+.hidden{display:none !important}
+
+/* === Mobile menu toggle styles ========================================= */
+/* Button to toggle the collapsible menu. Hidden on desktops by default. */
+.menu-btn{
+  display:none;
+  background:transparent;
+  border:none;
+  color:var(--text);
+  font-size:28px;
+  cursor:pointer;
+  padding:6px;
+  border-radius:8px;
+  line-height:1;
+}
+
+/* Overlay behind the menu; hidden by default */
+.menu-overlay{
+  display:none;
+}
+
+@media (max-width:768px){
+  /* Show the hamburger button on small screens */
+  .menu-btn{display:inline-flex;align-items:center;justify-content:center;}
+  /* Convert controls into an off-canvas panel that slides down */
+  .controls{
+    position:fixed;
+    top:60px;
+    left:0;
+    right:0;
+    background:rgba(10,14,20,0.95);
+    padding:16px;
+    flex-direction:column;
+    align-items:stretch;
+    gap:12px;
+    border-bottom-left-radius:12px;
+    border-bottom-right-radius:12px;
+    transform:translateY(-200%);
+    transition:transform 0.3s ease-in-out;
+    z-index:999;
+  }
+  .controls.open{
+    transform:translateY(0);
+  }
+  .menu-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.5);
+    z-index:998;
+  }
+  .menu-overlay.active{display:block;}
+  /* Ensure search input spans full width on mobile */
+  .bar > input[type="text"]{flex:1 1 100%;min-width:0;}
+}
+
+/* ===================================================================
+   Mobile header layout refinement
+   Align logo, search bar and hamburger menu on a single row for
+   screens up to 640px wide.  Overrides earlier rules that make the
+   logo absolute and stack the search input below it.
+   =================================================================== */
+@media (max-width: 640px) {
+  .header .bar {
+    padding-top: 12px;
+  }
+  .header .bar .brand,
+  .header .bar .logo,
+  .header .bar .site-brand,
+  .header .bar a.brand,
+  .header .bar > a:first-child {
+    position: static;
+  }
+  #q {
+    order: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+    margin-left: 8px;
+  }
+  #menuBtn {
+    margin-left: auto;
+  }
+}
+
+/* Desktop: make the logo 56x56 */
+@media (min-width: 641px){
+  .brand img,
+  .header .bar .logo img,
+  .header .bar .site-brand img,
+  .header .bar a.brand img,
+  .header .bar > a:first-child > img{
+    width: 56px;
+    height: 56px;
+  }
+}
