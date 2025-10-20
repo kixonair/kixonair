@@ -33,7 +33,6 @@
 <link rel="stylesheet" href="/styles.css?v=22" />
 <link rel="icon" href="/logo.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="/scoreless.css">
-  <link rel="stylesheet" href="theme-light.css">
 </head>
 
 
@@ -52,10 +51,9 @@
 <link rel="stylesheet" href="/styles.css?v=21" />
 <link rel="icon" href="/logo.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/scoreless.css">
-  <link rel="stylesheet" href="theme-light.css">
 </head>
 <body>
-<div class="layout"><aside id="sidebar" class="sidebar"></aside><header class="header">
+<header class="header">
   <div class="bar">
     <a class="brand" href="/"><img src="/logo.svg" alt="Kixonair" height="28"/></a>
     <!-- Search bar sits outside the collapsible controls so it remains accessible on mobile -->
@@ -67,8 +65,7 @@
         <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" fill="currentColor"></path>
       </svg>
     </button>
-    <button id="themeToggle" class="pill" title="Toggle day/night" style="font-weight:700;">🌞</button>
-      <div class="controls">
+    <div class="controls">
       <!-- The filters and other toggles remain in the controls container; search was moved above -->
       <div class="filters" role="tablist">
         <button class="pill active" data-sport="all">All</button>
@@ -582,86 +579,5 @@ var watchHref = WATCH_URL + '?id=' + encodeURIComponent(fixtureId);
 })();
 
 </script>
-</div><!-- /layout -->
-
-<script>
-(function(){
-  const btn = document.getElementById('themeToggle');
-  if(!btn) return;
-  const linkLight = document.querySelector('link[href*="theme-light.css"]');
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const saved = localStorage.getItem('themeMode');
-  let mode = saved || (prefersDark ? 'dark' : 'light');
-
-  function apply(modeNow){
-    document.body.style.transition = 'background-color 0.4s ease, color 0.4s ease';
-    if(modeNow === 'light'){
-      if(linkLight) linkLight.disabled = false;
-      btn.textContent = '🌙';
-    } else {
-      if(linkLight) linkLight.disabled = true;
-      btn.textContent = '🌞';
-    }
-    localStorage.setItem('themeMode', modeNow);
-  }
-
-  apply(mode);
-  btn.addEventListener('click', ()=>{
-    mode = (mode === 'light') ? 'dark' : 'light';
-    apply(mode);
-  });
-})();
-</script>
-
-
-<script>
-(function(){
-  const btn = document.getElementById('themeToggle');
-  if(!btn) return;
-  const linkLight = document.querySelector('link[href*="theme-light.css"]');
-  const saved = localStorage.getItem('themeMode');
-  let mode = saved || 'dark'; // default dark mode
-
-  function apply(modeNow){
-    document.body.style.transition = 'background-color 0.4s ease, color 0.4s ease';
-    if(modeNow === 'light'){
-      if(linkLight) linkLight.disabled = false;
-      btn.textContent = '🌙';
-    } else {
-      if(linkLight) linkLight.disabled = true;
-      btn.textContent = '☀️';
-    }
-    localStorage.setItem('themeMode', modeNow);
-  }
-
-  apply(mode);
-  btn.addEventListener('click', ()=>{
-    mode = (mode === 'dark') ? 'light' : 'dark';
-    apply(mode);
-  });
-})();
-</script>
-
 </body>
 </html>
-<script>
-(function moveLeagueMenuToSidebar(){
-  try {
-    var menu = document.getElementById('leagueMenu');
-    var sidebar = document.getElementById('sidebar');
-    if(menu && sidebar){
-      var wrapper = document.createElement('div');
-      wrapper.className = 'sidebar-card';
-      wrapper.innerHTML = '<h3 class="sidebar-title">Leagues</h3>';
-      sidebar.appendChild(wrapper);
-      menu.classList.remove('hidden');
-      menu.classList.add('sidebar-leagues');
-      wrapper.appendChild(menu);
-      var toggle = document.getElementById('leagueToggle');
-      if(toggle) toggle.style.display = 'none';
-      var chosen = document.getElementById('leagueChosen');
-      if(chosen) chosen.parentNode.removeChild(chosen);
-    }
-  }catch(e){}
-})();
-</script>
