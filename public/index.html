@@ -33,6 +33,7 @@
 <link rel="stylesheet" href="/styles.css?v=22" />
 <link rel="icon" href="/logo.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="/scoreless.css">
+  <link rel="stylesheet" href="theme-light.css">
 </head>
 
 
@@ -51,9 +52,10 @@
 <link rel="stylesheet" href="/styles.css?v=21" />
 <link rel="icon" href="/logo.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/scoreless.css">
+  <link rel="stylesheet" href="theme-light.css">
 </head>
 <body>
-<header class="header">
+<div class="layout"><aside id="sidebar" class="sidebar"></aside><header class="header">
   <div class="bar">
     <a class="brand" href="/"><img src="/logo.svg" alt="Kixonair" height="28"/></a>
     <!-- Search bar sits outside the collapsible controls so it remains accessible on mobile -->
@@ -579,5 +581,27 @@ var watchHref = WATCH_URL + '?id=' + encodeURIComponent(fixtureId);
 })();
 
 </script>
+</div><!-- /layout -->
 </body>
 </html>
+<script>
+(function moveLeagueMenuToSidebar(){
+  try {
+    var menu = document.getElementById('leagueMenu');
+    var sidebar = document.getElementById('sidebar');
+    if(menu && sidebar){
+      var wrapper = document.createElement('div');
+      wrapper.className = 'sidebar-card';
+      wrapper.innerHTML = '<h3 class="sidebar-title">Leagues</h3>';
+      sidebar.appendChild(wrapper);
+      menu.classList.remove('hidden');
+      menu.classList.add('sidebar-leagues');
+      wrapper.appendChild(menu);
+      var toggle = document.getElementById('leagueToggle');
+      if(toggle) toggle.style.display = 'none';
+      var chosen = document.getElementById('leagueChosen');
+      if(chosen) chosen.parentNode.removeChild(chosen);
+    }
+  }catch(e){}
+})();
+</script>
