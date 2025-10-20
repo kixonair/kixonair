@@ -587,5 +587,23 @@
   }
   load();
 </script>
+<script>
+
+// --- Fallback: if data fetching stalls, still render the player from the slug in ?id= ---
+document.addEventListener('DOMContentLoaded', function(){
+  try{
+    const q = new URLSearchParams(location.search);
+    const id = q.get('id') || '';
+    if (id && typeof renderServerButtonsFromSlug === 'function'){
+      const sl = id.split('@')[0];
+      renderServerButtonsFromSlug(sl);
+      // Hide loader if present
+      const ld = document.querySelector('.loading');
+      if (ld) ld.classList.add('hidden');
+    }
+  }catch(e){}
+});
+
+</script>
 </body>
 </html>
