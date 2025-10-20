@@ -58,3 +58,6 @@ body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 Inter,system-
 .ftr{border-top:1px solid var(--edge);margin-top:28px}
 .ftr .inner{max-width:1040px;margin:0 auto;padding:16px;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
 @media(max-width:900px){.wrap{grid-template-columns:1fr}.grid{grid-template-columns:1fr}}
+
+/* name nowrap override */
+.name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

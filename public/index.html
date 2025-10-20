@@ -67,7 +67,8 @@
         <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" fill="currentColor"></path>
       </svg>
     </button>
-    <div class="controls">
+    <button id="themeToggle" class="pill" title="Toggle day/night" style="font-weight:700;">🌞</button>
+      <div class="controls">
       <!-- The filters and other toggles remain in the controls container; search was moved above -->
       <div class="filters" role="tablist">
         <button class="pill active" data-sport="all">All</button>
@@ -582,6 +583,65 @@ var watchHref = WATCH_URL + '?id=' + encodeURIComponent(fixtureId);
 
 </script>
 </div><!-- /layout -->
+
+<script>
+(function(){
+  const btn = document.getElementById('themeToggle');
+  if(!btn) return;
+  const linkLight = document.querySelector('link[href*="theme-light.css"]');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const saved = localStorage.getItem('themeMode');
+  let mode = saved || (prefersDark ? 'dark' : 'light');
+
+  function apply(modeNow){
+    document.body.style.transition = 'background-color 0.4s ease, color 0.4s ease';
+    if(modeNow === 'light'){
+      if(linkLight) linkLight.disabled = false;
+      btn.textContent = '🌙';
+    } else {
+      if(linkLight) linkLight.disabled = true;
+      btn.textContent = '🌞';
+    }
+    localStorage.setItem('themeMode', modeNow);
+  }
+
+  apply(mode);
+  btn.addEventListener('click', ()=>{
+    mode = (mode === 'light') ? 'dark' : 'light';
+    apply(mode);
+  });
+})();
+</script>
+
+
+<script>
+(function(){
+  const btn = document.getElementById('themeToggle');
+  if(!btn) return;
+  const linkLight = document.querySelector('link[href*="theme-light.css"]');
+  const saved = localStorage.getItem('themeMode');
+  let mode = saved || 'dark'; // default dark mode
+
+  function apply(modeNow){
+    document.body.style.transition = 'background-color 0.4s ease, color 0.4s ease';
+    if(modeNow === 'light'){
+      if(linkLight) linkLight.disabled = false;
+      btn.textContent = '🌙';
+    } else {
+      if(linkLight) linkLight.disabled = true;
+      btn.textContent = '☀️';
+    }
+    localStorage.setItem('themeMode', modeNow);
+  }
+
+  apply(mode);
+  btn.addEventListener('click', ()=>{
+    mode = (mode === 'dark') ? 'light' : 'dark';
+    apply(mode);
+  });
+})();
+</script>
+
 </body>
 </html>
 <script>
