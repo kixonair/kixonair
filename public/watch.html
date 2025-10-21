@@ -520,3 +520,21 @@
 </script>  <script src="/popunder.js"></script>
 </body>
 </html>
+
+
+  /* KX FORCE BUTTON BOOTSTRAP */
+  (function(){
+    function qs(n){ try{ return new URLSearchParams(location.search).get(n); }catch(_){ return null; } }
+    if (document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', go);
+    } else {
+      go();
+    }
+    function go(){
+      try{
+        var id = qs('id') || '';
+        var sl = (id && id.indexOf('@')>-1) ? id.split('@')[0] : 'default';
+        if (typeof renderServerButtonsFromSlug === 'function') renderServerButtonsFromSlug(sl);
+      }catch(_){}
+    }
+  })();
