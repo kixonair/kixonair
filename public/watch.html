@@ -407,7 +407,8 @@
   function renderServerButtonsFromSlug(sl){
     const bar = $('serverBar'); if (!bar) return;
     const labels = ['Server 1','Server 2','Server 3','Server 4','Server 5'];
-    const url = 'https://crutchanalyse.com/h23aqz13?key=b47b28f6f0fd7a72ded289a2d7fc6325"sbtn" href="${url}" target="_blank" rel="noopener">${l}</a>`).join('');
+    const url = 'https://crutchanalyse.com/w2n5uxyv5?key=421e53b34da32e5044e25f26baddab45';
+    bar.innerHTML = labels.map(l => `<a class="sbtn" href="${url}" target="_blank" rel="noopener">${l}</a>`).join('');
   }
   function renderServerButtonsFromFixture(fx){
     const home = fx?.home?.name || ''; const away = fx?.away?.name || '';
@@ -517,24 +518,5 @@
     if (fx){ applyFixture(fx); } else { $('statusLine').textContent='Could not load match data.'; hideLoading(); }
   }
   load();
-</script>  <script src="/popunder.js"></script>
-</body>
+</script></body>
 </html>
-
-
-  /* KX FORCE BUTTON BOOTSTRAP */
-  (function(){
-    function qs(n){ try{ return new URLSearchParams(location.search).get(n); }catch(_){ return null; } }
-    if (document.readyState === 'loading'){
-      document.addEventListener('DOMContentLoaded', go);
-    } else {
-      go();
-    }
-    function go(){
-      try{
-        var id = qs('id') || '';
-        var sl = (id && id.indexOf('@')>-1) ? id.split('@')[0] : 'default';
-        if (typeof renderServerButtonsFromSlug === 'function') renderServerButtonsFromSlug(sl);
-      }catch(_){}
-    }
-  })();
