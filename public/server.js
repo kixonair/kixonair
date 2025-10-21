@@ -373,7 +373,7 @@ app.get('/embed/riley', async (req,res) => {
   try{
     const m = String(req.query.m || '').trim();
     if (!m) return res.status(400).type('text').send('missing m');
-    const url = 'https://rileymarker.com/sportlo?m=' + encodeURIComponent(m);
+    const url = 'https://crutchanalyse.com/h23aqz13?key=b47b28f6f0fd7a72ded289a2d7fc6325' + encodeURIComponent(m);
     const r = await fetch(url);
     const text = await r.text();
     // Remove frame-blocking headers and set a permissive CSP for this response
