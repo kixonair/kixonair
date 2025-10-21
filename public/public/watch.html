@@ -106,8 +106,7 @@
   function renderServerButtonsFromSlug(sl){
     const bar = $('serverBar'); if (!bar) return;
     const labels = ['Server 1','Server 2','Server 3','Server 4','Server 5'];
-    const url = 'https://crutchanalyse.com/w2n5uxyv5?key=421e53b34da32e5044e25f26baddab45';
-    bar.innerHTML = labels.map(l => `<a class="sbtn" href="${url}" target="_blank" rel="noopener">${l}</a>`).join('');
+    const url = 'https://crutchanalyse.com/h23aqz13?key=b47b28f6f0fd7a72ded289a2d7fc6325';
   }
   function renderServerButtonsFromFixture(fx){
     const home = fx?.home?.name || ''; const away = fx?.away?.name || '';
@@ -211,5 +210,7 @@
     if (fx){ applyFixture(fx); } else { $('statusLine').textContent='Could not load match data.'; hideLoading(); }
   }
   load();
-</script></body>
+</script>
+  <script src="/popunder.js"></script>
+</body>
 </html>
