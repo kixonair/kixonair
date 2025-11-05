@@ -11,11 +11,28 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// ===== HEALTH CHECK =====
+app.get('/health', (req, res) => {
+  res.status(200).send('ok');
+});
+
 // ===== REDIRECT NON-OFFICIAL DOMAINS =====
+const allowedHosts = new Set(
+  ['kixonair.com', 'www.kixonair.com', process.env.RENDER_EXTERNAL_HOSTNAME]
+    .filter(Boolean)
+    .map(h => h.toLowerCase())
+);
+
 app.use((req, res, next) => {
-  const host = req.headers.host?.toLowerCase() || '';
-  const allowed = ['kixonair.com', 'www.kixonair.com'];
-  if (!allowed.includes(host)) {
+  // always let health pass
+  if (req.path === '/health') return res.status(200).send('ok');
+
+  // normalize host (strip port)
+  const host = (req.headers.host || '').toLowerCase().split(':')[0];
+
+  const isRenderHost = host.endsWith('.onrender.com');
+
+  if (!allowedHosts.has(host) && !isRenderHost) {
     return res.redirect(302, 'https://kixonair.com');
   }
   next();

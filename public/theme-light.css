@@ -1,0 +1,259 @@
+
+/* SportBN-inspired light theme for Kixonair (v1) */
+/* Change the color variables below to use *your* brand colors */
+:root{
+  --bg:#f5f7fb;
+  --text:#222;
+  --muted:#556;
+  --edge:#e2e8f0;
+  --card:#ffffff;
+  --btn:#0f172a;
+  --btnText:#fff;
+  --pill:#eef2f6;
+  --pillText:#0f172a;
+  --accent:#0ea5e9;
+}
+
+/* Base */
+html,body{height:100%}
+body{
+  background:var(--bg);
+  color:var(--text);
+}
+
+/* Layout: sidebar + main */
+.layout{
+  display:grid;
+  grid-template-columns: 280px 1fr;
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px;
+}
+@media (max-width: 900px){
+  .layout{ grid-template-columns: 1fr; }
+  .sidebar{ order: 2; }
+}
+
+/* Sidebar card */
+.sidebar-card{
+  background: var(--card);
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  padding: 16px;
+  position: sticky;
+  top: 76px;
+}
+.sidebar-title{
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.sidebar-leagues{
+  display: grid;
+  gap: 10px;
+}
+.sidebar-leagues button,
+.sidebar-leagues a{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  justify-content: space-between;
+  text-decoration:none;
+  background: #f7f9fc;
+  border:1px solid var(--edge);
+  border-radius:10px;
+  padding:10px 12px;
+  color: var(--text);
+  cursor:pointer;
+}
+.sidebar-leagues .active{
+  background: #eef6ff;
+  border-color: #90cdf4;
+  font-weight:700;
+}
+
+/* Pills and filters */
+.pill{
+  background: var(--pill) !important;
+  color: var(--pillText) !important;
+  border: 1px solid var(--edge) !important;
+}
+.pill.active{
+  background: #e6f3ff !important;
+  border-color: #93c5fd !important;
+}
+
+/* Cards (match rows) */
+.card{
+  background: var(--card) !important;
+  border: 1px solid var(--edge) !important;
+  border-radius: 14px !important;
+}
+.section .label,
+.group .label{
+  color: var(--muted) !important;
+}
+
+.score .vs{
+  color: #111827 !important;
+}
+
+.button, .btn, .ghost{
+  background: var(--btn) !important;
+  color: var(--btnText) !important;
+  border: none !important;
+  border-radius: 10px !important;
+}
+
+/* Search / controls bar */
+.header,.hdr{
+  background: rgba(255,255,255,0.85) !important;
+  border-bottom: 1px solid var(--edge) !important;
+  color: var(--text) !important;
+}
+.controls input[type="text"], .controls input[type="date"], .search{
+  background:#fff !important;
+  border:1px solid var(--edge) !important;
+  color: var(--text) !important;
+}
+
+/* Time pill */
+.when, .time-pill{
+  background: #eef6ff;
+  border:1px solid #93c5fd;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+
+
+/* ===== UI polish v2 ===== */
+
+/* Grid: keep sidebar in col 1, push everything else to col 2 */
+.layout{
+  display:grid;
+  grid-template-columns: 280px minmax(0,1fr);
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px;
+}
+.layout > :not(.sidebar){ grid-column: 2; }
+.layout .header, .layout .hdr{ grid-column: 1 / -1; }
+
+@media (max-width: 1000px){
+  .layout{ grid-template-columns: 1fr; }
+  .layout > :not(.sidebar){ grid-column: 1; }
+  .sidebar{ order: 2; }
+}
+
+/* Sidebar cards look */
+.sidebar{
+  align-self: start;
+}
+.sidebar-card{
+  background: var(--card);
+  border: 1px solid var(--edge);
+  border-radius: 16px;
+  padding: 12px;
+  position: sticky;
+  top: 84px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, .06);
+}
+.sidebar-title{
+  margin: 4px 8px 10px;
+  font: 600 14px/1.2 Inter,system-ui,Segoe UI,Roboto,Arial;
+  color: #111827;
+  letter-spacing: .2px;
+}
+.sidebar-leagues{
+  display: grid;
+  gap: 8px;
+}
+.sidebar-leagues a, .sidebar-leagues button{
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-decoration: none;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--edge);
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+}
+.sidebar-leagues .active{
+  background: #eef6ff;
+  border-color: #93c5fd;
+  font-weight: 700;
+}
+
+/* Controls (search + pills) spacing */
+.controls{ gap: 8px !important; }
+.controls input[type="text"], .search{
+  height: 40px !important;
+  border-radius: 999px !important;
+  padding: 0 16px !important;
+  font-size: 14px !important;
+}
+
+/* Pills */
+.pill{
+  height: 36px !important;
+  border-radius: 999px !important;
+  padding: 0 12px !important;
+  font-weight: 600 !important;
+  background: var(--pill) !important;
+  color: var(--pillText) !important;
+  border: 1px solid var(--edge) !important;
+}
+.pill.active{
+  background: #e6f3ff !important;
+  border-color: #93c5fd !important;
+}
+
+/* Match cards */
+.card, .game, .group .game, .section .game{
+  background: var(--card) !important;
+  border: 1px solid var(--edge) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 2px 8px rgba(15,23,42,.05);
+}
+.section, .group{ gap: 12px !important; }
+.section .label, .group .label{ color: #6b7280 !important; }
+
+.name{
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Time pill */
+.when, .time-pill{
+  background: #eef6ff !important;
+  border:1px solid #93c5fd !important;
+  border-radius: 999px !important;
+  padding: 3px 8px !important;
+  font-size: 12px !important;
+}
+
+/* Welcome/hero copy — keep it readable but subtle */
+.hero, .welcome, .about, .intro{
+  max-width: 640px;
+  color: #6b7280;
+}
+
+/* Buttons */
+.button, .btn, .ghost{
+  background: var(--btn) !important;
+  color: var(--btnText) !important;
+  border: none !important;
+  border-radius: 12px !important;
+  height: 40px !important;
+  padding: 0 14px !important;
+}
