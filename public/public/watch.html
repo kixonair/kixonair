@@ -102,6 +102,14 @@
   function slug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
   function capWords(s){ return String(s||'').split(/[-\s]+/).map(w => w? w[0].toUpperCase()+w.slice(1):'').join(' '); }
   const $ = id => document.getElementById(id);
+  function normalizeStatus(raw){
+    const st = String(raw||'').toUpperCase();
+    if (/\bHT\b/.test(st) || /HALF/.test(st)) return 'HALF';
+    if (/BREAK|INTERMISSION/.test(st)) return 'BREAK';
+    if (/LIVE|IN_PROGRESS|IN PLAY|1ST|2ND|3RD|4TH|Q1|Q2|Q3|Q4/.test(st)) return 'LIVE';
+    if (/STATUS_FINAL|STATUS_POSTGAME|POSTGAME|FINAL|FULL\s?TIME|FULLTIME|ENDED|FINISH(?:ED)?|\bFT\b/.test(st)) return 'FINISHED';
+    return 'SCHEDULED';
+  }
 
   function renderServerButtonsFromSlug(sl){
     const bar = $('serverBar'); if (!bar) return;
@@ -130,7 +138,7 @@
   })();
 
   async function fixturesFor(dateStr){
-    const r = await fetch('/api/fixtures?date=' + encodeURIComponent(dateStr), {cache:'no-store'}).catch(()=>null);
+    const r = await fetch('/api/fixtures?date=' + encodeURIComponent(dateStr) + '&force=1', {cache:'no-store'}).catch(()=>null);
     const j = r ? await r.json().catch(()=>null) : null;
     return Array.isArray(j?.fixtures) ? j.fixtures : [];
   }
@@ -167,7 +175,7 @@
     const homeLogo = fx.home?.logo || '';
     const awayLogo = fx.away?.logo || '';
     const league   = fx.league?.name || '';
-    const status   = fx.status || 'SCHEDULED';
+    const status   = normalizeStatus(fx.status || 'SCHEDULED');
     const kickoff  = fx.start_utc || '';
 
     $('homeName').textContent = homeName;
@@ -187,7 +195,7 @@
     document.getElementById('loadingOverlay').classList.remove('hidden');
     __loadFailTimer = setTimeout(hideLoading, 3000);
 
-    const id  = qs('id');
+    const id  = qs('id') || qs('m');
     if (!id){ $('statusLine').textContent='Missing match id'; hideLoading(); return; }
 
     // Try server lookup quickly; if slow, do client-side scan
