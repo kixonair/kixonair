@@ -95,20 +95,67 @@
   <div id="serverBar" class="serverbar"></div>
 </main>
 
+
 <script>
+  // ======== CONFIG ========
+  const API_KEY = 'kix-7d29f2d9ef3c4';
+  const API_BASE = './api';
+
+  function apiFetch(url, init = {}) {
+    const u = new URL(url, location.href);
+    u.searchParams.set('api_key', API_KEY);
+    const headers = Object.assign({}, init.headers || {}, {
+      'API_key': API_KEY,
+      'api_key': API_KEY,
+      'X-API-Key': API_KEY
+    });
+    return fetch(u.toString(), Object.assign({ credentials: 'include' }, init, { headers }));
+  }
+
+  // ======== helpers ========
   let __loadFailTimer = null;
-  function hideLoading(){ try{ document.getElementById('loadingOverlay').classList.add('hidden'); }catch{} if(__loadFailTimer){clearTimeout(__loadFailTimer);__loadFailTimer=null;} }
+  const $ = id => document.getElementById(id);
+  function hideLoading(){ try{ $('loadingOverlay').classList.add('hidden'); }catch{} if(__loadFailTimer){clearTimeout(__loadFailTimer);__loadFailTimer=null;} }
+
   function qs(name){ return new URLSearchParams(location.search).get(name) || ''; }
+  function getMatchId(){ return qs('id') || qs('m') || ''; }
+
   function slug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
   function capWords(s){ return String(s||'').split(/[-\s]+/).map(w => w? w[0].toUpperCase()+w.slice(1):'').join(' '); }
-  const $ = id => document.getElementById(id);
-  function normalizeStatus(raw){
-    const st = String(raw||'').toUpperCase();
-    if (/\bHT\b/.test(st) || /HALF/.test(st)) return 'HALF';
-    if (/BREAK|INTERMISSION/.test(st)) return 'BREAK';
-    if (/LIVE|IN_PROGRESS|IN PLAY|1ST|2ND|3RD|4TH|Q1|Q2|Q3|Q4/.test(st)) return 'LIVE';
-    if (/STATUS_FINAL|STATUS_POSTGAME|POSTGAME|FINAL|FULL\s?TIME|FULLTIME|ENDED|FINISH(?:ED)?|\bFT\b/.test(st)) return 'FINISHED';
-    return 'SCHEDULED';
+  function addDays(dateStr, delta){ const dt = new Date(Date.UTC(+dateStr.slice(0,4), +dateStr.slice(5,7)-1, +dateStr.slice(8,10))); dt.setUTCDate(dt.getUTCDate()+delta); return dt.toISOString().slice(0,10); }
+
+  // Normalize statuses from API
+  function formatStatus(status){
+    const raw = String(status || '').toUpperCase();
+
+    // half-time / paused
+    if (/\bHT\b/.test(raw) || raw.includes('HALF-TIME') || raw.includes('HALFTIME') || raw.includes('HALF TIME') || raw.includes('PAUSED')) {
+      return 'Half Time';
+    }
+
+    // live / in progress
+    if (raw.includes('IN_PLAY') || raw.includes('LIVE') || raw.includes('PLAYING') ||
+        raw.includes('1ST HALF') || raw.includes('FIRST HALF') ||
+        raw.includes('2ND HALF') || raw.includes('SECOND HALF')) {
+      return 'Live';
+    }
+
+    // break / intermission (other sports)
+    if (raw.includes('BREAK') || raw.includes('INTERMISSION')) {
+      return 'Break';
+    }
+
+    // finished
+    if (raw.includes('FINISHED') || raw.includes('FULL-TIME') || raw === 'FT' || raw.includes('FINAL') || raw.includes('ENDED') || raw.includes('POSTGAME')) {
+      return 'Finished';
+    }
+
+    // scheduled / not started
+    if (raw.includes('SCHEDULED') || raw.includes('NOT_STARTED') || raw === 'NS') {
+      return 'Scheduled';
+    }
+
+    return status || '';
   }
 
   function renderServerButtonsFromSlug(sl){
@@ -123,9 +170,8 @@
     renderServerButtonsFromSlug(sl);
   }
 
-  // Prime: if the id already contains a slug part, prefill names & server buttons
   (function prime(){
-    const id = qs('id');
+    const id = getMatchId();
     if (id && id.includes('@')){
       const slPart = id.split('@')[0];
       const toks = slPart.split('-vs-');
@@ -138,16 +184,13 @@
   })();
 
   async function fixturesFor(dateStr){
-    const r = await fetch('/api/fixtures?date=' + encodeURIComponent(dateStr) + '&force=1', {cache:'no-store'}).catch(()=>null);
-    const j = r ? await r.json().catch(()=>null) : null;
-    return Array.isArray(j?.fixtures) ? j.fixtures : [];
+    const r = await apiFetch(`${API_BASE}/fixtures?date=${encodeURIComponent(dateStr)}&force=1`, { cache: 'no-store' }).catch(() => null);
+    if (!r || !r.ok) return [];
+    const j = await r.json().catch(() => null);
+    const list = j?.fixtures || j?.data?.fixtures || [];
+    return Array.isArray(list) ? list : [];
   }
-  function ymdFromIso(x){ try{ return String(x||'').slice(0,10) || null; }catch{return null;} }
-  function addDays(dateStr, delta){
-    const dt = new Date(Date.UTC(+dateStr.slice(0,4), +dateStr.slice(5,7)-1, +dateStr.slice(8,10)));
-    dt.setUTCDate(dt.getUTCDate()+delta);
-    return dt.toISOString().slice(0,10);
-  }
+
   function tokens(name){
     const s = slug(name); const parts = s.split('-').filter(Boolean);
     const first = parts[0] || s, last = parts[parts.length-1] || s;
@@ -175,37 +218,47 @@
     const homeLogo = fx.home?.logo || '';
     const awayLogo = fx.away?.logo || '';
     const league   = fx.league?.name || '';
-    const status   = normalizeStatus(fx.status || 'SCHEDULED');
+    const statusRaw = fx.status || 'SCHEDULED';
     const kickoff  = fx.start_utc || '';
 
     $('homeName').textContent = homeName;
     $('awayName').textContent = awayName;
     $('homeLogo').src = homeLogo || '/logo.svg';
     $('awayLogo').src = awayLogo || '/logo.svg';
-    $('leagueBadge').textContent = league || ''; $('league').textContent = league || '-';
-    $('state').textContent = status || '-';
+    $('leagueBadge').textContent = league || '';
+    $('league').textContent = league || '-';
+
+    const friendlyStatus = formatStatus(statusRaw);
+    $('state').textContent = friendlyStatus || '-';
+    $('statusLine').textContent = friendlyStatus || '';
     $('kickoff').textContent = kickoff ? new Date(kickoff).toLocaleString() : '-';
-    $('statusLine').textContent = status || '';
 
     renderServerButtonsFromFixture(fx);
     hideLoading();
   }
 
-  async function load(){
-    document.getElementById('loadingOverlay').classList.remove('hidden');
-    __loadFailTimer = setTimeout(hideLoading, 3000);
+  async function loadOnce(){
+    $('loadingOverlay').classList.remove('hidden');
+    __loadFailTimer = setTimeout(hideLoading, 3500);
 
-    const id  = qs('id') || qs('m');
+    const id  = getMatchId();
     if (!id){ $('statusLine').textContent='Missing match id'; hideLoading(); return; }
 
-    // Try server lookup quickly; if slow, do client-side scan
-    async function serverResolve(){ try{ const r = await fetch('/api/fixture/' + encodeURIComponent(id)); if (r.ok){ const j = await r.json(); return j.fixture || null; } }catch{} return null; }
+    async function serverResolve(){
+      try{
+        let r = await apiFetch(`${API_BASE}/fixture/${encodeURIComponent(id)}`);
+        if (!r.ok) r = await apiFetch(`${API_BASE}/fixture?id=${encodeURIComponent(id)}`);
+        if (r.ok){ const j = await r.json().catch(()=>null); return (j && (j.fixture || j.data?.fixture)) || null; }
+      }catch(e){}
+      return null;
+    }
+
     async function clientResolve(){
       const hasAt = id.includes('@');
       const slugPart = slug(hasAt ? id.split('@')[0] : id);
       const isoHint  = hasAt ? id.split('@')[1] : null;
-      const base = ymdFromIso(isoHint) || new Date().toISOString().slice(0,10);
-      const days = [addDays(base,-1), base, addDays(base,1), addDays(base,2)];
+      const base = (isoHint || new Date().toISOString()).slice(0,10);
+      const days = [ -2,-1,0,1,2 ].map(n => addDays(base, n));
       for (const d of days){
         const list = await fixturesFor(d);
         const hit = list.find(fx => matchSlug(slugPart, fx));
@@ -218,6 +271,13 @@
     const fx = (s.status==='fulfilled' && s.value) || (c.status==='fulfilled' && c.value) || null;
     if (fx){ applyFixture(fx); } else { $('statusLine').textContent='Could not load match data.'; hideLoading(); }
   }
-  load();
-</script></body>
+
+  async function startPolling(){
+    await loadOnce();
+    setInterval(loadOnce, 30000);
+  }
+
+  startPolling();
+</script>
+</body>
 </html>
