@@ -482,8 +482,34 @@ var watchHref = WATCH_URL + '?id=' + encodeURIComponent(fixtureId);
   // Start by loading upcoming fixtures.  We schedule a refresh every
   // 15 minutes to keep the list up‑to‑date.  The legacy date‑based
   // loader is no longer used.
+
+  // Periodically refresh today's statuses so LIVE / HALF show quickly
+  async function refreshStatuses(){
+    try {
+      const today = new Date().toISOString().slice(0,10);
+      const r = await fetch('/api/fixtures?date=' + today + '&force=1&_=' + Date.now());
+      if (!r.ok) return;
+      const j = await r.json().catch(() => null);
+      const list = (j && (j.fixtures || (j.data && j.data.fixtures))) || [];
+      list.forEach(function(fx){
+        const home = (fx.home && fx.home.name) || '';
+        const away = (fx.away && fx.away.name) || '';
+        const slugVal = slug((home || '') + '-vs-' + (away || ''));
+        const cards = document.querySelectorAll('.game-card[data-slug="' + slugVal + '"]');
+        const st = statusLabel(fx); // use same normaliser as initial render
+        cards.forEach(function(card){
+          card.dataset.status = st;
+        });
+      });
+    } catch (e) {
+      // ignore
+    }
+  }
+
   loadUpcoming();
   setInterval(loadUpcoming, 15 * 60 * 1000);
+  setInterval(refreshStatuses, 30000);
+  refreshStatuses();
 
   // Handle favourite toggles.  Use event delegation on the document to
   // capture clicks on the star icon.  When a favourite star is clicked,
