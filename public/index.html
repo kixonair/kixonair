@@ -484,7 +484,14 @@ var watchHref = WATCH_URL + '?id=' + encodeURIComponent(fixtureId);
   // loader is no longer used.
 
   // Periodically refresh today's statuses so LIVE / HALF show quickly
-  async function refreshStatuses(){
+  function updateLastUpdated(){
+  const el = document.getElementById('last-updated');
+  if (!el) return;
+  const d = new Date();
+  el.textContent = 'Last updated ' + d.toLocaleTimeString();
+}
+
+async function refreshStatuses(){
     try {
       const today = new Date().toISOString().slice(0,10);
       const r = await fetch('/api/fixtures?date=' + today + '&force=1&_=' + Date.now());
@@ -499,8 +506,24 @@ var watchHref = WATCH_URL + '?id=' + encodeURIComponent(fixtureId);
         const st = statusLabel(fx); // use same normaliser as initial render
         cards.forEach(function(card){
           card.dataset.status = st;
+          const dot = card.querySelector('.dot');
+          const stateEl = card.querySelector('.state');
+          if (stateEl){
+            stateEl.classList.remove('live','half','scheduled','finished');
+            if (st === 'LIVE') stateEl.classList.add('live');
+            else if (st === 'HALF') stateEl.classList.add('half');
+            else if (st === 'FINISHED') stateEl.classList.add('finished');
+            else stateEl.classList.add('scheduled');
+            stateEl.textContent = st;
+          }
+          if (dot){
+            dot.classList.remove('live','half');
+            if (st === 'LIVE') dot.classList.add('live');
+            else if (st === 'HALF') dot.classList.add('half');
+          }
         });
       });
+      updateLastUpdated();
     } catch (e) {
       // ignore
     }
@@ -510,6 +533,7 @@ var watchHref = WATCH_URL + '?id=' + encodeURIComponent(fixtureId);
   setInterval(loadUpcoming, 15 * 60 * 1000);
   setInterval(refreshStatuses, 30000);
   refreshStatuses();
+  updateLastUpdated();
 
   // Handle favourite toggles.  Use event delegation on the document to
   // capture clicks on the star icon.  When a favourite star is clicked,
