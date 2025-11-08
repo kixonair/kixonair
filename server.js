@@ -1,4 +1,4 @@
-// server.js – kixonair fast version
+// server.js – kixonair fast version with 2-minute live refresh
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -11,29 +11,27 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 10000;           // <— Render will give you 10000
+const PORT = process.env.PORT || 10000;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 const TZ_DISPLAY = process.env.TZ_DISPLAY || 'Europe/Bucharest';
 const SPORTSDB_ENABLED = (process.env.SPORTSDB_ENABLED || '0') !== '0';
 
-// serve static (your React / HTML)
 app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }));
 app.use(cors());
 app.use(express.json());
 
-// =====================================================
-// small helpers
-// =====================================================
+// --------------------------------------------------
+// helpers
+// --------------------------------------------------
 const CACHE_DIR = path.join(__dirname, 'data', 'cache');
 fs.mkdirSync(CACHE_DIR, { recursive: true });
 
-// memory cache for 60s
 const memCache = new Map();
-const MEM_TTL_MS = 60 * 1000;
+const MEM_TTL_MS = 60 * 1000; // 1 minute
 
 function todayTZ(tz = TZ_DISPLAY) {
   const d = new Date();
-  return d.toLocaleString('sv-SE', { timeZone: tz }).slice(0, 10); // YYYY-MM-DD
+  return d.toLocaleString('sv-SE', { timeZone: tz }).slice(0, 10);
 }
 
 function normalizeDate(raw) {
@@ -48,10 +46,23 @@ function cachePath(dateStr) {
   return path.join(CACHE_DIR, `${dateStr}.json`);
 }
 
+// ✅ NEW: only use disk cache for “today” if < 120s old
 function readDisk(dateStr) {
   const fp = cachePath(dateStr);
   if (!fs.existsSync(fp)) return null;
   try {
+    // check age
+    const stat = fs.statSync(fp);
+    const ageMs = Date.now() - stat.mtimeMs;
+    const today = todayTZ();
+
+    if (dateStr === today) {
+      // live day → refresh often
+      if (ageMs > 120 * 1000) {
+        return null; // too old, rebuild
+      }
+    }
+    // other days → just return
     return JSON.parse(fs.readFileSync(fp, 'utf8'));
   } catch {
     return null;
@@ -82,11 +93,11 @@ async function httpGet(url, timeoutMs = 10000) {
   }
 }
 
-// =====================================================
-// ESPN fetchers (trimmed)
-// =====================================================
+// --------------------------------------------------
+// ESPN fetchers
+// --------------------------------------------------
 const SOCCER_SEGMENTS = [
-  'soccer',          // everything soccer
+  'soccer',
   'soccer/eng.1',
   'soccer/esp.1',
   'soccer/ita.1',
@@ -108,7 +119,6 @@ function mapEspn(data, dateStr, sportLabel, leagueFallback) {
   for (const ev of data.events || []) {
     const iso = ev.date;
     if (!iso) continue;
-    // keep only events for that date (ESPN sometimes returns adjacent days)
     if (iso.slice(0, 10) !== dateStr) continue;
 
     const comp = ev.competitions?.[0] || {};
@@ -181,9 +191,9 @@ async function getSportsDB(dateStr) {
   }));
 }
 
-// =====================================================
-// assemble fixtures
-// =====================================================
+// --------------------------------------------------
+// assemble
+// --------------------------------------------------
 async function buildFixtures(dateStr) {
   const [soc, nba, nfl, nhl] = await Promise.all([
     getSoccer(dateStr).catch(() => []),
@@ -199,7 +209,6 @@ async function buildFixtures(dateStr) {
     fixtures = fixtures.concat(fb);
   }
 
-  // de-dupe
   const seen = new Set();
   const deduped = [];
   for (const f of fixtures) {
@@ -241,14 +250,11 @@ async function getFixtures(dateStr, force = false) {
   return fresh;
 }
 
-// =====================================================
-// ROUTES
-// =====================================================
-
-// health for Render
+// --------------------------------------------------
+// routes
+// --------------------------------------------------
 app.get('/health', (req, res) => res.send('ok'));
 
-// main API – no x-api-key needed now
 app.get(['/api/fixtures', '/api/fixtures/:date'], async (req, res) => {
   try {
     const raw = req.params.date || req.query.date || 'today';
@@ -263,7 +269,6 @@ app.get(['/api/fixtures', '/api/fixtures/:date'], async (req, res) => {
   }
 });
 
-// admin precache – NO self-call
 app.get('/admin/precache', async (req, res) => {
   try {
     const tok = String(req.query.token || '');
@@ -280,14 +285,10 @@ app.get('/admin/precache', async (req, res) => {
   }
 });
 
-// root
 app.get('/', (req, res) => {
   res.send('kixonair API up');
 });
 
-// =====================================================
-// START SERVER
-// =====================================================
 app.listen(PORT, () => {
   console.log(`[kixonair] up on :${PORT}`);
 });
