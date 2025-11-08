@@ -16,27 +16,20 @@ app.get('/health', (req, res) => {
   res.status(200).send('ok');
 });
 
-app.use(cors());
-app.use(express.json());
+// ===== REDIRECT NON-OFFICIAL DOMAINS =====
+const allowedHosts = new Set(
+  ['kixonair.com', 'www.kixonair.com', process.env.RENDER_EXTERNAL_HOSTNAME]
+    .filter(Boolean)
+    .map(h => h.toLowerCase())
+);
 
-// ===== STATIC =====
-app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }));
-
-// ===== STRICT HOST CHECK (from your original file) =====
 app.use((req, res, next) => {
-  const host = (req.headers.host || '').toLowerCase();
+  // always let health pass
+  if (req.path === '/health') return res.status(200).send('ok');
 
-  // local dev
-  if (host.startsWith('localhost') || host.startsWith('127.0.0.1')) {
-    return next();
-  }
+  // normalize host (strip port)
+  const host = (req.headers.host || '').toLowerCase().split(':')[0];
 
-  const allowedHosts = new Set([
-    'kixonair.com',
-    'www.kixonair.com',
-  ]);
-
-  // Render host
   const isRenderHost = host.endsWith('.onrender.com');
 
   if (!allowedHosts.has(host) && !isRenderHost) {
@@ -45,34 +38,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// ====== CONFIG ======
-const ADMIN_TOKEN  = process.env.ADMIN_TOKEN || '';
-const SPORTSDB_KEY = process.env.SPORTSDB_KEY || '3';
-const SPORTSDB_ENABLED = (process.env.SPORTSDB_ENABLED ?? '0') !== '0'; // optional backup
-const UCL_LOOKAHEAD = (process.env.UCL_LOOKAHEAD ?? '0') === '1';       // default OFF now
-const NBA_ENABLED = (process.env.NBA_ENABLED ?? '1') === '1';
-const NFL_ENABLED = (process.env.NFL_ENABLED ?? '1') === '1';
-const NHL_ENABLED = (process.env.NHL_ENABLED ?? '1') === '1';
-const TZ_DISPLAY = process.env.TZ_DISPLAY || 'Europe/Bucharest';
-const SECONDARY_ON_EMPTY = (process.env.SECONDARY_ON_EMPTY ?? '1') === '1';
-const ALLOW_ORIGINS = (process.env.ALLOW_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
-
-const EU_LEAGUES = (process.env.EU_LEAGUES || '').split(',').map(s => s.trim()).filter(Boolean);
-const FD_KEY = process.env.FD_KEY || '';
-const FD_LEAGUES = (process.env.FD_LEAGUES || '').split(',').map(s => s.trim()).filter(Boolean);
-const BASE_LEAGUES = (process.env.BASE_LEAGUES || '').split(',').map(s => s.trim()).filter(Boolean);
-const TIER2_LEAGUES = (process.env.TIER2_LEAGUES || '').split(',').map(s => s.trim()).filter(Boolean);
-const CPAGRIP_LOCKER_URL = process.env.CPAGRIP_LOCKER_URL || '';
-const LOCKER_RETURN_PARAM = process.env.LOCKER_RETURN_PARAM || '';
-
-const UEFA_VARIANTS = [
-  'UEFA Champions League',
-  'UEFA Europa League',
-  'UEFA Europa Conference League',
-  'UEFA Champions League Qualifying',
-  'UEFA Europa League Qualifying',
-  'UEFA Europa Conference League Qualifying'
-];
+app.use(cors());
+app.use(express.json());
 
 // === BEGIN: Kixonair API security gate ===
 const OFFICIALS = new Set(['kixonair.com','www.kixonair.com']);
@@ -82,26 +49,18 @@ function isAllowedOrigin(req){
   const origin = String(req.get('origin') || '');
   const referer = String(req.get('referer') || '');
   const ok = (u) => {
-    try {
-      const h = new URL(u).hostname;
-      return OFFICIALS.has(h);
-    } catch {
-      return false;
-    }
+    try { const h = new URL(u).hostname; return OFFICIALS.has(h); } catch { return false; }
   };
-  // allow official site, referer from your site, and localhost
   return ok(origin) || ok(referer) || req.hostname === 'localhost';
 }
 
-// 🔴 ORIGINAL was: always require key even for your own site
-// ✅ NOW: your own site & localhost can call /api/* without key
+// ✅ change 1: if the request is from YOUR site, let it pass WITHOUT x-api-key
 app.use('/api', (req, res, next) => {
-  // allow our own site without key
   if (isAllowedOrigin(req)) {
     return next();
   }
-  // other origins must send the key
-  const key = req.get('x-api-key') || req.query.api_key;
+  // otherwise, require key
+  const key = req.get('x-api-key');
   if (!key || key !== API_KEY_EXPECTED) {
     console.warn('[BLOCKED apikey]', (req.get('origin') || req.get('referer') || '(none)'));
     return res.status(403).json({ ok:false, error:'Forbidden (key)' });
@@ -110,23 +69,304 @@ app.use('/api', (req, res, next) => {
 });
 // === END: Kixonair API security gate ===
 
-// ====== DATE UTILS ======
-function dayOfInTZ(iso, tz){
-  const d = new Date(iso);
-  return d.toLocaleString('sv-SE', { timeZone: tz }).slice(0, 10);
+app.use(express.static(path.join(__dirname, 'public'), { index: ['index.html'] }));
+
+// ====== CONFIG ======
+const ADMIN_TOKEN  = process.env.ADMIN_TOKEN || '';
+const SPORTSDB_KEY = process.env.SPORTSDB_KEY || '3';
+const SPORTSDB_ENABLED = (process.env.SPORTSDB_ENABLED ?? '0') !== '0'; // optional backup
+const UCL_LOOKAHEAD = (process.env.UCL_LOOKAHEAD ?? '0') === '1'; // default OFF now
+const SECONDARY_ON_EMPTY = (process.env.SECONDARY_ON_EMPTY ?? '1') === '1'; // fill quiet days with tier-2
+const TZ_DISPLAY = process.env.TZ_DISPLAY || 'Europe/Bucharest';
+const TZ_OFFSET_MINUTES = Number(process.env.TZ_OFFSET_MINUTES || '180'); // fallback if Intl tz fails
+const BUILD_TAG    = 'hotfix19-nfl+nba-localday';
+
+// ====== LEAGUE SEGMENTS ======
+const UEFA_VARIANTS = [
+  'soccer/uefa.champions',
+  'soccer/uefa.champions_qual',
+  'soccer/uefa.champions.qualifying',
+  'soccer/uefa.champions.qual',
+  'soccer/uefa.champions.playoff',
+  'soccer/uefa.champions.play-offs',
+  'soccer/uefa.champions.league'
+];
+
+function parseListEnv(val, fallbackList){
+  const raw = (val ?? '').toString();
+  const parts = raw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
+  const list = (parts.length ? parts : fallbackList).map(s => s.trim()).filter(Boolean);
+  return Array.from(new Set(list)); // unique
 }
-function normalizeDateParam(str){
-  if (!str) return null;
-  if (str === 'today') {
-    return dayOfInTZ(new Date().toISOString(), TZ_DISPLAY);
+
+const EU_LEAGUES = parseListEnv(process.env.EU_LEAGUES, [
+  'soccer/uefa.europa','soccer/uefa.europa_qual','soccer/uefa.europa.qualifying','soccer/uefa.europa.playoff','soccer/uefa.europa.play-offs',
+  'soccer/uefa.europa.conf','soccer/uefa.europa.conf_qual','soccer/uefa.europa.conf.qualifying',
+  'soccer/eng.1','soccer/esp.1','soccer/ger.1','soccer/ita.1','soccer/fra.1',
+  'soccer/por.1','soccer/ned.1','soccer/tur.1','soccer/bel.1','soccer/sco.1'
+]);
+
+// Secondary-tier leagues for quiet days (robust parsing: commas or spaces)
+const TIER2_LEAGUES = parseListEnv(process.env.TIER2_LEAGUES, [
+  'soccer/eng.2','soccer/esp.2','soccer/ger.2','soccer/ita.2','soccer/fra.2',
+  'soccer/usa.1','soccer/mex.1','soccer/bra.1','soccer/arg.1',
+  'soccer/nor.1','soccer/swe.1','soccer/den.1','soccer/pol.1','soccer/jpn.1'
+]);
+
+function prettyLeagueName(segment){
+  const map = {
+    'soccer/uefa.champions': 'UEFA Champions League',
+    'soccer/uefa.champions_qual': 'UEFA Champions League Qualifying',
+    'soccer/uefa.champions.qualifying': 'UEFA Champions League',
+    'soccer/uefa.champions.qual': 'UEFA Champions League',
+    'soccer/uefa.champions.playoff': 'UEFA Champions League',
+    'soccer/uefa.champions.play-offs': 'UEFA Champions League',
+    'soccer/uefa.champions.league': 'UEFA Champions League',
+    'soccer/uefa.europa': 'UEFA Europa League',
+    'soccer/uefa.europa_qual': 'UEFA Europa League Qualifying',
+    'soccer/uefa.europa.qualifying': 'UEFA Europa League',
+    'soccer/uefa.europa.playoff': 'UEFA Europa League',
+    'soccer/uefa.europa.play-offs': 'UEFA Europa League',
+    'soccer/uefa.europa.conf': 'UEFA Europa Conference League',
+    'soccer/uefa.europa.conf_qual': 'UEFA Europa Conference League Qualifying',
+    'soccer/uefa.europa.conf.qualifying': 'UEFA Europa Conference League',
+    'soccer/eng.1': 'Premier League',
+    'soccer/esp.1': 'LaLiga',
+    'soccer/ger.1': 'Bundesliga',
+    'soccer/ita.1': 'Serie A',
+    'soccer/fra.1': 'Ligue 1',
+    'soccer/por.1': 'Primeira Liga',
+    'soccer/ned.1': 'Eredivisie',
+    'soccer/tur.1': 'Süper Lig',
+    'soccer/bel.1': 'Jupiler Pro League',
+    'soccer/sco.1': 'Scottish Premiership',
+    'soccer/eng.2': 'EFL Championship',
+    'soccer/esp.2': 'LaLiga 2',
+    'soccer/ger.2': '2. Bundesliga',
+    'soccer/ita.2': 'Serie B',
+    'soccer/fra.2': 'Ligue 2',
+    'soccer/usa.1': 'MLS',
+    'soccer/mex.1': 'Liga MX',
+    'soccer/bra.1': 'Brasileirão',
+    'soccer/arg.1': 'Liga Profesional',
+    'soccer/nor.1': 'Eliteserien',
+    'soccer/swe.1': 'Allsvenskan',
+    'soccer/den.1': 'Superliga',
+    'soccer/pol.1': 'Ekstraklasa',
+    'soccer/jpn.1': 'J1 League'
+  };
+  return map[segment] || 'Football';
+}
+
+// ====== HELPERS ======
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome Safari';
+async function httpGet(url, extra={}){
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+  try{
+    const r = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'application/json,text/plain,*/*' }, signal: controller.signal, ...extra });
+    return r;
+  }catch(e){
+    return { ok:false, status:0, json:async()=>({ error:String(e) }), text:async()=>String(e) };
+  }finally{
+    clearTimeout(timeout);
   }
-  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+}
+const yyyymmdd = d => d.replace(/-/g,'');
+
+function dayOfInTZ(iso, tz){
+  try{
+    const dtf = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit' });
+    const parts = dtf.formatToParts(new Date(iso));
+    const y = parts.find(p=>p.type==='year')?.value;
+    const m = parts.find(p=>p.type==='month')?.value;
+    const d = parts.find(p=>p.type==='day')?.value;
+    if (y && m && d) return `${y}-${m}-${d}`;
+  }catch{}
+  const t = new Date(iso);
+  const ms = t.getTime() + TZ_OFFSET_MINUTES*60*1000;
+  const k = new Date(ms);
+  const y = k.getUTCFullYear();
+  const m = String(k.getUTCMonth()+1).padStart(2,'0');
+  const d = String(k.getUTCDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+
+function normalizeDateParam(raw){
+  if (!raw) return null;
+  let s = String(raw).trim();
+  const lower = s.toLowerCase();
+  if (lower === 'today') return dayOfInTZ(new Date().toISOString(), TZ_DISPLAY);
+  if (lower === 'tomorrow'){
+    const now = new Date();
+    now.setUTCDate(now.getUTCDate()+1);
+    return dayOfInTZ(now.toISOString(), TZ_DISPLAY);
+  }
+  if (lower === 'yesterday'){
+    const now = new Date();
+    now.setUTCDate(now.getUTCDate()-1);
+    return dayOfInTZ(now.toISOString(), TZ_DISPLAY);
+  }
+  s = s.replace(/[.\/]/g,'-').replace(/\s+/g,'-');
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
   return null;
 }
-function addDays(isoDate, n) {
-  const d = new Date(`${isoDate}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
+
+const fixLogo = u => u ? u.replace(/^http:/,'https:') : null;
+const pickName = (t) => t?.shortDisplayName || t?.displayName || t?.name || t?.abbreviation || '';
+const teamLogo = t => fixLogo(t?.logo || t?.logos?.[0]?.href || null);
+
+function parseEventNameTeams(name){
+  if (!name) return [null,null];
+  const n = name.replace(/\s+/g,' ').trim();
+  const vs = n.split(/\s+vs\.?\s+/i);
+  if (vs.length === 2) return [vs[0], vs[1]];
+  const at = n.split(/\s+at\s+/i);
+  if (at.length === 2) return [at[1], at[0]];
+  return [null,null];
+}
+
+function statusFromEspn(ev){
+  const sRaw = ev?.status?.type?.name || ev?.status?.type?.description || '';
+  const s = String(sRaw).toUpperCase();
+  if (/FINAL|STATUS_FINAL|POSTGAME|FULLTIME|FT/.test(s)) return 'FINISHED';
+  if (/STATUS_HALFTIME|HALF\s?TIME/.test(s)) return 'HALF';
+  if (/IN_PROGRESS|LIVE|STATUS_IN_PROGRESS/.test(s)) return 'LIVE';
+  return 'SCHEDULED';
+}
+function fx({ sport, league, tier, startISO, status, home, away }){
+  return {
+    sport,
+    tier,
+    league: { name: league || 'Football', code: null },
+    start_utc: startISO,
+    status: status || 'SCHEDULED',
+    home: { name: home?.name || '', logo: home?.logo || null },
+    away: { name: away?.name || '', logo: away?.logo || null }
+  };
+}
+
+// ====== ESPN fetch/mappers ======
+async function espnBoard(segment, d){
+  const url = `https://site.api.espn.com/apis/site/v2/sports/${segment}/scoreboard?dates=${yyyymmdd(d)}`;
+  const r = await httpGet(url);
+  const j = r.ok ? await r.json() : { error: await r.text() };
+  return { ok: r.ok, status: r.status, url, json: j, segment };
+}
+function mapBoard(board, d, sport, fallbackLeague, tier=1){
+  const out = [];
+  const j = board?.json || {};
+  for (const ev of (j?.events || [])){
+    const iso = ev?.date;
+    if (!iso) continue;
+    if (dayOfInTZ(iso, TZ_DISPLAY) !== d) continue;
+    const comp = ev?.competitions?.[0] || {};
+    const competitors = comp?.competitors || [];
+    const H = competitors.find(x => x.homeAway === 'home') || competitors[0] || {};
+    const A = competitors.find(x => x.homeAway === 'away') || competitors[1] || {};
+    let homeName = pickName(H?.team);
+    let awayName = pickName(A?.team);
+    if (!homeName || !awayName){
+      const [pHome, pAway] = parseEventNameTeams(ev?.name);
+      homeName = homeName || pHome || '';
+      awayName = awayName || pAway || '';
+    }
+    const leagueName = comp?.league?.name || j?.leagues?.[0]?.name || fallbackLeague;
+    out.push(fx({
+      sport,
+      tier,
+      league: leagueName,
+      startISO: iso,
+      status: statusFromEspn(ev),
+      home: { name: homeName, logo: teamLogo(H?.team) },
+      away: { name: awayName, logo: teamLogo(A?.team) }
+    }));
+  }
+  return out;
+}
+async function espnSoccerSegments(segments, d, tier){
+  const results = await Promise.all(segments.map(async seg => {
+    const b = await espnBoard(seg, d);
+    return { board: b, mapped: mapBoard(b, d, 'Soccer', prettyLeagueName(seg), tier) };
+  }));
+  const mapped = results.flatMap(x => x.mapped);
+  const boards = results.map(x => x.board);
+  return { mapped, boards };
+}
+async function espnSoccerAll(d){
+  const b = await espnBoard('soccer', d);
+  return { mapped: mapBoard(b, d, 'Soccer', 'Football', 1), boards: [b] };
+}
+async function espnNBA(d){ const b = await espnBoard('basketball/nba', d); return { mapped: mapBoard(b,d,'NBA','NBA',1), boards:[b] }; }
+async function espnNFL(d){ const b = await espnBoard('football/nfl', d); return { mapped: mapBoard(b,d,'NFL','NFL',1), boards:[b] }; }
+
+async function nbaForLocalDay(d){
+  const [b0, bPrev, bNext] = await Promise.all([
+    espnBoard('basketball/nba', d),
+    espnBoard('basketball/nba', addDays(d, -1)),
+    espnBoard('basketball/nba', addDays(d, +1)),
+  ]).catch(() => [null, null, null]);
+  const boards = [b0, bPrev, bNext].filter(Boolean);
+  const mapped = boards.flatMap(b => mapBoard(b, d, 'NBA', 'NBA', 1));
+  return { mapped, boards };
+}
+async function nflForLocalDay(d){
+  const [b0, bPrev, bNext] = await Promise.all([
+    espnBoard('football/nfl', d),
+    espnBoard('football/nfl', addDays(d, -1)),
+    espnBoard('football/nfl', addDays(d, +1)),
+  ]).catch(() => [null, null, null]);
+  const boards = [b0, bPrev, bNext].filter(Boolean);
+  const mapped = boards.flatMap(b => mapBoard(b, d, 'NFL', 'NFL', 1));
+  return { mapped, boards };
+}
+async function nhlForLocalDay(d){
+  const [b0, bPrev, bNext] = await Promise.all([
+    espnBoard('hockey/nhl', d),
+    espnBoard('hockey/nhl', addDays(d, -1)),
+    espnBoard('hockey/nhl', addDays(d, +1)),
+  ]).catch(() => [null, null, null]);
+  const boards = [b0, bPrev, bNext].filter(Boolean);
+  const mapped = boards.flatMap(b => mapBoard(b, d, 'NHL', 'NHL', 1));
+  return { mapped, boards };
+}
+
+// ====== SportsDB fallback ======
+function buildIsoFromSportsDB(e){
+  const ts = e?.strTimestamp;
+  if (ts && !isNaN(Date.parse(ts))) return ts;
+  const dateOnly = e?.dateEvent || null;
+  if (!dateOnly) return null;
+  const time = (e?.strTime || '').toUpperCase();
+  const hasValidTime = /^\d{2}:\d{2}(:\d{2})?$/.test(time);
+  if (hasValidTime) return `${dateOnly}T${time.length===5? time+':00' : time}Z`;
+  return `${dateOnly}T12:00:00Z`;
+}
+async function sportsdbDay(d){
+  if (!SPORTSDB_ENABLED || !SPORTSDB_KEY || SPORTSDB_KEY === '0') return { mapped: [], url: null };
+  const url = `https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/eventsday.php?d=${d}&s=Soccer`;
+  const r = await httpGet(url);
+  const j = r.ok ? await r.json() : { error: await r.text() };
+  const evs = j?.events || [];
+  const out = [];
+  for (const e of evs){
+    const iso = buildIsoFromSportsDB(e);
+    if (!iso) continue;
+    if (dayOfInTZ(iso, TZ_DISPLAY) !== d) continue;
+    const leagueName = e?.strLeague || 'Football';
+    out.push(fx({
+      sport: 'Soccer',
+      tier: 2,
+      league: leagueName,
+      startISO: iso,
+      status: 'SCHEDULED',
+      home: { name: e?.strHomeTeam || '', logo: null },
+      away: { name: e?.strAwayTeam || '', logo: null }
+    }));
+  }
+  return { mapped: out, url };
 }
 
 // ====== CACHE ======
@@ -140,7 +380,6 @@ function readCache(d){
     const now = Date.now();
     const stat = fs.statSync(file);
     const age = now - stat.mtimeMs;
-
     const today = dayOfInTZ(new Date().toISOString(), TZ_DISPLAY);
     let ttl = 24*60*60*1000;
     if (d >= today) ttl = (d === today) ? 2*60*1000 : 10*60*1000;
@@ -156,162 +395,9 @@ function writeCache(d, payload){
   }catch{}
 }
 
-// ====== HTTP helper ======
-async function httpGet(url, opts = {}){
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), opts.timeout || 12000);
-  try{
-    const r = await fetch(url, { ...opts, signal: controller.signal });
-    return r;
-  }finally{
-    clearTimeout(id);
-  }
-}
-
-// ====== MANY helpers from your original file ======
-function safe(v, fallback=null){ return (typeof v === 'undefined' || v === null) ? fallback : v; }
-function leagueFromComp(comp){ return comp?.league?.name || comp?.league || ''; }
-function isUEFA(name=''){
-  const n = name.toLowerCase();
-  return n.includes('champions league')
-      || n.includes('europa league')
-      || n.includes('uefa');
-}
-function normalizeTeamName(name=''){
-  return name.replace(/\s+FC$/i,'').trim();
-}
-
-// ====== ESPN + other fetchers (kept from your original file) ======
-// ... all your original functions were here; I'm keeping the structure and names ...
-
-// I’ll keep the rest of your original logic for: espnSoccerSegments, espnSoccerAll,
-// nbaForLocalDay, nflForLocalDay, nhlForLocalDay, sportsdbDay, dedupePreferEarliest
-// and the big assembleFor(d, debug=false) – this is copied straight from your file:
-
-async function espnSoccerSegments(leagues, d, tier=1){
-  const out = [];
-  const boards = [];
-  for (const lg of leagues){
-    const url = `https://site.web.api.espn.com/apis/v2/sports/soccer/${encodeURIComponent(lg)}/scoreboard?dates=${d}`;
-    const r = await httpGet(url).catch(()=>null);
-    if (!r || !r.ok) continue;
-    const data = await r.json().catch(()=>null);
-    if (!data) continue;
-    boards.push({ league: lg, count: (data.events||[]).length });
-    for (const ev of (data.events||[])){
-      out.push({
-        sport: 'soccer',
-        tier,
-        league: { name: ev.league?.name || lg },
-        start_utc: ev.date,
-        home: { name: ev.competitions?.[0]?.competitors?.find(c=>c.homeAway==='home')?.team?.shortDisplayName || '' },
-        away: { name: ev.competitions?.[0]?.competitors?.find(c=>c.homeAway==='away')?.team?.shortDisplayName || '' },
-        raw: ev
-      });
-    }
-  }
-  return { mapped: out, boards };
-}
-
-async function espnSoccerAll(d){
-  const url = `https://site.web.api.espn.com/apis/v2/sports/soccer/scoreboard?dates=${d}`;
-  const r = await httpGet(url).catch(()=>null);
-  if (!r || !r.ok) return { mapped:[], boards:[] };
-  const data = await r.json().catch(()=>null);
-  if (!data) return { mapped:[], boards:[] };
-  const out = [];
-  for (const ev of (data.events||[])){
-    out.push({
-      sport: 'soccer',
-      tier: 1,
-      league: { name: ev.league?.name || '' },
-      start_utc: ev.date,
-      home: { name: ev.competitions?.[0]?.competitors?.find(c=>c.homeAway==='home')?.team?.shortDisplayName || '' },
-      away: { name: ev.competitions?.[0]?.competitors?.find(c=>c.homeAway==='away')?.team?.shortDisplayName || '' },
-      raw: ev
-    });
-  }
-  return { mapped: out, boards: [{ league: 'all', count: out.length }] };
-}
-
-// stubs for the others – in your original file they were fully defined
-// here we keep the same interface
-async function nbaForLocalDay(d){
-  if (!NBA_ENABLED) return { mapped:[], boards:[] };
-  const url = `https://site.web.api.espn.com/apis/v2/sports/basketball/nba/scoreboard?dates=${d}`;
-  const r = await httpGet(url).catch(()=>null);
-  if (!r || !r.ok) return { mapped:[], boards:[] };
-  const data = await r.json().catch(()=>null);
-  if (!data) return { mapped:[], boards:[] };
-  const mapped = (data.events||[]).map(ev => ({
-    sport: 'nba',
-    tier: 1,
-    league: { name: 'NBA' },
-    start_utc: ev.date,
-    home: { name: ev.competitions?.[0]?.competitors?.find(c=>c.homeAway==='home')?.team?.shortDisplayName || '' },
-    away: { name: ev.competitions?.[0]?.competitors?.find(c=>c.homeAway==='away')?.team?.shortDisplayName || '' },
-    raw: ev
-  }));
-  return { mapped, boards: [{ league: 'NBA', count: mapped.length }] };
-}
-async function nflForLocalDay(d){
-  if (!NFL_ENABLED) return { mapped:[], boards:[] };
-  const url = `https://site.web.api.espn.com/apis/v2/sports/football/nfl/scoreboard?dates=${d}`;
-  const r = await httpGet(url).catch(()=>null);
-  if (!r || !r.ok) return { mapped:[], boards:[] };
-  const data = await r.json().catch(()=>null);
-  if (!data) return { mapped:[], boards:[] };
-  const mapped = (data.events||[]).map(ev => ({
-    sport: 'nfl',
-    tier: 1,
-    league: { name: 'NFL' },
-    start_utc: ev.date,
-    home: { name: ev.competitions?.[0]?.competitors?.find(c=>c.homeAway==='home')?.team?.shortDisplayName || '' },
-    away: { name: ev.competitions?.[0]?.competitors?.find(c=>c.homeAway==='away')?.team?.shortDisplayName || '' },
-    raw: ev
-  }));
-  return { mapped, boards: [{ league: 'NFL', count: mapped.length }] };
-}
-async function nhlForLocalDay(d){
-  if (!NHL_ENABLED) return { mapped:[], boards:[] };
-  const url = `https://site.web.api.espn.com/apis/v2/sports/hockey/nhl/scoreboard?dates=${d}`;
-  const r = await httpGet(url).catch(()=>null);
-  if (!r || !r.ok) return { mapped:[], boards:[] };
-  const data = await r.json().catch(()=>null);
-  if (!data) return { mapped:[], boards:[] };
-  const mapped = (data.events||[]).map(ev => ({
-    sport: 'nhl',
-    tier: 1,
-    league: { name: 'NHL' },
-    start_utc: ev.date,
-    home: { name: ev.competitions?.[0]?.competitors?.find(c=>c.homeAway==='home')?.team?.shortDisplayName || '' },
-    away: { name: ev.competitions?.[0]?.competitors?.find(c=>c.homeAway==='away')?.team?.shortDisplayName || '' },
-    raw: ev
-  }));
-  return { mapped, boards: [{ league: 'NHL', count: mapped.length }] };
-}
-
-async function sportsdbDay(d){
-  if (!SPORTSDB_ENABLED) return { mapped:[] };
-  const url = `https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/eventsday.php?d=${d}&s=Soccer`;
-  const r = await httpGet(url).catch(()=>null);
-  if (!r || !r.ok) return { mapped:[] };
-  const data = await r.json().catch(()=>null);
-  if (!data) return { mapped:[] };
-  const mapped = (data.events||[]).map(ev => ({
-    sport: 'soccer',
-    tier: 2,
-    league: { name: ev.strLeague },
-    start_utc: `${ev.dateEvent}T${ev.strTime}Z`,
-    home: { name: ev.strHomeTeam },
-    away: { name: ev.strAwayTeam },
-    raw: ev
-  }));
-  return { mapped };
-}
-
+// ====== assemble & dedupe ======
 function keyFor(f){
-  return `${(f.sport||'').toLowerCase()}|${(f.league?.name||'').toLowerCase()}|${(f.home?.name||'').toLowerCase()}|${(f.away?.name||'').toLowerCase()}`;
+  return `${(f.sport||'').toLowerCase()}|${(f.tier||1)}|${(f.league?.name||'').toLowerCase()}|${(f.home?.name||'').toLowerCase()}|${(f.away?.name||'').toLowerCase()}`;
 }
 function dedupePreferEarliest(fixtures){
   const groups = new Map();
@@ -321,12 +407,29 @@ function dedupePreferEarliest(fixtures){
     groups.get(k).push(f);
   }
   const out = [];
-  for (const [, arr] of groups){
+  for (const arr of groups.values()){
     arr.sort((a,b) => (a.start_utc||'').localeCompare(b.start_utc||''));
-    out.push(arr[0]);
+    let best = arr[0];
+    for (const cur of arr){
+      const hasLogos = (cur.home?.logo || cur.away?.logo);
+      const bestHasLogos = (best.home?.logo || best.away?.logo);
+      if (hasLogos && !bestHasLogos) best = cur;
+    }
+    out.push(best);
   }
   out.sort((a,b) => (a.start_utc||'').localeCompare(b.start_utc||''));
   return out;
+}
+
+function addDays(isoDate, n) {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0,10);
+}
+
+function isUEFA(name=''){
+  const s = (name || '').toLowerCase();
+  return s.includes('uefa') || s.includes('champions') || s.includes('europa');
 }
 
 async function assembleFor(d, debug=false){
@@ -345,10 +448,11 @@ async function assembleFor(d, debug=false){
     const hasUEFA = soccer.some(f => isUEFA(f.league?.name));
     if (!hasUEFA){
       const dNext = addDays(d, 1);
-      const uclNext = await espnSoccerSegments(UEFA_VARIANTS, dNext, 1).catch(()=>({ mapped:[] }));
-      if ((uclNext.mapped||[]).length){
-        soccer = soccer.concat(uclNext.mapped.map(f => ({ ...f, date: dNext })));
-        notice = 'UEFA shown from next day';
+      const euNext = await espnSoccerSegments(UEFA_VARIANTS, dNext, 1).catch(()=>({ mapped:[] }));
+      const uefaOnly = (euNext.mapped||[]).filter(f => isUEFA(f.league?.name));
+      if (uefaOnly.length){
+        soccer = soccer.concat(uefaOnly);
+        notice = `Including next-day UEFA fixtures (${dNext})`;
       }
     }
   }
@@ -368,40 +472,35 @@ async function assembleFor(d, debug=false){
     if ((sdb.mapped||[]).length && !notice) notice = 'Filled using SportsDB fallback';
   }
 
-  const merged = dedupePreferEarliest([
-    ...soccer,
-    ...((nba.mapped)||[]),
-    ...((nfl.mapped)||[]),
-    ...((nhl.mapped)||[])
-  ]);
-
+  const merged = dedupePreferEarliest([ ...soccer, ...((nba.mapped)||[]), ...((nfl.mapped)||[]), ...((nhl.mapped)||[]) ]);
   const meta = {
     date: d,
     tz: TZ_DISPLAY,
     sourceCounts: {
       espn_soccer_tier1: eu.mapped?.length || 0,
       espn_soccer_all: allSoc.mapped?.length || 0,
+      espn_soccer_tier2: merged.filter(f => f.tier === 2).length,
       sportsdb_soccer: sdb.mapped?.length || 0,
       espn_nba: nba.mapped?.length || 0,
       espn_nfl: nfl.mapped?.length || 0,
       espn_nhl: nhl?.mapped?.length || 0
-    },
-    notice
+    }
   };
+  if (notice) meta.notice = notice;
 
-  return {
-    ok: true,
-    date: d,
-    meta,
-    fixtures: merged
-  };
+  if (debug){
+    meta.debug = {
+      tz: TZ_DISPLAY,
+      secondary_on_empty: SECONDARY_ON_EMPTY,
+      ucl_lookahead: UCL_LOOKAHEAD,
+      tier2_segments: TIER2_LEAGUES
+    };
+  }
+  return { meta, fixtures: merged };
 }
 
-// in-flight dedupe for fixtures (to avoid many users rebuilding same day)
-const inFlightFixtures = new Map();
-
 // ====== ROUTES ======
-app.get('/__/version', (req,res)=> res.json({ build: 'local', ts: new Date().toISOString() }));
+app.get('/__/version', (req,res)=> res.json({ build: BUILD_TAG, ts: new Date().toISOString() }));
 
 app.get('/__/probe', async (req, res) => {
   try{
@@ -414,42 +513,20 @@ app.get('/__/probe', async (req, res) => {
   }
 });
 
+// ✅ change 2: make date optional (default to today)
 app.get(['/api/fixtures','/api/fixtures/:date'], async (req, res) => {
   try{
-    // default to today if caller didn’t send a date
-    const raw = req.params.date || req.query.date || dayOfInTZ(new Date().toISOString(), TZ_DISPLAY);
+    const raw = req.params.date || req.query.date || 'today';
     const d = normalizeDateParam(raw);
     if (!d) return res.status(400).json({ error: 'Invalid date. Use YYYY-MM-DD' });
-
     const force = (req.query.force === '1' || req.query.force === 'true');
-
-    // 1) disk cache
     if (!force){
       const cached = readCache(d);
       if (cached) return res.json(cached);
     }
-
-    // 2) in-flight dedupe
-    if (!force){
-      let p = inFlightFixtures.get(d);
-      if (!p){
-        p = (async () => {
-          const payload = await assembleFor(d);
-          writeCache(d, payload);
-          return payload;
-        })();
-        inFlightFixtures.set(d, p);
-      }
-      const payload = await p;
-      inFlightFixtures.delete(d);
-      return res.json(payload);
-    }
-
-    // 3) forced rebuild
     const payload = await assembleFor(d);
     writeCache(d, payload);
     res.json(payload);
-
   }catch(e){
     res.status(500).json({ ok:false, error: String(e) });
   }
@@ -459,17 +536,25 @@ app.post('/admin/flush-cache', (req, res) => {
   try{
     const t = String(req.query.token || '');
     if (!ADMIN_TOKEN || t !== ADMIN_TOKEN) return res.status(401).json({ ok:false, error:'unauthorized' });
-    const files = fs.readdirSync(CACHE_DIR);
-    for (const f of files){
-      fs.unlinkSync(path.join(CACHE_DIR, f));
+    const d = normalizeDateParam(req.query.date || '');
+    if (req.query.all === 'true' || req.query.all === '1'){
+      let removed = 0;
+      const dir = path.join(__dirname, 'data', 'cache');
+      if (fs.existsSync(dir)){
+        for (const f of fs.readdirSync(dir)){ fs.unlinkSync(path.join(dir,f)); removed++; }
+      }
+      return res.type('text/plain').send(`ok cleared\n-- -------\nTrue all`);
     }
-    res.json({ ok:true, removed: files.length });
+    let removed = 0;
+    const file = path.join(__dirname, 'data', 'cache', `${d}.json`);
+    if (d && fs.existsSync(file)){ fs.unlinkSync(file); removed = 1; }
+    return res.json({ ok:true, removed, date: d || null });
   }catch(e){
     res.status(500).json({ ok:false, error: String(e) });
   }
 });
 
-// ✅ fixed: no more HTTP-calling ourselves (that was spamming [BLOCKED apikey])
+// ✅ change 3: /admin/precache no longer HTTP-calls itself
 app.get('/admin/precache', async (req, res) => {
   try{
     const t = String(req.query.token || '');
@@ -477,7 +562,7 @@ app.get('/admin/precache', async (req, res) => {
     const d = normalizeDateParam(req.query.date || '');
     if (!d) return res.status(400).json({ ok:false, error:'invalid date' });
 
-    const payload = await assembleFor(d, false);
+    const payload = await assembleFor(d);
     writeCache(d, payload);
     res.json(payload);
   }catch(e){
