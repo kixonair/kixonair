@@ -1,4 +1,4 @@
-// server.js – kixonair fast version with 2-minute refresh + realistic 15-min halftime
+// server.js – kixonair fast version with 2-minute refresh + correct halftime detection
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -193,28 +193,41 @@ async function getSportsDB(dateStr) {
 // --------------------------------------------------
 function promoteHalftimeToLive(fixtures) {
   const now = new Date();
-  const HALFTIME_MAX = 15 * 60 * 1000; // <-- 15 minutes
+  const HALFTIME_MAX = 15 * 60 * 1000; // 15 minutes
 
   for (const f of fixtures) {
     if (!f.status) continue;
     const st = f.status.toUpperCase();
 
-    // ESPN sometimes says "IN_PROGRESS" → we just show LIVE
+    // 1) real "in progress" → always show LIVE
     if (st.includes('IN_PROGRESS')) {
       f.status = 'LIVE';
       continue;
     }
 
-    // real halftime: keep HALF, but not longer than 15 min
-    if (st.includes('HALF')) {
+    // 2) FIRST HALF / STATUS_FIRST_HALF → this is still the first half, so show LIVE
+    if (st.includes('FIRST_HALF') || st === 'STATUS_FIRST_HALF') {
+      f.status = 'LIVE';
+      continue;
+    }
+
+    // 3) only treat actual halftime names as halftime
+    const isRealHalftime =
+      st === 'HALFTIME' ||
+      st === 'STATUS_HALFTIME' ||
+      st === 'HALF';
+
+    if (isRealHalftime) {
       const start = new Date(f.start_utc || f.date || now).getTime();
       if (!isNaN(start)) {
         const diff = now.getTime() - start;
+        // after max halftime, force back to LIVE
         if (diff > HALFTIME_MAX) {
           f.status = 'LIVE';
+        } else {
+          f.status = 'HALF';
         }
       } else {
-        // no start time? be safe and keep HALF
         f.status = 'HALF';
       }
     }
@@ -246,10 +259,9 @@ async function buildFixtures(dateStr) {
     deduped.push(f);
   }
 
-  // apply halftime / live corrections
+  // fix statuses (this is the part we just improved)
   promoteHalftimeToLive(deduped);
 
-  // sort by time
   deduped.sort((a, b) => (a.start_utc || '').localeCompare(b.start_utc || ''));
 
   return {
