@@ -1,4 +1,4 @@
-// server.js – kixonair fast version with 2-minute refresh + halftime auto-upgrade
+// server.js – kixonair fast version with 2-minute refresh + aggressive halftime auto-upgrade
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -56,6 +56,7 @@ function readDisk(dateStr) {
     const today = todayTZ();
 
     if (dateStr === today) {
+      // live day → refresh often
       if (ageMs > 120 * 1000) {
         return null;
       }
@@ -88,12 +89,6 @@ async function httpGet(url, timeoutMs = 10000) {
   } finally {
     clearTimeout(id);
   }
-}
-
-// get "now" in same TZ as display, as Date
-function nowInTZ(tz = TZ_DISPLAY) {
-  // we only need minutes difference, so we can just use local now
-  return new Date();
 }
 
 // --------------------------------------------------
@@ -198,20 +193,30 @@ async function getSportsDB(dateStr) {
 // assemble
 // --------------------------------------------------
 function promoteHalftimeToLive(fixtures) {
-  const now = nowInTZ();
-  const FIFTEEN_MIN = 15 * 60 * 1000;
+  const now = new Date();
+  const GRACE = 2 * 60 * 1000; // 2 minutes
 
   for (const f of fixtures) {
     if (!f.status) continue;
     const st = f.status.toUpperCase();
+
+    // if ESPN says "in_progress" or similar, just show LIVE
+    if (st.includes('IN_PROGRESS')) {
+      f.status = 'LIVE';
+      continue;
+    }
+
+    // ESPN sometimes leaves "HALFTIME" longer — upgrade after 2 minutes
     if (st.includes('HALF')) {
-      // if kickoff was long ago, it's probably live again
       const start = new Date(f.start_utc || f.date || now).getTime();
       if (!isNaN(start)) {
         const diff = now.getTime() - start;
-        if (diff > FIFTEEN_MIN) {
+        if (diff > GRACE) {
           f.status = 'LIVE';
         }
+      } else {
+        // no start time? treat as live
+        f.status = 'LIVE';
       }
     }
   }
@@ -242,7 +247,7 @@ async function buildFixtures(dateStr) {
     deduped.push(f);
   }
 
-  // ✅ new: fix halftime that’s too old
+  // ✅ fix statuses to look live sooner
   promoteHalftimeToLive(deduped);
 
   deduped.sort((a, b) => (a.start_utc || '').localeCompare(b.start_utc || ''));
