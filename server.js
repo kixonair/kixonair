@@ -1,4 +1,4 @@
-// server.js – kixonair fast version with 2-minute live refresh
+// server.js – kixonair fast version with 2-minute refresh + halftime auto-upgrade
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -27,7 +27,7 @@ const CACHE_DIR = path.join(__dirname, 'data', 'cache');
 fs.mkdirSync(CACHE_DIR, { recursive: true });
 
 const memCache = new Map();
-const MEM_TTL_MS = 60 * 1000; // 1 minute
+const MEM_TTL_MS = 60 * 1000; // 1 minute in-memory
 
 function todayTZ(tz = TZ_DISPLAY) {
   const d = new Date();
@@ -46,23 +46,20 @@ function cachePath(dateStr) {
   return path.join(CACHE_DIR, `${dateStr}.json`);
 }
 
-// ✅ NEW: only use disk cache for “today” if < 120s old
+// only trust today’s disk cache for 2 minutes
 function readDisk(dateStr) {
   const fp = cachePath(dateStr);
   if (!fs.existsSync(fp)) return null;
   try {
-    // check age
     const stat = fs.statSync(fp);
     const ageMs = Date.now() - stat.mtimeMs;
     const today = todayTZ();
 
     if (dateStr === today) {
-      // live day → refresh often
       if (ageMs > 120 * 1000) {
-        return null; // too old, rebuild
+        return null;
       }
     }
-    // other days → just return
     return JSON.parse(fs.readFileSync(fp, 'utf8'));
   } catch {
     return null;
@@ -91,6 +88,12 @@ async function httpGet(url, timeoutMs = 10000) {
   } finally {
     clearTimeout(id);
   }
+}
+
+// get "now" in same TZ as display, as Date
+function nowInTZ(tz = TZ_DISPLAY) {
+  // we only need minutes difference, so we can just use local now
+  return new Date();
 }
 
 // --------------------------------------------------
@@ -194,6 +197,26 @@ async function getSportsDB(dateStr) {
 // --------------------------------------------------
 // assemble
 // --------------------------------------------------
+function promoteHalftimeToLive(fixtures) {
+  const now = nowInTZ();
+  const FIFTEEN_MIN = 15 * 60 * 1000;
+
+  for (const f of fixtures) {
+    if (!f.status) continue;
+    const st = f.status.toUpperCase();
+    if (st.includes('HALF')) {
+      // if kickoff was long ago, it's probably live again
+      const start = new Date(f.start_utc || f.date || now).getTime();
+      if (!isNaN(start)) {
+        const diff = now.getTime() - start;
+        if (diff > FIFTEEN_MIN) {
+          f.status = 'LIVE';
+        }
+      }
+    }
+  }
+}
+
 async function buildFixtures(dateStr) {
   const [soc, nba, nfl, nhl] = await Promise.all([
     getSoccer(dateStr).catch(() => []),
@@ -209,6 +232,7 @@ async function buildFixtures(dateStr) {
     fixtures = fixtures.concat(fb);
   }
 
+  // de-dupe
   const seen = new Set();
   const deduped = [];
   for (const f of fixtures) {
@@ -217,6 +241,9 @@ async function buildFixtures(dateStr) {
     seen.add(k);
     deduped.push(f);
   }
+
+  // ✅ new: fix halftime that’s too old
+  promoteHalftimeToLive(deduped);
 
   deduped.sort((a, b) => (a.start_utc || '').localeCompare(b.start_utc || ''));
 
