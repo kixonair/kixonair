@@ -1,4 +1,4 @@
-// server.js – kixonair fast version with 2-minute refresh + aggressive halftime auto-upgrade
+// server.js – kixonair fast version with 2-minute refresh + realistic 15-min halftime
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -56,7 +56,6 @@ function readDisk(dateStr) {
     const today = todayTZ();
 
     if (dateStr === today) {
-      // live day → refresh often
       if (ageMs > 120 * 1000) {
         return null;
       }
@@ -194,29 +193,29 @@ async function getSportsDB(dateStr) {
 // --------------------------------------------------
 function promoteHalftimeToLive(fixtures) {
   const now = new Date();
-  const GRACE = 2 * 60 * 1000; // 2 minutes
+  const HALFTIME_MAX = 15 * 60 * 1000; // <-- 15 minutes
 
   for (const f of fixtures) {
     if (!f.status) continue;
     const st = f.status.toUpperCase();
 
-    // if ESPN says "in_progress" or similar, just show LIVE
+    // ESPN sometimes says "IN_PROGRESS" → we just show LIVE
     if (st.includes('IN_PROGRESS')) {
       f.status = 'LIVE';
       continue;
     }
 
-    // ESPN sometimes leaves "HALFTIME" longer — upgrade after 2 minutes
+    // real halftime: keep HALF, but not longer than 15 min
     if (st.includes('HALF')) {
       const start = new Date(f.start_utc || f.date || now).getTime();
       if (!isNaN(start)) {
         const diff = now.getTime() - start;
-        if (diff > GRACE) {
+        if (diff > HALFTIME_MAX) {
           f.status = 'LIVE';
         }
       } else {
-        // no start time? treat as live
-        f.status = 'LIVE';
+        // no start time? be safe and keep HALF
+        f.status = 'HALF';
       }
     }
   }
@@ -247,9 +246,10 @@ async function buildFixtures(dateStr) {
     deduped.push(f);
   }
 
-  // ✅ fix statuses to look live sooner
+  // apply halftime / live corrections
   promoteHalftimeToLive(deduped);
 
+  // sort by time
   deduped.sort((a, b) => (a.start_utc || '').localeCompare(b.start_utc || ''));
 
   return {
