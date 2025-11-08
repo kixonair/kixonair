@@ -1,4 +1,4 @@
-// server.js – kixonair fast version with 2-minute refresh + correct halftime detection
+// server.js – kixonair full version (fixed first/second half, 15-minute halftime, 2-minute refresh)
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -54,12 +54,7 @@ function readDisk(dateStr) {
     const stat = fs.statSync(fp);
     const ageMs = Date.now() - stat.mtimeMs;
     const today = todayTZ();
-
-    if (dateStr === today) {
-      if (ageMs > 120 * 1000) {
-        return null;
-      }
-    }
+    if (dateStr === today && ageMs > 120 * 1000) return null;
     return JSON.parse(fs.readFileSync(fp, 'utf8'));
   } catch {
     return null;
@@ -69,9 +64,7 @@ function readDisk(dateStr) {
 function writeDisk(dateStr, data) {
   try {
     fs.writeFileSync(cachePath(dateStr), JSON.stringify(data, null, 2), 'utf8');
-  } catch {
-    // ignore
-  }
+  } catch {}
 }
 
 async function httpGet(url, timeoutMs = 10000) {
@@ -189,7 +182,7 @@ async function getSportsDB(dateStr) {
 }
 
 // --------------------------------------------------
-// assemble
+// Status correction logic
 // --------------------------------------------------
 function promoteHalftimeToLive(fixtures) {
   const now = new Date();
@@ -199,34 +192,26 @@ function promoteHalftimeToLive(fixtures) {
     if (!f.status) continue;
     const st = f.status.toUpperCase();
 
-    // 1) real "in progress" → always show LIVE
-    if (st.includes('IN_PROGRESS')) {
+    // Active play statuses → LIVE
+    if (
+      st.includes('IN_PROGRESS') ||
+      st.includes('FIRST_HALF') ||
+      st.includes('SECOND_HALF')
+    ) {
       f.status = 'LIVE';
       continue;
     }
 
-    // 2) FIRST HALF / STATUS_FIRST_HALF → this is still the first half, so show LIVE
-    if (st.includes('FIRST_HALF') || st === 'STATUS_FIRST_HALF') {
-      f.status = 'LIVE';
-      continue;
-    }
-
-    // 3) only treat actual halftime names as halftime
+    // True halftime statuses → HALF
     const isRealHalftime =
-      st === 'HALFTIME' ||
-      st === 'STATUS_HALFTIME' ||
-      st === 'HALF';
+      st === 'HALFTIME' || st === 'STATUS_HALFTIME' || st === 'HALF';
 
     if (isRealHalftime) {
       const start = new Date(f.start_utc || f.date || now).getTime();
       if (!isNaN(start)) {
         const diff = now.getTime() - start;
-        // after max halftime, force back to LIVE
-        if (diff > HALFTIME_MAX) {
-          f.status = 'LIVE';
-        } else {
-          f.status = 'HALF';
-        }
+        if (diff > HALFTIME_MAX) f.status = 'LIVE';
+        else f.status = 'HALF';
       } else {
         f.status = 'HALF';
       }
@@ -234,6 +219,9 @@ function promoteHalftimeToLive(fixtures) {
   }
 }
 
+// --------------------------------------------------
+// Build + caching
+// --------------------------------------------------
 async function buildFixtures(dateStr) {
   const [soc, nba, nfl, nhl] = await Promise.all([
     getSoccer(dateStr).catch(() => []),
@@ -243,13 +231,12 @@ async function buildFixtures(dateStr) {
   ]);
 
   let fixtures = [...soc, ...nba, ...nfl, ...nhl];
-
   if (fixtures.length === 0) {
     const fb = await getSportsDB(dateStr).catch(() => []);
     fixtures = fixtures.concat(fb);
   }
 
-  // de-dupe
+  // De-dupe
   const seen = new Set();
   const deduped = [];
   for (const f of fixtures) {
@@ -259,17 +246,10 @@ async function buildFixtures(dateStr) {
     deduped.push(f);
   }
 
-  // fix statuses (this is the part we just improved)
   promoteHalftimeToLive(deduped);
-
   deduped.sort((a, b) => (a.start_utc || '').localeCompare(b.start_utc || ''));
 
-  return {
-    ok: true,
-    date: dateStr,
-    count: deduped.length,
-    fixtures: deduped,
-  };
+  return { ok: true, date: dateStr, count: deduped.length, fixtures: deduped };
 }
 
 async function getFixtures(dateStr, force = false) {
@@ -278,9 +258,8 @@ async function getFixtures(dateStr, force = false) {
 
   if (!force) {
     const hit = memCache.get(memKey);
-    if (hit && hit.expires > now) {
-      return hit.data;
-    }
+    if (hit && hit.expires > now) return hit.data;
+
     const disk = readDisk(dateStr);
     if (disk) {
       memCache.set(memKey, { expires: now + MEM_TTL_MS, data: disk });
@@ -295,7 +274,7 @@ async function getFixtures(dateStr, force = false) {
 }
 
 // --------------------------------------------------
-// routes
+// Routes
 // --------------------------------------------------
 app.get('/health', (req, res) => res.send('ok'));
 
@@ -329,10 +308,6 @@ app.get('/admin/precache', async (req, res) => {
   }
 });
 
-app.get('/', (req, res) => {
-  res.send('kixonair API up');
-});
+app.get('/', (req, res) => res.send('kixonair API up'));
 
-app.listen(PORT, () => {
-  console.log(`[kixonair] up on :${PORT}`);
-});
+app.listen(PORT, () => console.log(`[kixonair] up on :${PORT}`));
