@@ -285,8 +285,45 @@ app.get(['/api/fixtures', '/api/fixtures/:date'], async (req, res) => {
     if (!d) return res.status(400).json({ ok: false, error: 'Invalid date' });
 
     const force = req.query.force === '1' || req.query.force === 'true';
-    const payload = await getFixtures(d, force);
-    res.json(payload);
+
+    // fetch yesterday + today + next 6 days
+    const base = new Date(d + 'T00:00:00Z').getTime();
+    const days = [];
+    for (let i = -1; i < 7; i++) {
+      const dt = new Date(base + i * 86400000).toISOString().slice(0, 10);
+      days.push(dt);
+    }
+
+    const all = [];
+    for (const dd of days) {
+      const fx = await getFixtures(dd, force);
+      if (fx && Array.isArray(fx.fixtures) && fx.fixtures.length) {
+        all.push(...fx.fixtures);
+      }
+    }
+
+    // de-dupe by sport+league+teams+time
+    const seen = new Set();
+    const deduped = [];
+    for (const f of all) {
+      const key = [
+        f.sport || '',
+        f.league && f.league.name || '',
+        f.home && f.home.name || '',
+        f.away && f.away.name || '',
+        f.start_utc || ''
+      ].join('|');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(f);
+    }
+
+    res.json({
+      ok: true,
+      date: d,
+      count: deduped.length,
+      fixtures: deduped
+    });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e) });
   }
