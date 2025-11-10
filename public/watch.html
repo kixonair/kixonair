@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Kixonair — Match Center (debug)</title>
+  <title>Kixonair — Match Center</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     body{margin:0;background:#0f172a;color:#fff;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -55,26 +55,33 @@
 
   <div id="serverBar" class="serverbar"></div>
 
-  <div id="debug">debug will appear here…</div>
+  <div id="debug">debug output…</div>
 </main>
 
 <script>
 (function(){
   const $ = id => document.getElementById(id);
-  const debug = msg => { const d = $("#debug"); d.textContent += "\\n" + msg; };
+  const debug = msg => { $("#debug").textContent += "\\n" + msg; };
 
   function hideLoading(){ $("#loadingOverlay").classList.add("hidden"); }
-
   function qs(n){ return new URLSearchParams(location.search).get(n) || ""; }
   function getMatchId(){ return qs("id") || qs("m") || ""; }
   function slug(s){ return String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,""); }
   function capWords(s){ return String(s||"").split(/[-\\s]+/).map(w=>w?w[0].toUpperCase()+w.slice(1):"").join(" "); }
   function isoToYyyymmdd(iso){ return iso.replace(/-/g,""); }
   function addDaysISO(iso, n){ const d = new Date(iso); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+  function formatStatus(st){
+    const r = String(st||"").toUpperCase();
+    if (r.includes("IN_PROGRESS") || r.includes("LIVE")) return "Live";
+    if (r.includes("FINAL")) return "Finished";
+    if (r.includes("SCHEDULED")) return "Scheduled";
+    return st || "";
+  }
 
-  // prefill
-  const id = getMatchId();
-  if (id){
+  // prefill names from URL
+  (function prime(){
+    const id = getMatchId();
+    if (!id) return;
     const pure = id.includes("@") ? id.split("@")[0] : id;
     const parts = pure.split("-vs-");
     if (parts.length === 2){
@@ -83,91 +90,92 @@
     } else {
       $("#homeName").textContent = capWords(pure);
     }
-    const labels = ["Server 1","Server 2","Server 3","Server 4","Server 5"];
+    // servers
     const url = "https://crutchanalyse.com/w2n5uxyv5?key=421e53b34da32e5044e25f26baddab45";
+    const labels = ["Server 1","Server 2","Server 3","Server 4","Server 5"];
     $("#serverBar").innerHTML = labels.map(l=>`<a href="${url}" target="_blank" rel="noopener">${l}</a>`).join("");
-  } else {
-    debug("no id/m in URL");
+  })();
+
+  // fetch fixtures for one date, from 2 possible places
+  async function fetchFixturesFor(isoDate){
+    const ymd = isoToYyyymmdd(isoDate);
+    const urls = [
+      `/fixtures.php?date=${ymd}`,                     // local
+      `https://fotbal.site/fixtures.php?date=${ymd}`   // remote fallback
+    ];
+    const allErrors = [];
+    for (const u of urls){
+      try{
+        const r = await fetch(u, {cache:"no-store"});
+        const text = await r.text();
+        debug(`GET ${u} -> ${r.status}`);
+        debug(`body: ${text.slice(0,180)}`);
+        let data;
+        try { data = JSON.parse(text); }
+        catch(e){ allErrors.push(`JSON error for ${u}: ${e}`); continue; }
+        if (Array.isArray(data)) return {list:data, errors:allErrors};
+        if (data && Array.isArray(data.fixtures)) return {list:data.fixtures, errors:allErrors};
+        allErrors.push(`no array in ${u}`);
+      }catch(e){
+        allErrors.push(`fetch error for ${u}: ${e}`);
+      }
+    }
+    return {list:[], errors:allErrors};
+  }
+
+  function matchBySlug(sl, fx){
+    const h = slug(fx.home && fx.home.name || "");
+    const a = slug(fx.away && fx.away.name || "");
+    return sl === `${h}-vs-${a}` || sl === `${a}-vs-${h}`;
+  }
+
+  function applyFixture(fx){
+    $("#homeName").textContent = fx.home?.name || $("#homeName").textContent;
+    $("#awayName").textContent = fx.away?.name || $("#awayName").textContent;
+    if (fx.home?.logo) $("#homeLogo").src = fx.home.logo;
+    if (fx.away?.logo) $("#awayLogo").src = fx.away.logo;
+    $("#league").textContent = fx.league?.name || "-";
+    $("#kickoff").textContent = fx.start_utc || "-";
+    const st = formatStatus(fx.status);
+    $("#state").textContent = st || "-";
+    $("#statusLine").textContent = st || "";
   }
 
   (async function load(){
     debug("starting load()");
     const id = getMatchId();
-    if (!id){
-      $("#statusLine").textContent = "Missing match id";
-      hideLoading();
-      return;
-    }
+    if (!id){ $("#statusLine").textContent = "Missing match id"; hideLoading(); return; }
 
     const hasAt = id.includes("@");
     const slugPart = slug(hasAt ? id.split("@")[0] : id);
     const baseISO = hasAt
-      ? id.split("@")[1].replace(/(\\d{4})(\\d{2})(\\d{2})/, "$1-$2-$3")
+      ? id.split("@")[1].replace(/(\\d{4})(\\d{2})(\\d{2})/,"$1-$2-$3")
       : new Date().toISOString().slice(0,10);
 
-    debug("slugPart=" + slugPart);
-    debug("baseISO=" + baseISO);
+    debug(`slugPart=${slugPart}`);
+    debug(`baseISO=${baseISO}`);
 
-    const dates = [-2,-1,0,1,2].map(off => addDaysISO(baseISO, off));
-    debug("will try dates: " + dates.join(", "));
-
+    const days = [-2,-1,0,1,2];
     let found = null;
+    let collectedErrors = [];
 
-    for (const iso of dates){
-      const ymd = isoToYyyymmdd(iso);
-      const urls = [
-        `/fixtures.php?date=${ymd}`,
-        `https://fotbal.site/fixtures.php?date=${ymd}`
-      ];
-      for (const u of urls){
-        debug("fetching " + u);
-        try{
-          const r = await fetch(u, {cache:"no-store"});
-          const text = await r.text();
-          debug("status " + r.status + " from " + u);
-          debug("body start: " + text.slice(0,200));
-          let data;
-          try{
-            data = JSON.parse(text);
-          }catch(e){
-            debug("JSON parse failed for " + u + ": " + e);
-            continue;
-          }
-          const list = Array.isArray(data) ? data : (Array.isArray(data.fixtures) ? data.fixtures : null);
-          if (!list){
-            debug("no array in response of " + u);
-            continue;
-          }
-          debug("got " + list.length + " fixtures from " + u);
-          const hit = list.find(fx => {
-            const h = slug(fx.home && fx.home.name || "");
-            const a = slug(fx.away && fx.away.name || "");
-            return slugPart === `${h}-vs-${a}` || slugPart === `${a}-vs-${h}`;
-          });
-          if (hit){
-            found = hit;
-            debug("matched fixture: " + JSON.stringify(hit).slice(0,200));
-            break;
-          }
-        }catch(e){
-          debug("fetch error for " + u + ": " + e);
-        }
-      }
-      if (found) break;
+    for (const off of days){
+      const dISO = addDaysISO(baseISO, off);
+      debug(`trying date ${dISO}`);
+      const {list, errors} = await fetchFixturesFor(dISO);
+      collectedErrors = collectedErrors.concat(errors);
+      if (!list.length) continue;
+      const hit = list.find(fx => matchBySlug(slugPart, fx));
+      if (hit){ found = hit; break; }
     }
 
     if (found){
-      $("#homeName").textContent = found.home && found.home.name || $("#homeName").textContent;
-      $("#awayName").textContent = found.away && found.away.name || $("#awayName").textContent;
-      if (found.home && found.home.logo) $("#homeLogo").src = found.home.logo;
-      if (found.away && found.away.logo) $("#awayLogo").src = found.away.logo;
-      $("#league").textContent = found.league && found.league.name || "-";
-      $("#kickoff").textContent = found.start_utc || "-";
-      $("#state").textContent = found.status || "-";
-      $("#statusLine").textContent = found.status || "";
+      debug("MATCHED fixture, applying UI");
+      applyFixture(found);
     } else {
+      debug("NO MATCH. Errors below:");
+      collectedErrors.forEach(e => debug(e));
       $("#statusLine").textContent = "";
-      debug("no fixture matched that slug.");
     }
 
     hideLoading();
