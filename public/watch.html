@@ -222,12 +222,14 @@
   </div>
 </header>
 
-<main class="wrap">
-  <div id="loadingOverlay" class="loading" aria-live="polite" aria-busy="true">
-    <div class="spinner"><div class="ring"></div><div class="dot"></div></div>
-    <div class="loadingText">Loading match…</div>
-  </div>
+<!-- loading overlay FIRST -->
+<div id="loadingOverlay" class="loading" aria-live="polite" aria-busy="true">
+  <div class="spinner"><div class="ring"></div><div class="dot"></div></div>
+  <div class="loadingText">Loading match…</div>
+</div>
 
+<!-- actual page hidden until JS calls hideLoading() -->
+<main id="contentWrap" class="wrap" style="display:none">
   <div class="headerbar">
     <a class="btn" href="/" aria-label="Back to schedule">← Back</a>
     <div class="center"></div>
@@ -256,12 +258,13 @@
 
   function hideLoading(){
     try{ $('loadingOverlay').classList.add('hidden'); }catch(e){}
+    try{ $('contentWrap').style.display = 'block'; }catch(e){}
     if(__loadFailTimer){ clearTimeout(__loadFailTimer); __loadFailTimer = null; }
   }
 
   function qs(name){ return new URLSearchParams(location.search).get(name) || ''; }
   function slug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
-  function capWords(s){ return String(s||'').split(/[-\\s]+/).map(w => w? w[0].toUpperCase()+w.slice(1):'').join(' '); }
+  function capWords(s){ return String(s||'').split(/[-\s]+/).map(w => w? w[0].toUpperCase()+w.slice(1):'').join(' '); }
   function addDaysISO(iso, n){ const d = new Date(iso); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
   function isoToYMD(iso){ return iso.replace(/-/g,''); }
 
@@ -292,7 +295,6 @@
   }
 
   async function fixturesFor(isoDate){
-    // try local first
     const ymd = isoToYMD(isoDate);
     const urls = [
       `/fixtures.php?date=${ymd}`,
@@ -327,7 +329,6 @@
     $('awayLogo').src = awayLogo;
     $('leagueBadge').textContent = league || '';
     $('league').textContent = league || '-';
-
     const friendlyStatus = formatStatus(statusRaw);
     $('state').textContent = friendlyStatus || '-';
     $('statusLine').textContent = friendlyStatus || '';
@@ -338,13 +339,12 @@
   }
 
   async function load(){
-    $('loadingOverlay').classList.remove('hidden');
-    __loadFailTimer = setTimeout(hideLoading, 3500);
+    __loadFailTimer = setTimeout(hideLoading, 4000); // safety timeout
 
     const rawId = qs('id') || qs('m') || '';
     if (!rawId){ $('statusLine').textContent='Missing match id'; hideLoading(); return; }
 
-    // prefill names from slug so UI isn’t empty
+    // prefill names
     const pureSlug = rawId.includes('@') ? rawId.split('@')[0] : rawId;
     const parts = pureSlug.split('-vs-');
     if (parts.length === 2){
@@ -371,7 +371,7 @@
     if (found){
       applyFixture(found);
     } else {
-      $('statusLine').textContent = ''; // keep UI, just no extra data
+      // no match: just show the page with prefilled names
       hideLoading();
     }
   }
