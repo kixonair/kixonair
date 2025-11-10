@@ -1,11 +1,9 @@
-// kixonair server.js - 48h window + fixed leagues
+// kixonair server.js - 48h window + fixed leagues + /health
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
 
 const PORT = process.env.PORT || 3000;
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "";
-const TZ_DISPLAY = process.env.TZ_DISPLAY || "Europe/Bucharest";
 const SPORTSDB_ENABLED = (process.env.SPORTSDB_ENABLED || "0") !== "0";
 const SPORTSDB_KEY = process.env.SPORTSDB_KEY || "3";
 
@@ -13,6 +11,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
+
+// health check for Render
+app.get("/health", (req, res) => {
+  res.json({ ok: true });
+});
 
 // http GET with timeout + browser UA
 async function httpGet(url, timeoutMs = 10000) {
@@ -62,13 +65,12 @@ async function fetchEspnBoard(segment, dateStr) {
   return r.json();
 }
 
-function mapEspn(data, dateStr, sportLabel, leagueFallback, leagueCode) {
+function mapEspn(data, sportLabel, leagueFallback, leagueCode) {
   const out = [];
   for (const ev of data.events || []) {
     const iso = ev.date;
     if (!iso) continue;
-    // ESPN sometimes gives previous day's late games in the next day's scoreboard,
-    // so we DON'T hard-filter by dateStr here. We just push them.
+
     const comp = ev.competitions?.[0] || {};
     const teams = comp.competitors || [];
     const home = teams.find((t) => t.homeAway === "home") || teams[0] || {};
@@ -115,7 +117,6 @@ async function getSoccer(dateStr) {
       const meta = SOCCER_META[seg];
       return mapEspn(
         data,
-        dateStr,
         "Soccer",
         meta ? meta.name : seg.startsWith("soccer/uefa") ? "UEFA" : "Football",
         meta ? meta.code : ""
@@ -128,17 +129,17 @@ async function getSoccer(dateStr) {
 
 async function getNBA(dateStr) {
   const d = await fetchEspnBoard("basketball/nba", dateStr);
-  return mapEspn(d, dateStr, "NBA", "NBA", "NBA");
+  return mapEspn(d, "NBA", "NBA", "NBA");
 }
 
 async function getNFL(dateStr) {
   const d = await fetchEspnBoard("football/nfl", dateStr);
-  return mapEspn(d, dateStr, "NFL", "NFL", "NFL");
+  return mapEspn(d, "NFL", "NFL", "NFL");
 }
 
 async function getNHL(dateStr) {
   const d = await fetchEspnBoard("hockey/nhl", dateStr);
-  return mapEspn(d, dateStr, "NHL", "NHL", "NHL");
+  return mapEspn(d, "NHL", "NHL", "NHL");
 }
 
 async function getSportsDB(dateStr) {
@@ -170,12 +171,12 @@ function addDays(date, days) {
   return d;
 }
 
-// main endpoint
+// main fixtures endpoint
 app.get("/api/fixtures", async (req, res) => {
   try {
     const today = req.query.date ? new Date(req.query.date) : new Date();
     const todayStr = ymd(today);
-    const yesterdayStr = ymd(addDays(today, -1)); // 48h window: yesterday + today
+    const yesterdayStr = ymd(addDays(today, -1)); // 48h window
 
     const allResults = [];
 
@@ -190,7 +191,6 @@ app.get("/api/fixtures", async (req, res) => {
       allResults.push(...soccer, ...nba, ...nfl, ...nhl, ...sdb);
     }
 
-    // sort by start time asc
     allResults.sort((a, b) => {
       if (!a.start_utc) return 1;
       if (!b.start_utc) return -1;
