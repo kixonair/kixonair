@@ -14,7 +14,7 @@
 })();
 </script>
 
-<!-- 🔐 Auto-inject API key for /api requests -->
+<!-- this can stay, it won’t hurt -->
 <script src="/secure-fetch.js"></script>
 
 <link rel="canonical" href="https://kixonair.com/"/>
@@ -25,7 +25,6 @@
 
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="theme-color" content="#0b0f14" />
 <title>Kixonair — Live Sports Schedule</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -34,39 +33,17 @@
 <link rel="icon" href="/logo.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="/scoreless.css">
 </head>
-
-
-
-  <meta name="theme-color" content="#0b0f14">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="theme-color" content="#0b0f14" />
-<title>Kixonair — Live Sports Schedule</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=21" />
-<link rel="icon" href="/logo.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/scoreless.css">
-</head>
 <body>
 <header class="header">
   <div class="bar">
     <a class="brand" href="/"><img src="/logo.svg" alt="Kixonair" height="28"/></a>
-    <!-- Search bar sits outside the collapsible controls so it remains accessible on mobile -->
     <input id="q" type="text" placeholder="Search team…" aria-label="Search team"/>
-    <!-- Mobile menu toggle button. Hidden on larger screens via CSS. -->
     <button id="menuBtn" class="menu-btn" aria-label="Toggle menu">
-      <!-- Inline SVG hamburger icon to avoid external font dependencies -->
       <svg class="icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" fill="currentColor"></path>
       </svg>
     </button>
     <div class="controls">
-      <!-- The filters and other toggles remain in the controls container; search was moved above -->
       <div class="filters" role="tablist">
         <button class="pill active" data-sport="all">All</button>
         <button class="pill" data-sport="Football">Football</button>
@@ -82,33 +59,22 @@
       <label class="switch" title="Hide youth / reserves / friendlies">
         <input type="checkbox" id="majorOnly"><span>Major only</span>
       </label>
-      <!--
-        The original Kixonair UI allowed the user to pick a specific date
-        (today or tomorrow) to view fixtures.  In the redesigned version
-        we instead surface all fixtures scheduled to start within the next
-        48 hours and keep them on screen until they finish.  To avoid
-        confusing interactions we hide the date picker and its associated
-        buttons.  The underlying inputs remain in the markup for
-        potential future use but are hidden via inline style.
-      -->
       <div class="datepick" style="display:none">
         <input id="date" type="date" aria-label="Pick a date"/>
         <button id="today" class="ghost">Today</button>
         <button id="tomorrow" class="ghost">Tomorrow</button>
       </div>
     </div>
-    <!-- Overlay for mobile menu. Appears behind controls when menu is open. -->
     <div id="menuOverlay" class="menu-overlay"></div>
   </div>
 </header>
 
 <main>
   <section class="hero">
-    <!-- Simplified hero with a single SEO‑friendly heading -->
     <h1>Live Sports Streaming 24/7</h1>
   </section>
 
-  <div id="counts" class="counts" style="display:none">Loading…</div>
+  <div id="counts" class="counts">Loading…</div>
 
   <section class="section" data-sport="Football">
     <h2>⚽ Football</h2>
@@ -134,95 +100,71 @@
 <footer class="footer">
   <div class="inner">
     <span>© <span id="yy"></span> Kixonair</span>
-    <!-- Promotional tagline for SEO -->
-    <span class="muted">Welcome to Kixonair.com, the best site for free live sports streaming. Watch NBA, NFL, UFC, F1, and MLB games in high quality without buffering. Enjoy smooth and reliable streams of your favorite sports online. Explore more categories and never miss the action with Kixonair.</span>
+    <span class="muted">Welcome to Kixonair.com, the best site for free live sports streaming. Watch NBA, NFL, UFC, F1, and MLB games in high quality without buffering. Enjoy smooth and reliable streams of your favorite sports online.</span>
   </div>
 </footer>
 
 <script>
+  // ===== small helpers =====
   document.getElementById('yy').textContent = new Date().getFullYear();
   const WATCH_URL = '/watch.html';
   const OPEN_IN_NEW_TAB = true;
+  const API_BASE = "https://fotbal.site/fixtures.php?date="; // 👈 your Hostinger PHP
 
   const fmtTime = d => new Date(d).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false});
   const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
-  const pills = [].slice.call(document.querySelectorAll('.pill[data-sport]'));
-  const gridSections = [].slice.call(document.querySelectorAll('.section'));
+  const pills = Array.from(document.querySelectorAll('.pill[data-sport]'));
+  const gridSections = Array.from(document.querySelectorAll('.section'));
 
   let activeSport = 'all';
   let leagueKey = 'all';
   let ALL = [];
 
-  // === Favourites ===
-  // Store an array of slugs in localStorage to persist favourited games across sessions.
-  function getFavs(){
-    try{
-      const raw = localStorage.getItem('favourites');
-      return raw ? JSON.parse(raw) : [];
-    }catch{ return []; }
-  }
-  function saveFavs(arr){
-    try{
-      localStorage.setItem('favourites', JSON.stringify(arr));
-    }catch{}
-  }
-  function isFav(slug){
-    if (!slug) return false;
-    const favs = getFavs();
-    return favs.includes(slug);
-  }
-  function toggleFav(slug){
-    if (!slug) return;
-    let favs = getFavs();
-    const idx = favs.indexOf(slug);
-    if (idx >= 0) favs.splice(idx,1); else favs.push(slug);
-    saveFavs(favs);
-    renderLists();
-  }
-
-
+  // ===== leagues =====
   function nameOf(fx){ return (fx.league && (fx.league.name || fx.league.code)) || ''; }
   function codeIs(fx, code){ return fx.league && (fx.league.code||'').toUpperCase() === code.toUpperCase(); }
+
   const LEAGUES = [
-    { key:'all', label:'All Leagues', test: function(){ return true; } },
+    { key:'all', label:'All Leagues', test: () => true },
     { key:'ucl', label:'UEFA Champions League', test: fx => codeIs(fx,'CL') || /champions league/i.test(nameOf(fx)) },
     { key:'uel', label:'UEFA Europa League', test: fx => codeIs(fx,'EL') || /europa league/i.test(nameOf(fx)) },
-    { key:'uecl', label:'UEFA Europa Conference League', test: fx => codeIs(fx,'ECL') || /conference league/i.test(nameOf(fx)) },
     { key:'pl',  label:'Premier League (England)', test: fx => codeIs(fx,'PL') || /premier league/i.test(nameOf(fx)) },
     { key:'laliga', label:'La Liga (Spain)', test: fx => codeIs(fx,'PD') || /(la\s*liga|primera division)/i.test(nameOf(fx)) },
     { key:'bundes', label:'Bundesliga (Germany)', test: fx => codeIs(fx,'BL1') || /bundesliga/i.test(nameOf(fx)) },
     { key:'seriea', label:'Serie A (Italy)', test: fx => codeIs(fx,'SA') || /serie\s*a/i.test(nameOf(fx)) },
     { key:'ligue1', label:'Ligue 1 (France)', test: fx => codeIs(fx,'FL1') || /ligue\s*1/i.test(nameOf(fx)) }
   ];
+
   const leagueWrap = document.getElementById('leagueWrap');
   const leagueMenu = document.getElementById('leagueMenu');
   const leagueToggle = document.getElementById('leagueToggle');
   const leagueChosen = document.getElementById('leagueChosen');
-  leagueMenu.innerHTML = LEAGUES.map(function(L){
-    return '<button class="menuitem" role="menuitem" data-league="'+L.key+'">'+L.label+'</button>';
-  }).join('');
+  leagueMenu.innerHTML = LEAGUES.map(L => `<button class="menuitem" data-league="${L.key}">${L.label}</button>`).join('');
   leagueChosen.textContent = 'All Leagues';
-  leagueToggle.addEventListener('click', function(){
-    var open = leagueToggle.getAttribute('aria-expanded') === 'true';
+
+  leagueToggle.addEventListener('click', () => {
+    const open = leagueToggle.getAttribute('aria-expanded') === 'true';
     leagueToggle.setAttribute('aria-expanded', String(!open));
     leagueMenu.classList.toggle('hidden', open);
   });
-  document.addEventListener('click', function(e){
+  document.addEventListener('click', e => {
     if (!leagueWrap.contains(e.target)) {
       leagueToggle.setAttribute('aria-expanded','false');
       leagueMenu.classList.add('hidden');
     }
   });
-  leagueMenu.addEventListener('click', function(e){
-    var b = e.target.closest('button[data-league]'); if (!b) return;
+  leagueMenu.addEventListener('click', e => {
+    const b = e.target.closest('button[data-league]');
+    if (!b) return;
     leagueKey = b.dataset.league;
-    var found = LEAGUES.find(function(x){ return x.key===leagueKey; });
-    leagueChosen.textContent = (found && found.label) ? found.label : '';
+    const found = LEAGUES.find(x => x.key === leagueKey);
+    leagueChosen.textContent = found ? found.label : '';
     leagueToggle.setAttribute('aria-expanded','false');
     leagueMenu.classList.add('hidden');
     renderLists();
   });
 
+  // ===== minor leagues filter =====
   const MINOR_LEAGUE_PATTERNS = [
     /\bu\s?-?\s?(?:13|14|15|16|17|18|19|20|21|23)\b/i,
     /\b(youth|academy|primavera|reserves?)\b/i,
@@ -237,25 +179,43 @@
   ];
   function isMinor(fx){
     const lname = ((fx.league && fx.league.name ? fx.league.name : '') + ' ' + (fx.league && fx.league.code ? fx.league.code : '')).toLowerCase();
-    if (MINOR_LEAGUE_PATTERNS.some(function(rx){ return rx.test(lname); })) return true;
+    if (MINOR_LEAGUE_PATTERNS.some(rx => rx.test(lname))) return true;
     const h = (fx.home && fx.home.name ? fx.home.name : '').toLowerCase();
     const a = (fx.away && fx.away.name ? fx.away.name : '').toLowerCase();
-    return MINOR_TEAM_PATTERNS.some(function(rx){ return rx.test(h); }) || MINOR_TEAM_PATTERNS.some(function(rx){ return rx.test(a); });
+    return MINOR_TEAM_PATTERNS.some(rx => rx.test(h)) || MINOR_TEAM_PATTERNS.some(rx => rx.test(a));
   }
 
-  const QS = new URLSearchParams(location.search);
-  const majorOnlyEl = document.getElementById('majorOnly');
-  const savedMajor = localStorage.getItem('majorOnly');
-  if (savedMajor !== null) majorOnlyEl.checked = savedMajor === '1';
-  if (QS.get('all') === '1') majorOnlyEl.checked = false;
-  majorOnlyEl.addEventListener('change', function(){
-    localStorage.setItem('majorOnly', majorOnlyEl.checked ? '1' : '0');
+  // ===== favourites =====
+  function getFavs(){
+    try{
+      return JSON.parse(localStorage.getItem('favourites') || '[]');
+    }catch{ return []; }
+  }
+  function saveFavs(arr){
+    try{ localStorage.setItem('favourites', JSON.stringify(arr)); }catch{}
+  }
+  function isFav(sl){
+    return getFavs().includes(sl);
+  }
+  function toggleFav(sl){
+    let f = getFavs();
+    const i = f.indexOf(sl);
+    if (i >= 0) f.splice(i,1); else f.push(sl);
+    saveFavs(f);
     renderLists();
+  }
+  document.addEventListener('click', e => {
+    if (e.target && e.target.classList.contains('fav')) {
+      const card = e.target.closest('.game-card');
+      if (!card) return;
+      toggleFav(card.dataset.slug);
+    }
   });
 
-  pills.forEach(function(p){
-    p.addEventListener('click', function(){
-      pills.forEach(function(x){ x.classList.remove('active'); });
+  // ===== sport tabs =====
+  pills.forEach(p => {
+    p.addEventListener('click', () => {
+      pills.forEach(x => x.classList.remove('active'));
       p.classList.add('active');
       activeSport = p.dataset.sport;
       renderVisibility();
@@ -263,138 +223,133 @@
   });
 
   function renderVisibility(){
-    gridSections.forEach(function(sec){
-      var show = (activeSport==='all' || sec.dataset.sport === activeSport);
+    gridSections.forEach(sec => {
+      const show = (activeSport === 'all' || sec.dataset.sport === activeSport);
       sec.style.display = show ? '' : 'none';
     });
   }
 
-  const dateEl = document.getElementById('date');
-  function ymd(ts){ const d = new Date(ts); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
-  dateEl.value = ymd(Date.now());
-  document.getElementById('today').onclick = function(){ dateEl.value = ymd(Date.now()); load(dateEl.value); };
-  document.getElementById('tomorrow').onclick = function(){ dateEl.value = ymd(Date.now()+86400000); load(dateEl.value); };
-  dateEl.addEventListener('change', function(){ load(dateEl.value); });
-
+  // search
   const q = document.getElementById('q');
-  q.addEventListener('input', function(){ renderLists(); });
+  q.addEventListener('input', () => renderLists());
 
-  // === Mobile menu toggling ===
-  // When the viewport is narrow (mobile), we collapse the filters and toggles into a slide-down menu.
-  // The search input remains visible at all times. Clicking the hamburger button toggles
-  // the visibility of the controls container and overlay. Clicking the overlay closes it.
+  // mobile menu
   const menuBtn = document.getElementById('menuBtn');
   const controlsEl = document.querySelector('.controls');
   const menuOverlay = document.getElementById('menuOverlay');
   if (menuBtn && controlsEl && menuOverlay) {
-    menuBtn.addEventListener('click', function(){
+    menuBtn.addEventListener('click', () => {
       const open = controlsEl.classList.toggle('open');
       menuOverlay.classList.toggle('active', open);
     });
-    menuOverlay.addEventListener('click', function(){
+    menuOverlay.addEventListener('click', () => {
       controlsEl.classList.remove('open');
       menuOverlay.classList.remove('active');
     });
   }
 
   function imgTag(url, alt){
-    return url ? '<img class="badge" src="'+url+'" alt="'+(alt||'')+'" onerror="this.style.display=\'none\'"/>' : '';
+    return url ? `<img class="badge" src="${url}" alt="${alt||''}" onerror="this.style.display='none'"/>` : '';
   }
-  // Derive a short label for a fixture status.  In addition to the
-  // original states (SCHEDULED, LIVE, FINISHED) we surface a special
-  // "HALF" state for half‑time.  This allows the UI to display
-  // matches at the interval break without incorrectly marking them as
-  // finished or scheduled.  If the upstream API exposes a status like
-  // "HT" or contains the word "HALF" we treat it as half time.  Live
-  // play in either the first or second half continues to show as LIVE.
   function statusLabel(fx){
-  const st = (fx.status || '').toUpperCase();
-  // halftime
-  if (/\bHT\b/.test(st) || /HALF/.test(st)) return 'HALF';
-  // live
-  if (/LIVE|IN_PLAY|1ST|2ND/.test(st)) return 'LIVE';
-  // finished (word boundary on FT so HALFTIME doesn't match)
-  if (/STATUS_FINAL|STATUS_POSTGAME|POSTGAME|FINAL|FULL\s?TIME|FULLTIME|ENDED|FINISH(?:ED)?|\bFT\b/.test(st)) return 'FINISHED';
-  return 'SCHEDULED';
-}
+    const st = (fx.status || '').toUpperCase();
+    if (/\bHT\b/.test(st) || /HALF/.test(st)) return 'HALF';
+    if (/LIVE|IN_PLAY|1ST|2ND/.test(st)) return 'LIVE';
+    if (/STATUS_FINAL|STATUS_POSTGAME|POSTGAME|FINAL|FULL\s?TIME|FULLTIME|ENDED|FINISH(?:ED)?|\bFT\b/.test(st)) return 'FINISHED';
+    return 'SCHEDULED';
+  }
   function compName(fx){ return fx.league && (fx.league.name || fx.league.code) || ''; }
 
   function card(fx){
-    var a = document.createElement('div');
-    a.className = 'game-card';
-    a.dataset.startUtc = fx.start_utc || '';
-    // Store the derived status label on the dataset.  This allows
-    // subsequent logic (such as timers) to detect half‑time and other
-    // custom states without parsing the raw API codes again.
-    a.dataset.status = statusLabel(fx);
-    // Persist the sport on the dataset for sport‑specific fallback logic in updateCard
-    a.dataset.sport = fx.sport || '';
-    var s = slug((fx.home.name || '') + '-vs-' + (fx.away.name || ''));
-// Make a stable fallback id if the API item has no id
-var fallbackId = (fx.start_utc ? (s + '@' + fx.start_utc) : s);
-var fixtureId = fx.id || fx.uid || fx.eventId || fx.esId || fallbackId;
-var originalStream = (typeof buildRileyUrl === 'function') ? buildRileyUrl(fx) : (('https://rileymarker.com/sportlo' + (('https://rileymarker.com/sportlo'.indexOf('?')===-1?'?m=':'&m=')) + encodeURIComponent(s)));
-var watchHref = WATCH_URL + '?id=' + encodeURIComponent(fixtureId);
-    // Build the inner HTML of the card.  We include a favourite toggle (★) in the head
-    // so users can mark games they care about.  The slug is stored on the dataset
-    // for toggle handling.
-    a.dataset.slug = s;
-    a.innerHTML =
-      '<div class="gc-head">' +
-        '<div class="left"><span class="dot '+(statusLabel(fx)==='LIVE'?'live':'')+'"></span>' +
-        '<span class="state">'+ statusLabel(fx) +'</span>' +
-        '<div class="comp">'+ compName(fx) +'</div></div>' +
-        // favourite star (clickable)
-        '<span class="fav" title="Favourite">★</span>' +
-        '<div class="sport-tag">'+ ((fx.sport==='Soccer')?'Football':fx.sport) +'</div>' +
-      '</div>' +
-      '<div class="gc-main">' +
-        '<div class="team left">'+ imgTag(fx.home.logo, fx.home.name) + '<span class="name">'+ (fx.home.name||'') +'</span></div>' +
-        '<div class="score"><span class="num">0</span><span class="sep"> - </span><span class="num">0</span><div class="when">'+ fmtTime(fx.start_utc) +'</div><div class="countdown"></div></div>' +
-        '<div class="team right"><span class="name">'+ (fx.away.name||'') +'</span>' + imgTag(fx.away.logo, fx.away.name) + '</div>' +
-      '</div>' +
-      '<div class="gc-foot"><a class="watch-btn" '+(OPEN_IN_NEW_TAB?'target="_blank"':'')+' href="'+watchHref+'"><span class="play"></span>Watch Match</a></div>';
-    return a;
+    const el = document.createElement('div');
+    el.className = 'game-card';
+    el.dataset.startUtc = fx.start_utc || '';
+    el.dataset.status = statusLabel(fx);
+    el.dataset.sport = fx.sport || '';
+    const s = slug((fx.home.name||'') + '-vs-' + (fx.away.name||''));
+    el.dataset.slug = s;
+    const watchHref = WATCH_URL + '?id=' + encodeURIComponent(fx.id || s);
+
+    el.innerHTML = `
+      <div class="gc-head">
+        <div class="left">
+          <span class="dot ${statusLabel(fx)==='LIVE'?'live':''}"></span>
+          <span class="state">${statusLabel(fx)}</span>
+          <div class="comp">${compName(fx)}</div>
+        </div>
+        <span class="fav" title="Favourite">★</span>
+        <div class="sport-tag">${fx.sport === 'Soccer' ? 'Football' : fx.sport}</div>
+      </div>
+      <div class="gc-main">
+        <div class="team left">${imgTag(fx.home.logo, fx.home.name)}<span class="name">${fx.home.name||''}</span></div>
+        <div class="score">
+          <span class="num" style="display:none">0</span>
+          <span class="sep" style="display:none"> - </span>
+          <span class="num" style="display:none">0</span>
+          <div class="when">${fmtTime(fx.start_utc)}</div>
+          <div class="countdown"></div>
+        </div>
+        <div class="team right"><span class="name">${fx.away.name||''}</span>${imgTag(fx.away.logo, fx.away.name)}</div>
+      </div>
+      <div class="gc-foot">
+        <a class="watch-btn" ${OPEN_IN_NEW_TAB?'target="_blank"':''} href="${watchHref}">
+          <span class="play"></span>Watch Match
+        </a>
+      </div>
+    `;
+    return el;
   }
 
-  function skeleton(){ const d = document.createElement('div'); d.className='game-card skeleton'; return d; }
-  function setEmpty(el){ el.innerHTML = '<div class="empty">No games for this day.</div>'; }
+  function skeleton(){
+    const d = document.createElement('div');
+    d.className = 'game-card skeleton';
+    return d;
+  }
+  function setEmpty(el){
+    el.innerHTML = '<div class="empty">No games.</div>';
+  }
 
   function renderLists(){
     const term = q.value.trim().toLowerCase();
-    const footballAll = ALL.filter(function(fx){ return fx.sport === 'Soccer'; });
-    const nba = ALL.filter(function(fx){ return fx.sport === 'NBA'; });
-    const nfl = ALL.filter(function(fx){ return fx.sport === 'NFL'; });
-    const nhl = ALL.filter(function(fx){ return fx.sport === 'NHL'; });
+    const league = LEAGUES.find(x => x.key === leagueKey) || LEAGUES[0];
 
-    const league = LEAGUES.find(function(x){ return x.key === leagueKey; }) || LEAGUES[0];
-    const footballPre = footballAll.filter(function(fx){ return league.test(fx); });
-    const football = footballPre.filter(function(fx){ return !majorOnlyEl.checked || !isMinor(fx); });
+    const footballAll = ALL.filter(fx => fx.sport === 'Soccer');
+    const nba = ALL.filter(fx => fx.sport === 'NBA');
+    const nfl = ALL.filter(fx => fx.sport === 'NFL');
+    const nhl = ALL.filter(fx => fx.sport === 'NHL');
+
+    const footballPre = footballAll.filter(fx => league.test(fx));
+    const football = footballPre.filter(fx => !(document.getElementById('majorOnly').checked) || !isMinor(fx));
 
     function fill(arr, id){
       const el = document.getElementById(id);
-      el.innerHTML='';
-      if (!arr.length) { setEmpty(el); return; }
+      el.innerHTML = '';
+      if (!arr.length){ setEmpty(el); return; }
+
       let final = arr.slice();
-      if (term) final = final.filter(function(fx){ return (fx.home.name + ' ' + fx.away.name).toLowerCase().includes(term); });
-      // Sort fixtures by favourite status (favourites first) then by start time
-      final.sort(function(a,b){
-        const favA = isFav(slug((a.home.name||'')+'-vs-'+(a.away.name||''))) ? 1 : 0;
-        const favB = isFav(slug((b.home.name||'')+'-vs-'+(b.away.name||''))) ? 1 : 0;
-        if (favA !== favB) return favB - favA; // favourites come first
-        return new Date(a.start_utc) - new Date(b.start_utc);
-      })
-      .forEach(function(fx){
-        const cardEl = card(fx);
-        // Mark favourites on card and star
-        const slugVal = cardEl.dataset.slug;
-        if (isFav(slugVal)){
-          cardEl.classList.add('favourite');
-          const star = cardEl.querySelector('.fav');
+      if (term){
+        final = final.filter(fx => (fx.home.name + ' ' + fx.away.name).toLowerCase().includes(term));
+      }
+
+      final.sort((a,b) => {
+        const sa = slug((a.home.name||'')+'-vs-'+(a.away.name||''));
+        const sb = slug((b.home.name||'')+'-vs-'+(b.away.name||''));
+        const fa = isFav(sa) ? 1 : 0;
+        const fb = isFav(sb) ? 1 : 0;
+        if (fa !== fb) return fb - fa;
+        return (a.start_utc||'').localeCompare(b.start_utc||'');
+      });
+
+      final.forEach(fx => {
+        const c = card(fx);
+        if (isFav(c.dataset.slug)){
+          c.classList.add('favourite');
+          const star = c.querySelector('.fav');
           if (star) star.classList.add('active');
         }
-        el.appendChild(cardEl);
+        el.appendChild(c);
       });
+
       if (!final.length) setEmpty(el);
     }
 
@@ -404,350 +359,169 @@ var watchHref = WATCH_URL + '?id=' + encodeURIComponent(fixtureId);
     fill(nhl, 'nhl');
 
     document.getElementById('counts').textContent =
-      'Loaded ' + football.length + ' Football (of ' + footballPre.length +
-      (majorOnlyEl.checked ? ' after Major filter' : '') + '), ' +
-      nba.length + ' NBA, ' + nfl.length + ' NFL, ' + nhl.length + ' NHL for ' + dateEl.value;
+      `Loaded ${football.length} Football (of ${footballPre.length}), ${nba.length} NBA, ${nfl.length} NFL, ${nhl.length} NHL (next 48h)`;
     renderVisibility();
   }
 
-  async function load(dateStr){
-    ['football','nba','nfl','nhl'].forEach(function(id){
-      const el = document.getElementById(id);
-      el.innerHTML = ''; for (let i=0;i<3;i++) el.appendChild(skeleton());
-    });
-    try{
-      const todayStr = ymd(Date.now());
-      const qb = (dateStr > todayStr) ? (`&force=1&_=${Date.now()}`) : '';
-      const r = await fetch('/api/fixtures?date=' + dateStr + qb);
-      const j = await r.json();
-      ALL = j.fixtures || [];
-      renderLists();
-    }catch(e){
-      document.getElementById('counts').textContent = 'Could not load games. Try again shortly.';
-      ['football','nba','nfl','nhl'].forEach(function(id){ setEmpty(document.getElementById(id)); });
-    }
+  // format YYYYMMDD
+  function toYMD(ts){
+    const d = new Date(ts);
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const da = String(d.getDate()).padStart(2,'0');
+    return `${y}${m}${da}`;
   }
 
-  // Load fixtures occurring within the next 48 hours.  This helper fetches
-  // today’s and tomorrow’s fixtures from the backend and filters them
-  // to only include matches that start within the next 48 hours (plus a
-  // small window for matches that have just kicked off).  The resulting
-  // list is stored in the global `ALL` array and the UI is updated.
+  // ===== main loader: use fotbal.site ONLY =====
   async function loadUpcoming(){
-    // Show skeleton cards while loading
-    ['football','nba','nfl','nhl'].forEach(function(id){
+    ['football','nba','nfl','nhl'].forEach(id => {
       const el = document.getElementById(id);
       el.innerHTML = '';
       for (let i=0;i<3;i++) el.appendChild(skeleton());
     });
-    try{
-      const now = Date.now();
-      const todayStr = ymd(now);
-      const tomorrowStr = ymd(now + 86400000);
-      const yesterdayStr = ymd(now - 86400000);
-      // include yesterday so late-night matches (e.g. 23:05) stay visible after midnight
-      const dates = [yesterdayStr, todayStr, tomorrowStr];
-      const results = await Promise.all(dates.map(async function(d){
-        // force refresh for future dates to avoid stale cache
-        const qb = (d > todayStr) ? (`&force=1&_=${Date.now()}`) : '';
-        const r = await fetch('/api/fixtures?date=' + d + qb);
-        return r.json();
-      }));
+
+    const now = Date.now();
+    const today = toYMD(now);
+    const tomorrow = toYMD(now + 86400000);
+    const yesterday = toYMD(now - 86400000); // keep late matches
+
+    try {
+      const [r1, r2, r3] = await Promise.all([
+        fetch(API_BASE + yesterday),
+        fetch(API_BASE + today),
+        fetch(API_BASE + tomorrow)
+      ]);
+      const [j1, j2, j3] = await Promise.all([r1.json(), r2.json(), r3.json()]);
+
       let combined = [];
-      results.forEach(function(j){
-        if (j && j.fixtures) combined = combined.concat(j.fixtures);
-      });
-      // Filter to only fixtures starting within the next 48h and those recently started.
-      const H48 = 48 * 60 * 60 * 1000;
-      // Limit how long finished matches remain visible: remove matches more than 6 hours after kickoff
-      const past = 6 * 60 * 60 * 1000;
-      const filtered = combined.filter(function(fx){
+      if (j1 && j1.fixtures) combined = combined.concat(j1.fixtures);
+      if (j2 && j2.fixtures) combined = combined.concat(j2.fixtures);
+      if (j3 && j3.fixtures) combined = combined.concat(j3.fixtures);
+
+      const H48 = 48*60*60*1000;
+      const past = 6*60*60*1000;
+      const filtered = combined.filter(fx => {
         const ts = Date.parse(fx.start_utc);
         if (!isFinite(ts)) return false;
         const diff = ts - now;
         return diff < H48 && diff > -past;
       });
+
+      filtered.sort((a,b) => (a.start_utc||'').localeCompare(b.start_utc||''));
+
       ALL = filtered;
       renderLists();
-      // Override counts message to reflect the 48h window
-      const footballCount = filtered.filter(function(fx){ return fx.sport === 'Soccer'; }).length;
-      const nbaCount = filtered.filter(function(fx){ return fx.sport === 'NBA'; }).length;
-      const nflCount = filtered.filter(function(fx){ return fx.sport === 'NFL'; }).length;
-      document.getElementById('counts').textContent =
-        'Loaded ' + footballCount + ' Football, ' + nbaCount + ' NBA, ' + nflCount + ' NFL (next 48 hours)';
-    }catch(e){
-      document.getElementById('counts').textContent = 'Could not load games. Try again shortly.';
-      ['football','nba','nfl','nhl'].forEach(function(id){ setEmpty(document.getElementById(id)); });
+
+    } catch (e) {
+      document.getElementById('counts').textContent = 'Could not load fixtures from fotbal.site';
+      ['football','nba','nfl','nhl'].forEach(id => setEmpty(document.getElementById(id)));
     }
   }
 
-  // Start by loading upcoming fixtures.  We schedule a refresh every
-  // 15 minutes to keep the list up‑to‑date.  The legacy date‑based
-  // loader is no longer used.
-
-  // Periodically refresh today's statuses so LIVE / HALF show quickly
-  function updateLastUpdated(){
-  const el = document.getElementById('last-updated');
-  if (!el) return;
-  const d = new Date();
-  el.textContent = 'Last updated ' + d.toLocaleTimeString();
-}
-
-async function refreshStatuses(){
+  // ===== periodic status refresh (also fotbal.site) =====
+  async function refreshStatuses(){
     try {
-      const today = new Date().toISOString().slice(0,10);
-      const r = await fetch('/api/fixtures?date=' + today + '&force=1&_=' + Date.now());
+      const today = toYMD(Date.now());
+      const r = await fetch(API_BASE + today + '&_=' + Date.now());
       if (!r.ok) return;
-      const j = await r.json().catch(() => null);
-      const list = (j && (j.fixtures || (j.data && j.data.fixtures))) || [];
-      list.forEach(function(fx){
-        const home = (fx.home && fx.home.name) || '';
-        const away = (fx.away && fx.away.name) || '';
-        const slugVal = slug((home || '') + '-vs-' + (away || ''));
-        const cards = document.querySelectorAll('.game-card[data-slug="' + slugVal + '"]');
-        const st = statusLabel(fx); // use same normaliser as initial render
-        cards.forEach(function(card){
+      const j = await r.json();
+      const list = j && j.fixtures ? j.fixtures : [];
+      list.forEach(fx => {
+        const s = slug((fx.home.name||'') + '-vs-' + (fx.away.name||''));
+        const cards = document.querySelectorAll('.game-card[data-slug="'+s+'"]');
+        const st = statusLabel(fx);
+        cards.forEach(card => {
           card.dataset.status = st;
-          const dot = card.querySelector('.dot');
           const stateEl = card.querySelector('.state');
+          const dot = card.querySelector('.dot');
           if (stateEl){
-            stateEl.classList.remove('live','half','scheduled','finished');
-            if (st === 'LIVE') stateEl.classList.add('live');
-            else if (st === 'HALF') stateEl.classList.add('half');
-            else if (st === 'FINISHED') stateEl.classList.add('finished');
-            else stateEl.classList.add('scheduled');
             stateEl.textContent = st;
+            stateEl.classList.remove('live','half','scheduled','finished');
+            if (st==='LIVE') stateEl.classList.add('live');
+            else if (st==='HALF') stateEl.classList.add('half');
+            else if (st==='FINISHED') stateEl.classList.add('finished');
+            else stateEl.classList.add('scheduled');
           }
           if (dot){
-            dot.classList.remove('live','half');
-            if (st === 'LIVE') dot.classList.add('live');
-            else if (st === 'HALF') dot.classList.add('half');
+            dot.classList.remove('live');
+            if (st==='LIVE') dot.classList.add('live');
           }
         });
       });
-      updateLastUpdated();
     } catch (e) {
       // ignore
     }
   }
 
-  loadUpcoming();
-  setInterval(loadUpcoming, 15 * 60 * 1000);
-  setInterval(refreshStatuses, 30000);
-  refreshStatuses();
-  updateLastUpdated();
-
-  // Handle favourite toggles.  Use event delegation on the document to
-  // capture clicks on the star icon.  When a favourite star is clicked,
-  // toggle its state and persist the updated list.  The slug is stored on
-  // the card element (data-slug).  After toggling, re-render lists to
-  // update ordering and colours.
-  document.addEventListener('click', function(evt){
-    const target = evt.target;
-    if (target && target.classList.contains('fav')){
-      const card = target.closest('.game-card');
-      if (!card) return;
-      const slugVal = card.dataset.slug;
-      toggleFav(slugVal);
-    }
-  });
-
-// === Kixonair timers: 24h kickoff, countdown, LIVE/Finished pill ===
-(function(){
-  const H=3600*1000, M=60*1000, S=1000;
-  const pad = n => String(n).padStart(2,'0');
-  const fmtCountdown = ms => {
-    if (ms < 0) ms = 0;
-    const h = Math.floor(ms/H), m = Math.floor((ms%H)/M), s = Math.floor((ms%M)/S);
-    return pad(h)+':'+pad(m)+':'+pad(s);
-  };
-  function updateCard(el){
-    const iso = el.dataset.startUtc || '';
-    if(!iso) return;
-    const start = Date.parse(iso);
-    if(!isFinite(start)) return;
-    const now = Date.now();
-    const diff = start - now;
-
-    const dot = el.querySelector('.dot');
-    const state = el.querySelector('.state');
-    const when = el.querySelector('.when');
-    const cd   = el.querySelector('.countdown');
-    if (when) when.textContent = fmtTime(iso);
-
-    // derive status: prefer dataset, otherwise by time
-    let st = String(el.dataset.status||'').toUpperCase();
-    if (!st || st==='SCHEDULED'){
-      // When no explicit status is provided (SCHEDULED), derive status by comparing
-      // the current time against kickoff with sport‑specific fallbacks.  If a match
-      // has started but not finished according to the API, we treat it as LIVE until
-      // a reasonable duration has elapsed.  This prevents long matches (e.g. NFL)
-      // from staying perpetually live when the upstream feed fails to update.
-      const sport = (el.dataset.sport || '').toUpperCase();
-      let fallbackHours = 4; // default fallback for unknown sports
-      if (sport === 'SOCCER' || sport === 'FOOTBALL') fallbackHours = 2;
-      else if (sport === 'NBA') fallbackHours = 3;
-      else if (sport === 'NFL') fallbackHours = 4;
-      const fallbackMs = fallbackHours * H;
-      if (diff <= 0 && diff > -fallbackMs) {
-        st = 'LIVE';
-      } else if (diff <= -fallbackMs) {
-        st = 'FINISHED';
-      } else {
-        st = 'SCHEDULED';
-      }
-    }
-
-    if (st==='SCHEDULED'){
-      // Upcoming fixture: show countdown until kick‑off
-      if (cd){ cd.textContent = 'Starts in '+fmtCountdown(diff); cd.style.display='block'; }
-      if (state){ state.textContent = 'SCHEDULED'; state.classList.remove('live','finished','half'); state.classList.add('scheduled'); }
-      if (dot) dot.classList.remove('live');
-    }else if (st==='HALF'){
-      // Match is at half‑time: treat similar to live but with a unique label
-      if (cd) cd.style.display='none';
-      if (state){ state.textContent = 'HALF'; state.classList.remove('live','finished','scheduled'); state.classList.add('half'); }
-      // During half time the dot remains red to indicate the match is ongoing
-      if (dot) dot.classList.add('live');
-    }else if (st==='LIVE'){
-      // Match currently in play
-      if (cd) cd.style.display='none';
-      if (state){ state.textContent = 'LIVE'; state.classList.remove('finished','scheduled','half'); state.classList.add('live'); }
-      if (dot) dot.classList.add('live');
-    }else{
-      // Finished: hide countdown and mark as finished
-      if (cd) cd.style.display='none';
-      if (state){ state.textContent = 'FINISHED'; state.classList.remove('live','scheduled','half'); state.classList.add('finished'); }
-      if (dot) dot.classList.remove('live');
-    }
-  }
-  function tick(){ document.querySelectorAll('.game-card').forEach(updateCard); }
-
-  // Hook after renders
-  const _rl = window.renderLists;
-  window.renderLists = function(){ _rl(); setTimeout(tick, 30); }
-  setInterval(tick, 1000);
-  tick();
-})();
-
-
-  // === fetch ESPN via your existing Worker (proxy mode) ===
-  const WORKER_PROXY = "https://kixonair-espn-proxy.youmovies-cc.workers.dev/?url=";
-  const ESPN_SEGMENTS = [
-    "soccer/eng.1",
-    "soccer/esp.1",
-    "soccer/ita.1",
-    "soccer/ger.1",
-    "soccer/fra.1",
-    "soccer/uefa.champions",
-    "soccer",
-    "basketball/nba",
-    "football/nfl",
-    "hockey/nhl"
-  ];
-  const ESPN_META = {
-    "soccer/eng.1": { sport: "Soccer", name: "Premier League", code: "PL" },
-    "soccer/esp.1": { sport: "Soccer", name: "La Liga", code: "LL" },
-    "soccer/ita.1": { sport: "Soccer", name: "Serie A", code: "SA" },
-    "soccer/ger.1": { sport: "Soccer", name: "Bundesliga", code: "BL1" },
-    "soccer/fra.1": { sport: "Soccer", name: "Ligue 1", code: "L1" },
-    "soccer/uefa.champions": { sport: "Soccer", name: "UEFA Champions League", code: "UCL" },
-    "soccer": { sport: "Soccer", name: "Football", code: "" },
-    "basketball/nba": { sport: "NBA", name: "NBA", code: "NBA" },
-    "football/nfl": { sport: "NFL", name: "NFL", code: "NFL" },
-    "hockey/nhl": { sport: "NHL", name: "NHL", code: "NHL" }
-  };
-  function toYMD(ts) {
-    const d = new Date(ts);
-    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-    return d.toISOString().slice(0,10);
-  }
-  async function fetchViaWorker(segment, dateStr) {
-    const espnUrl = "https://site.api.espn.com/apis/site/v2/sports/" + segment + "/scoreboard?dates=" + dateStr;
-    const url = WORKER_PROXY + encodeURIComponent(espnUrl);
-    const r = await fetch(url);
-    if (!r.ok) return {events:[]};
-    return r.json();
-  }
-  function mapEspn(data, segment) {
-    const meta = ESPN_META[segment] || { sport: "Soccer", name: "Football", code: "" };
-    const out = [];
-    (data.events || []).forEach(ev => {
-      const iso = ev.date;
+  // timer to update countdowns
+  (function(){
+    const H=3600*1000, M=60*1000, S=1000;
+    const pad = n => String(n).padStart(2,'0');
+    const fmtCountdown = ms => {
+      if (ms < 0) ms = 0;
+      const h = Math.floor(ms/H),
+            m = Math.floor((ms%H)/M),
+            s = Math.floor((ms%M)/S);
+      return pad(h)+':'+pad(m)+':'+pad(s);
+    };
+    function updateCard(el){
+      const iso = el.dataset.startUtc || '';
       if (!iso) return;
-      const comp = (ev.competitions && ev.competitions[0]) || {};
-      const teams = comp.competitors || [];
-      const home = teams.find(t => t.homeAway === "home") || teams[0] || {};
-      const away = teams.find(t => t.homeAway === "away") || teams[1] || {};
-      out.push({
-        sport: meta.sport,
-        league: {
-          name: (comp.league && comp.league.name) || meta.name,
-          code: (comp.league && comp.league.abbreviation) || meta.code || ""
-        },
-        start_utc: iso,
-        status: (comp.status && comp.status.type && comp.status.type.name) || "STATUS_SCHEDULED",
-        home: {
-          name: (home.team && (home.team.shortDisplayName || home.team.displayName || home.team.name)) || "",
-          logo: (home.team && (home.team.logo || (home.team.logos && home.team.logos[0] && home.team.logos[0].href))) || ""
-        },
-        away: {
-          name: (away.team && (away.team.shortDisplayName || away.team.displayName || away.team.name)) || "",
-          logo: (away.team && (away.team.logo || (away.team.logos && away.team.logos[0] && away.team.logos[0].href))) || ""
-        }
-      });
-    });
-    return out;
-  }
-  async function loadUpcoming() {
-    ['football','nba','nfl','nhl'].forEach(function(id){
-      const el = document.getElementById(id);
-      el.innerHTML = '';
-      for (let i=0;i<3;i++) el.appendChild(skeleton());
-    });
-    try {
+      const start = Date.parse(iso);
+      if (!isFinite(start)) return;
       const now = Date.now();
-      const today = toYMD(now);
-      const tomorrow = toYMD(now + 86400000);
-      const dates = [today, tomorrow];
-      let combined = [];
-      // for each date, fetch all segments
-      for (const d of dates) {
-        const jobs = ESPN_SEGMENTS.map(seg =>
-          fetchViaWorker(seg, d).then(data => mapEspn(data, seg)).catch(() => [])
-        );
-        const all = await Promise.all(jobs);
-        combined = combined.concat(...all);
-      }
-      // filter to next 48h + small past window
-      const H48 = 48*60*60*1000;
-      const past = 6*60*60*1000;
-      combined = combined.filter(fx => {
-        const ts = Date.parse(fx.start_utc);
-        if (!isFinite(ts)) return false;
-        const diff = ts - now;
-        return diff < H48 && diff > -past;
-      });
-      // sort
-      combined.sort((a,b) => {
-        if (!a.start_utc) return 1;
-        if (!b.start_utc) return -1;
-        return a.start_utc.localeCompare(b.start_utc);
-      });
-      ALL = combined;
-      renderLists();
-      document.getElementById('counts').textContent =
-        'Loaded ' + combined.length + ' fixtures via your worker proxy.';
-    } catch (e) {
-      document.getElementById('counts').textContent = 'Could not load via worker proxy.';
-      ['football','nba','nfl','nhl'].forEach(id => {
-        const el = document.getElementById(id);
-        el.innerHTML = '<div class="empty">No games.</div>';
-      });
-    }
-  }
-  loadUpcoming();
-  setInterval(loadUpcoming, 15*60*1000);
+      const diff = start - now;
+      const dot = el.querySelector('.dot');
+      const state = el.querySelector('.state');
+      const when = el.querySelector('.when');
+      const cd = el.querySelector('.countdown');
+      if (when) when.textContent = fmtTime(iso);
 
-</script></body>
+      let st = String(el.dataset.status || '').toUpperCase();
+      if (!st || st==='SCHEDULED'){
+        const sport = (el.dataset.sport || '').toUpperCase();
+        let fallbackHours = 4;
+        if (sport === 'SOCCER' || sport === 'FOOTBALL') fallbackHours = 2;
+        else if (sport === 'NBA') fallbackHours = 3;
+        else if (sport === 'NFL') fallbackHours = 4;
+        const fallbackMs = fallbackHours * H;
+        if (diff <= 0 && diff > -fallbackMs) {
+          st = 'LIVE';
+        } else if (diff <= -fallbackMs) {
+          st = 'FINISHED';
+        } else {
+          st = 'SCHEDULED';
+        }
+      }
+
+      if (st === 'SCHEDULED'){
+        if (cd){ cd.textContent = 'Starts in '+fmtCountdown(diff); cd.style.display='block'; }
+        if (state){ state.textContent='SCHEDULED'; state.classList.remove('live','finished','half'); state.classList.add('scheduled'); }
+        if (dot) dot.classList.remove('live');
+      } else if (st === 'HALF'){
+        if (cd) cd.style.display='none';
+        if (state){ state.textContent='HALF'; state.classList.remove('live','finished','scheduled'); state.classList.add('half'); }
+        if (dot) dot.classList.add('live');
+      } else if (st === 'LIVE'){
+        if (cd) cd.style.display='none';
+        if (state){ state.textContent='LIVE'; state.classList.remove('finished','scheduled','half'); state.classList.add('live'); }
+        if (dot) dot.classList.add('live');
+      } else {
+        if (cd) cd.style.display='none';
+        if (state){ state.textContent='FINISHED'; state.classList.remove('live','scheduled','half'); state.classList.add('finished'); }
+        if (dot) dot.classList.remove('live');
+      }
+    }
+    function tick(){
+      document.querySelectorAll('.game-card').forEach(updateCard);
+    }
+    setInterval(tick, 1000);
+  })();
+
+  // initial load + intervals
+  loadUpcoming();
+  setInterval(loadUpcoming, 15 * 60 * 1000);  // refresh list
+  setInterval(refreshStatuses, 30 * 1000);    // refresh status only
+</script>
+</body>
 </html>
