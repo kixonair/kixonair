@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>TEST WATCH FILE</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+      body{
+        margin:0;
+        background:#ffefc6;
+        font-family:system-ui, sans-serif;
+        padding:20px;
+      }
+      h1{color:#c1121f;}
+      code{background:#fff;padding:3px 6px;border-radius:4px;}
+    </style>
+  </head>
+  <body>
+    <h1>✅ This is watch2.html from the server</h1>
+    <p>If you see this, we are actually serving the file we edit.</p>
+    <p>Now open with a param: <code>?m=hornets-vs-lakers</code></p>
+    <script>
+      alert("This is the NEW file running JS.");
+      document.body.insertAdjacentHTML(
+        "beforeend",
+        "<p>Query: " + location.search + "</p>"
+      );
+    </script>
+  </body>
+</html>
