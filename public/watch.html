@@ -3,8 +3,7 @@
 <head>
   <script>
     (function () {
-      // Permit local development hosts in addition to the production domains.
-      // added fotbal.site so it doesn't redirect away
+      // add fotbal.site so it won't redirect away
       var ok = ['kixonair.com', 'www.kixonair.com', 'fotbal.site', 'www.fotbal.site', '', 'localhost', '127.0.0.1'];
       try {
         if (!ok.includes(location.hostname)) location.replace('https://kixonair.com');
@@ -15,168 +14,137 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0b0f14" />
   <title>Kixonair — Match Center</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css?v=34" />
   <link rel="icon" href="/logo.svg" type="image/svg+xml" />
   <style>
     :root{
       --pad: clamp(12px, 3vw, 22px);
-      /* colour palette */
-      --primary-bg: #0b0f14;
-      --surface: rgba(255,255,255,0.02);
-      --stroke: rgba(255,255,255,0.06);
-      --text-col: #fff;
-      --muted: rgba(255,255,255,0.62);
-      --accent: #46b1ff;
-      --accent-hover: #62c1ff;
-      --danger: #ff4c4c;
+      --primary-bg: #0f172a;
+      --secondary-bg: #1e293b;
+      --border-col: #334155;
+      --accent: #6366f1;
+      --accent-hover: #7c3aed;
+      --text-col: #f1f5f9;
+      --muted-col: #94a3b8;
+      --success-col: #10b981;
     }
-
-    body{
-      margin:0;
-      background:var(--primary-bg);
-      color:var(--text-col);
-      font-family:"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    html, body{
+      margin:0; padding:0;
+      background: radial-gradient(circle at top left, var(--primary-bg), var(--secondary-bg));
+      color: var(--text-col);
+      font-family: 'Segoe UI', Tahoma, sans-serif;
       line-height: 1.5;
     }
-
     a{ color: inherit; }
-
     .wrap{
       max-width:980px;
       margin:0 auto;
       padding:var(--pad);
     }
-
-    /* header bar */
     .headerbar{
       display:grid;
-      grid-template-columns: auto 1fr auto;
-      gap:12px;
+      grid-template-columns:auto 1fr auto;
       align-items:center;
-      margin-bottom:10px;
+      margin-bottom:16px;
+      color: var(--text-col);
     }
-    .brand{
-      display:flex;
-      gap:8px;
-      align-items:center;
-    }
-    .brand img{
-      width:40px;
-      height:40px;
-    }
-    .brand .title{
-      font-weight:700;
-      font-size:1rem;
-    }
+    .headerbar .center{justify-self:center;}
     .badge{
       display:inline-block;
-      border:1px solid rgba(255,255,255,0.08);
+      border:1px solid var(--border-col);
+      background: var(--secondary-bg);
+      color: var(--text-col);
       border-radius:999px;
-      padding:3px 10px;
-      font-size:11px;
-      text-transform:uppercase;
-      letter-spacing:0.06em;
-      background:rgba(255,255,255,0.025);
+      padding:4px 12px;
+      font-size:12px;
+      max-width:50vw;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
-    .rhs{
-      text-align:right;
-      display:flex;
-      flex-direction:column;
-      gap:2px;
-      font-size:12.5px;
-    }
-    .statusrow{
-      font-weight:600;
-    }
-
-    /* TEAMS HERO */
     .teams{
       display:grid;
       grid-template-columns:1fr auto 1fr;
-      gap:14px;
+      gap:18px;
       align-items:center;
       justify-items:center;
-      margin:10px 0 4px;
+      margin:20px 0 8px;
+      background: var(--secondary-bg);
+      border:1px solid var(--border-col);
+      border-radius:16px;
+      padding:16px;
+      box-shadow:0 4px 8px rgba(0,0,0,0.3);
     }
     .side{
       display:flex;
       flex-direction:column;
       align-items:center;
-      gap:8px;
+      gap:10px;
       text-align:center;
     }
     .side img{
-      width:clamp(56px,14vw,84px);
-      height:clamp(56px,14vw,84px);
+      width:clamp(64px,14vw,96px);
+      height:clamp(64px,14vw,96px);
       object-fit:contain;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
     }
     .teamName{
-      font-size:clamp(16px,4.5vw,22px);
-      font-weight:700;
-      line-height:1.2;
+      font-size:clamp(18px,4.5vw,24px);
+      font-weight:600;
+      line-height:1.3;
+      color: var(--text-col);
+      white-space: normal;
+      overflow-wrap: anywhere;
+      max-width:100%;
     }
     .h1{
-      font-size:clamp(22px,8vw,34px);
-      font-weight:900;
+      font-size:clamp(28px,8vw,42px);
+      font-weight:800;
       text-align:center;
-      letter-spacing:.06em;
+      letter-spacing:.08em;
+      color: var(--accent);
     }
     .muted{
-      opacity:.78;
+      color: var(--muted-col);
     }
     .statusBig{
-      margin-top:6px;
-      margin-bottom:2px;
+      margin-top:8px;
+      margin-bottom:6px;
       text-align:center;
+      font-size:18px;
+      font-weight:500;
+      color: var(--accent);
     }
-
-    /* Meta grid collapses gracefully */
     .meta{
       display:grid;
       grid-template-columns:repeat(3,minmax(0,1fr));
       gap:12px;
-      margin:14px 0;
+      margin:20px 0;
+      background: var(--secondary-bg);
+      border:1px solid var(--border-col);
+      border-radius:16px;
+      padding:16px;
+      box-shadow:0 4px 8px rgba(0,0,0,0.3);
     }
-    .meta-item{
-      background:rgba(255,255,255,0.01);
-      border:1px solid rgba(255,255,255,0.03);
-      border-radius:12px;
-      padding:10px 12px;
-      min-height:62px;
-    }
-    .meta-label{
-      font-size:10.5px;
-      text-transform:uppercase;
-      letter-spacing:.04em;
-      margin-bottom:4px;
-      opacity:.6;
-    }
-    .meta-value{
-      font-weight:600;
-      font-size:.93rem;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-
-    /* Server buttons */
+    @media(max-width:720px){ .meta{grid-template-columns:repeat(2,minmax(0,1fr));} }
     .serverbar{
       display:flex;
       flex-wrap:wrap;
-      gap:10px;
+      gap:14px;
       justify-content:center;
-      margin:12px 0 4px;
+      margin:18px 0 4px;
+      background: var(--secondary-bg);
+      border:1px solid var(--border-col);
+      border-radius:16px;
+      padding:16px;
+      box-shadow:0 4px 8px rgba(0,0,0,0.3);
     }
     .serverbar .sbtn{
       display:inline-flex;
       align-items:center;
-      gap:6px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,0.04);
-      background:rgba(255,255,255,0.02);
+      justify-content:center;
+      min-width:120px;
+      border-radius:12px;
       padding:12px 18px;
       text-decoration:none;
       color:var(--text-col);
@@ -188,143 +156,118 @@
       background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%);
       transform: translateY(-2px);
     }
-
-    /* loading overlay */
     .loading{
       position:fixed;
       inset:0;
-      background:rgba(11,15,20,0.95);
-      backdrop-filter: blur(3px);
       display:flex;
       flex-direction:column;
-      gap:6px;
       align-items:center;
       justify-content:center;
-      z-index:90;
+      background:rgba(5,12,23,0.8);
+      backdrop-filter:saturate(120%) blur(4px);
+      z-index:50;
+      transition:opacity .25s ease;
     }
-    .loading.hidden{
-      display:none;
-    }
+    .loading.hidden{ opacity:0; pointer-events:none; }
     .spinner{
-      width:34px;
-      height:34px;
+      position:relative;
+      width:74px;
+      height:74px;
+      margin-bottom:10px;
+    }
+    .ring{
+      position:absolute;
+      inset:0;
       border-radius:50%;
-      border:3px solid rgba(255,255,255,0.08);
-      border-top-color:#fff;
+      border:4px solid rgba(255,255,255,.1);
+      border-top-color: var(--accent);
       animation:spin 1s linear infinite;
     }
-    @keyframes spin{
-      to{transform:rotate(360deg);}
+    .dot{
+      position:absolute;
+      top:50%; left:50%;
+      width:16px; height:16px;
+      background: var(--success-col);
+      border-radius:50%;
+      transform:translate(-50%,-50%);
+      animation:pulse 1.4s ease-in-out infinite;
     }
-
-    /* player */
-    .player-wrap{
-      margin-top:14px;
-      border-radius:14px;
-      overflow:hidden;
-      background:#000;
-      aspect-ratio:16/9;
-      min-height:220px;
+    .loadingText{
+      font-size:14px;
+      color: var(--muted-col);
+      letter-spacing:.02em;
     }
-    iframe{
-      width:100%;
-      height:100%;
-      border:0;
+    @keyframes spin{ to{ transform:rotate(360deg) } }
+    @keyframes pulse{ 0%,100%{ transform:translate(-50%,-50%) scale(.85); opacity:.85 } 50%{ transform:translate(-50%,-50%) scale(1.1); opacity:1 } }
+    @media(max-width:600px){ #leagueBadge{ display:none; } }
+    .btn{
+      display:inline-block;
+      padding:8px 14px;
+      border:1px solid var(--accent);
+      background: transparent;
+      color: var(--accent);
+      border-radius:8px;
+      text-decoration:none;
+      font-weight:500;
+      transition: background 0.25s ease, color 0.25s ease;
     }
-
-    @media(max-width:820px){
-      .headerbar{
-        grid-template-columns:1fr;
-      }
-      .rhs{
-        align-items:flex-start;
-      }
-      .teams{
-        grid-template-columns:1fr;
-      }
-      .meta{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
+    .btn:hover{
+      background: var(--accent);
+      color:#ffffff;
     }
-    @media(max-width:500px){
-      .meta{
-        grid-template-columns:1fr;
-      }
-      .serverbar{
-        justify-content:flex-start;
-      }
+    header.header{
+      background: var(--secondary-bg);
+      border-bottom:1px solid var(--border-col);
+    }
+    header .bar{
+      max-width:980px;
+      margin:0 auto;
+      padding: var(--pad);
+      display:flex;
+      align-items:center;
     }
   </style>
 </head>
 <body>
-  <div class="loading" id="loadingOverlay">
-    <div class="spinner"></div>
-    <div id="loadingText">Loading match…</div>
+<header class="header">
+  <div class="bar">
+    <a class="brand" href="/"><img src="/logo.svg" alt="Kixonair" height="28"/></a>
+    <div style="flex:1"></div>
   </div>
-  <div class="wrap">
-    <header class="headerbar">
-      <div class="brand">
-        <img src="/logo.svg" alt="Kixonair">
-        <div>
-          <div class="title">Kixonair</div>
-          <div class="muted" style="font-size:11px;">Match center</div>
-        </div>
-      </div>
-      <div>
-        <div id="leagueBadge" class="badge">Match</div>
-      </div>
-      <div class="rhs">
-        <div id="kickoff">—</div>
-        <div id="state" class="statusrow">Loading…</div>
-      </div>
-    </header>
+</header>
 
-    <section class="hero-card">
-      <div class="teams">
-        <div class="side">
-          <img id="homeLogo" src="/logo.svg" alt="">
-          <div id="homeName" class="teamName">Home</div>
-        </div>
-        <div>
-          <div class="h1">vs</div>
-        </div>
-        <div class="side">
-          <img id="awayLogo" src="/logo.svg" alt="">
-          <div id="awayName" class="teamName">Away</div>
-        </div>
-      </div>
-      <div class="statusBig">
-        <span id="statusLine" class="muted">Fetching fixture…</span>
-      </div>
-      <div class="meta">
-        <div class="meta-item">
-          <div class="meta-label">League</div>
-          <div id="league" class="meta-value">—</div>
-        </div>
-        <div class="meta-item">
-          <div class="meta-label">Kickoff</div>
-          <div id="kickoffMeta" class="meta-value">—</div>
-        </div>
-        <div class="meta-item">
-          <div class="meta-label">Match id</div>
-          <div id="matchIdLabel" class="meta-value">—</div>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="serverbar" id="serverBar"></div>
-    </section>
-
-    <section class="player-wrap">
-      <iframe id="playerFrame" src="" allowfullscreen referrerpolicy="no-referrer"></iframe>
-    </section>
+<main class="wrap">
+  <div id="loadingOverlay" class="loading" aria-live="polite" aria-busy="true">
+    <div class="spinner"><div class="ring"></div><div class="dot"></div></div>
+    <div class="loadingText">Loading match…</div>
   </div>
 
-<script src="/secure-fetch.js"></script>
+  <div class="headerbar">
+    <a class="btn" href="/" aria-label="Back to schedule">← Back</a>
+    <div class="center"></div>
+    <span id="leagueBadge" class="badge"></span>
+  </div>
+
+  <div class="teams">
+    <div class="side home"><img id="homeLogo" alt="" width="64" height="64" loading="lazy"/><span class="teamName" id="homeName"></span></div>
+    <div class="h1" id="versus">VS</div>
+    <div class="side away"><img id="awayLogo" alt="" width="64" height="64" loading="lazy"/><span class="teamName" id="awayName"></span></div>
+  </div>
+  <div class="muted statusBig" id="statusLine" style="text-align:center"></div>
+
+  <div class="meta">
+    <div><span class="muted small">Kickoff</span><div id="kickoff">-</div></div>
+    <div><span class="muted small">Competition</span><div id="league">-</div></div>
+    <div><span class="muted small">Status</span><div id="state">-</div></div>
+  </div>
+
+  <div id="serverBar" class="serverbar"></div>
+</main>
+
 <script>
+  // ======== CONFIG (kept) ========
   const API_KEY = 'kix-7d29f2d9ef3c4';
-  const API_BASE = './api'; // kept but we won't use it for fixtures anymore
+  const API_BASE = './api'; // we leave it here, but we'll pull fixtures from fotbal.site now
 
   function apiFetch(url, init = {}) {
     const u = new URL(url, location.href);
@@ -337,23 +280,20 @@
     return fetch(u.toString(), Object.assign({ credentials: 'include' }, init, { headers }));
   }
 
-  // ======== helpers ========
+  // ======== helpers (from your original) ========
   let __loadFailTimer = null;
   const $ = id => document.getElementById(id);
-  function hideLoading(){ try{ $('loadingOverlay').classList.add('hidden'); }catch(e){} if(__loadFailTimer){ clearTimeout(__loadFailTimer); __loadFailTimer = null; } }
+  function hideLoading(){ try{ $('loadingOverlay').classList.add('hidden'); }catch{} if(__loadFailTimer){clearTimeout(__loadFailTimer);__loadFailTimer=null;} }
   function qs(name){ return new URLSearchParams(location.search).get(name) || ''; }
   function slug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
   function capWords(s){ return String(s||'').split(/[-\s]+/).map(w => w? w[0].toUpperCase()+w.slice(1):'').join(' '); }
-  function ymdFromIso(x){ try{ return String(x||'').slice(0,10) || null; }catch{return null;} }
   function addDays(dateStr, delta){
     const dt = new Date(Date.UTC(+dateStr.slice(0,4), +dateStr.slice(5,7)-1, +dateStr.slice(8,10)));
     dt.setUTCDate(dt.getUTCDate()+delta);
-    return dt.toISOString();
+    return dt.toISOString().slice(0,10);
   }
 
-  /**
-   * Map various status codes coming from the fixture API into human friendly labels.
-   */
+  // keep your status normalizer (single version)
   function formatStatus(status){
     const raw = String(status || '').toUpperCase();
     const livePatterns = ['IN_PLAY','LIVE','PLAYING','1ST HALF','FIRST HALF','2ND HALF','SECOND HALF'];
@@ -365,16 +305,6 @@
     const schedPatterns = ['SCHEDULED','NOT_STARTED','NS'];
     for (const p of schedPatterns){ if (raw.includes(p)) return 'Scheduled'; }
     return status || '';
-  }
-
-  function prettyKickoff(iso){
-    if (!iso) return '—';
-    try{
-      const d = new Date(iso);
-      return d.toLocaleString();
-    }catch(e){
-      return iso;
-    }
   }
 
   function renderServerButtonsFromSlug(sl){
@@ -389,7 +319,7 @@
     renderServerButtonsFromSlug(sl);
   }
 
-  // this pre-fills the UI from the slug in the URL even before the fetch finishes
+  // prefill from slug in URL like before
   (function prime(){
     const id = qs('id');
     if (id && id.includes('@')){
@@ -403,41 +333,74 @@
     }
   })();
 
-  // ====== CHANGED PART: fetch fixtures from fotbal.site ======
+  // ======== CHANGED: get fixtures from fotbal.site instead of ./api/fixtures ========
   async function fixturesFor(dateStr){
-    // fetch fixtures from fotbal.site instead of local /api
+    // your PHP endpoint
     const url = `https://fotbal.site/fixtures.php?date=${encodeURIComponent(dateStr)}`;
-    let r = null;
-    try{
-      r = await fetch(url, { credentials: 'omit' });
-    }catch(e){
+    let r;
+    try {
+      r = await fetch(url, { cache: 'no-store' });
+    } catch (e) {
       return [];
     }
-    if (!r || !r.ok) return [];
-    let arr = null;
-    try{
+    if (!r.ok) return [];
+    let arr;
+    try {
       arr = await r.json();
-    }catch(e){
+    } catch (e) {
       return [];
     }
     if (!Array.isArray(arr)) return [];
 
-    // normalise items to the shape the rest of the page expects
+    // normalize each item so the rest of the code can read fx.home.name etc.
     return arr.map(x => {
-      const homeName = (x.home && x.home.name) || x.home_name || x.home || x.team_home || x.localteam || '';
-      const awayName = (x.away && x.away.name) || x.away_name || x.away || x.team_away || x.visitorteam || '';
-      const leagueName = (x.league && x.league.name) || x.league || x.competition || x.tournament || '';
-      const startUtc = x.start_utc || x.kickoff || x.date || x.time || '';
-      const status = x.status || x.state || x.match_status || '';
-      const homeLogo = (x.home && x.home.logo) || x.home_logo || '';
-      const awayLogo = (x.away && x.away.logo) || x.away_logo || '';
-      return Object.assign({}, x, {
+      const homeName =
+        (x.home && x.home.name) ||
+        x.home_name ||
+        x.home ||
+        x.team_home ||
+        x.localteam ||
+        '';
+      const awayName =
+        (x.away && x.away.name) ||
+        x.away_name ||
+        x.away ||
+        x.team_away ||
+        x.visitorteam ||
+        '';
+      const leagueName =
+        (x.league && x.league.name) ||
+        x.league ||
+        x.competition ||
+        x.tournament ||
+        '';
+      const startUtc =
+        x.start_utc ||
+        x.kickoff ||
+        x.date ||
+        x.time ||
+        '';
+      const status =
+        x.status ||
+        x.state ||
+        x.match_status ||
+        '';
+      const homeLogo =
+        (x.home && x.home.logo) ||
+        x.home_logo ||
+        '';
+      const awayLogo =
+        (x.away && x.away.logo) ||
+        x.away_logo ||
+        '';
+      return {
+        ...x,
         home: { name: homeName, logo: homeLogo },
         away: { name: awayName, logo: awayLogo },
         league: { name: leagueName },
         start_utc: startUtc,
         status: status
-      });
+      };
     });
   }
 
@@ -470,30 +433,40 @@
     const league   = fx.league?.name || '';
     const statusRaw = fx.status || 'SCHEDULED';
     const kickoff  = fx.start_utc || '';
+
     $('homeName').textContent = homeName;
     $('awayName').textContent = awayName;
     $('homeLogo').src = homeLogo || '/logo.svg';
     $('awayLogo').src = awayLogo || '/logo.svg';
-    $('league').textContent = league || '—';
-    $('leagueBadge').textContent = league || 'Match';
-    $('state').textContent = formatStatus(statusRaw);
-    $('statusLine').textContent = formatStatus(statusRaw);
-    $('kickoff').textContent = kickoff ? prettyKickoff(kickoff) : '—';
-    $('kickoffMeta').textContent = kickoff ? prettyKickoff(kickoff) : '—';
+    $('leagueBadge').textContent = league || '';
+    $('league').textContent = league || '-';
+    const friendlyStatus = formatStatus(statusRaw);
+    $('state').textContent = friendlyStatus || '-';
+    $('statusLine').textContent = friendlyStatus || '';
+    $('kickoff').textContent = kickoff ? new Date(kickoff).toLocaleString() : '-';
+
     renderServerButtonsFromFixture(fx);
     hideLoading();
   }
 
   async function load(){
-    document.getElementById('loadingOverlay').classList.remove('hidden');
+    $('loadingOverlay').classList.remove('hidden');
     __loadFailTimer = setTimeout(hideLoading, 3500);
 
     const id  = qs('id');
     if (!id){ $('statusLine').textContent='Missing match id'; hideLoading(); return; }
-    $('matchIdLabel').textContent = id;
 
-    // ===== CHANGED: we don't have a single-fixture endpoint on fotbal.site
+    // we keep your old logic: try single fixture (your old API) AND try fixtures list
     async function serverResolve(){
+      // if you no longer have /api/fixture/... this will just return null and the list lookup will handle it
+      try{
+        let r = await apiFetch(`${API_BASE}/fixture/${encodeURIComponent(id)}`);
+        if (!r.ok) r = await apiFetch(`${API_BASE}/fixture?id=${encodeURIComponent(id)}`);
+        if (r.ok){
+          const j = await r.json().catch(()=>null);
+          return (j && (j.fixture || j.data?.fixture)) || null;
+        }
+      }catch(e){}
       return null;
     }
 
