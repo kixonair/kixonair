@@ -268,7 +268,24 @@
     }
 
     const [s,c] = await Promise.allSettled([serverResolve(), clientResolve()]);
-    const fx = (s.status==='fulfilled' && s.value) || (c.status==='fulfilled' && c.value) || null;
+    const serverFx = (s.status==='fulfilled' && s.value) || null;
+    const clientFx = (c.status==='fulfilled' && c.value) || null;
+
+    function isSched(x){
+      if (!x) return false;
+      const st = String(x.status || '').toUpperCase();
+      return st === 'SCHEDULED' || st === 'NOT_STARTED' || st === 'NS';
+    }
+    function isLiveLike(x){
+      if (!x) return false;
+      const st = String(x.status || '').toUpperCase();
+      return /LIVE|IN_PLAY|IN_PROGRESS|1ST|2ND|HT|HALF|PAUSED|BREAK/.test(st);
+    }
+
+    const fx = (clientFx && (!serverFx || (isSched(serverFx) && isLiveLike(clientFx))))
+      ? clientFx
+      : (serverFx || clientFx || null);
+
     if (fx){ applyFixture(fx); } else { $('statusLine').textContent='Could not load match data.'; hideLoading(); }
   }
 

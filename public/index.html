@@ -444,7 +444,9 @@ var watchHref = WATCH_URL + '?id=' + encodeURIComponent(fixtureId);
       const now = Date.now();
       const todayStr = ymd(now);
       const tomorrowStr = ymd(now + 86400000);
-      const dates = [todayStr, tomorrowStr];
+      const yesterdayStr = ymd(now - 86400000);
+      // include yesterday so late-night matches (e.g. 23:05) stay visible after midnight
+      const dates = [yesterdayStr, todayStr, tomorrowStr];
       const results = await Promise.all(dates.map(async function(d){
         // force refresh for future dates to avoid stale cache
         const qb = (d > todayStr) ? (`&force=1&_=${Date.now()}`) : '';
