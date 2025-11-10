@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Kixonair — Match Center</title>
+  <title>Kixonair — Match Center (debug)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     body{margin:0;background:#0f172a;color:#fff;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -14,14 +14,14 @@
     .teamName{font-size:20px;font-weight:600}
     .vs{font-size:32px;font-weight:800;color:#6366f1}
     .meta{margin-top:14px;background:rgba(15,23,42,.35);border:1px solid rgba(148,163,184,.12);border-radius:16px;padding:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-    .lbl{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:rgba(241,245,249,.5);margin-bottom:3px}
+    .lbl{font-size:11px;text-transform:uppercase;color:rgba(241,245,249,.5);margin-bottom:3px}
     .serverbar{margin-top:14px;background:rgba(15,23,42,.35);border:1px solid rgba(148,163,184,.12);border-radius:16px;padding:14px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
     .serverbar a{background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;text-decoration:none;padding:10px 18px;border-radius:999px;font-weight:500}
     #loadingOverlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;z-index:50}
     #loadingOverlay.hidden{display:none}
     .spinner{width:42px;height:42px;border:4px solid rgba(255,255,255,.15);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
-    #errorBox{margin-top:12px;color:#fca5a5;font-size:13px;white-space:pre-wrap;word-break:break-word}
+    #debug{margin-top:16px;background:rgba(15,23,42,.5);border:1px solid rgba(248,113,113,.4);border-radius:12px;padding:12px;font-size:12px;white-space:pre-wrap;word-break:break-word}
     @media(max-width:650px){.teams{grid-template-columns:1fr}.meta{grid-template-columns:1fr}}
   </style>
 </head>
@@ -45,7 +45,7 @@
     </div>
   </div>
 
-  <p id="statusLine" style="text-align:center;margin-top:8px;color:#94a3b8;">Loading...</p>
+  <p id="statusLine" style="text-align:center;margin-top:8px;color:#94a3b8;">Loading…</p>
 
   <div class="meta">
     <div><div class="lbl">Kickoff</div><div id="kickoff">-</div></div>
@@ -54,37 +54,27 @@
   </div>
 
   <div id="serverBar" class="serverbar"></div>
-  <div id="errorBox"></div>
+
+  <div id="debug">debug will appear here…</div>
 </main>
 
 <script>
-  // ---------- small helpers ----------
+(function(){
   const $ = id => document.getElementById(id);
+  const debug = msg => { const d = $("#debug"); d.textContent += "\\n" + msg; };
+
   function hideLoading(){ $("#loadingOverlay").classList.add("hidden"); }
+
   function qs(n){ return new URLSearchParams(location.search).get(n) || ""; }
   function getMatchId(){ return qs("id") || qs("m") || ""; }
   function slug(s){ return String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,""); }
-  function capWords(s){ return String(s||"").split(/[-\s]+/).map(w=>w?w[0].toUpperCase()+w.slice(1):"").join(" "); }
+  function capWords(s){ return String(s||"").split(/[-\\s]+/).map(w=>w?w[0].toUpperCase()+w.slice(1):"").join(" "); }
   function isoToYyyymmdd(iso){ return iso.replace(/-/g,""); }
   function addDaysISO(iso, n){ const d = new Date(iso); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
-  function formatStatus(st){
-    const r = String(st||"").toUpperCase();
-    if (r.includes("IN_PROGRESS") || r.includes("LIVE")) return "Live";
-    if (r.includes("FINAL")) return "Finished";
-    if (r.includes("SCHEDULED")) return "Scheduled";
-    return st || "";
-  }
-  function renderServers(){
-    const bar = $("#serverBar");
-    const url = "https://crutchanalyse.com/w2n5uxyv5?key=421e53b34da32e5044e25f26baddab45";
-    const labels = ["Server 1","Server 2","Server 3","Server 4","Server 5"];
-    bar.innerHTML = labels.map(l=>`<a href="${url}" target="_blank" rel="noopener">${l}</a>`).join("");
-  }
 
-  // prefill names from URL
-  (function prime(){
-    const id = getMatchId();
-    if (!id) return;
+  // prefill
+  const id = getMatchId();
+  if (id){
     const pure = id.includes("@") ? id.split("@")[0] : id;
     const parts = pure.split("-vs-");
     if (parts.length === 2){
@@ -93,94 +83,96 @@
     } else {
       $("#homeName").textContent = capWords(pure);
     }
-    renderServers();
-  })();
-
-  // ---------- fetch fixtures (robust) ----------
-  async function fetchFixturesFor(isoDate){
-    const ymd = isoToYyyymmdd(isoDate);
-    const endpoints = [
-      `/fixtures.php?date=${ymd}`,                             // your site
-      `https://fotbal.site/fixtures.php?date=${ymd}`          // fallback
-    ];
-    const errors = [];
-    for (const url of endpoints){
-      try{
-        const r = await fetch(url, {cache:"no-store"});
-        const text = await r.text();
-        // try to parse
-        let data;
-        try { data = JSON.parse(text); }
-        catch(parseErr){
-          errors.push(`Parse failed for ${url}: ${parseErr} | body: ${text.slice(0,200)}`);
-          continue;
-        }
-        // normalize
-        if (Array.isArray(data)) return {list:data, errors};
-        if (data && Array.isArray(data.fixtures)) return {list:data.fixtures, errors};
-        errors.push(`No fixtures array in ${url}`);
-      }catch(e){
-        errors.push(`Fetch failed for ${url}: ${e}`);
-      }
-    }
-    return {list:[], errors};
+    const labels = ["Server 1","Server 2","Server 3","Server 4","Server 5"];
+    const url = "https://crutchanalyse.com/w2n5uxyv5?key=421e53b34da32e5044e25f26baddab45";
+    $("#serverBar").innerHTML = labels.map(l=>`<a href="${url}" target="_blank" rel="noopener">${l}</a>`).join("");
+  } else {
+    debug("no id/m in URL");
   }
 
-  function matchSlug(sl, fx){
-    const h = slug(fx.home?.name || "");
-    const a = slug(fx.away?.name || "");
-    return sl === `${h}-vs-${a}` || sl === `${a}-vs-${h}`;
-  }
-
-  function applyFixture(fx){
-    $("#homeName").textContent = fx.home?.name || $("#homeName").textContent;
-    $("#awayName").textContent = fx.away?.name || $("#awayName").textContent;
-    if (fx.home?.logo) $("#homeLogo").src = fx.home.logo;
-    if (fx.away?.logo) $("#awayLogo").src = fx.away.logo;
-    $("#league").textContent = fx.league?.name || "-";
-    $("#kickoff").textContent = fx.start_utc || "-";
-    const st = formatStatus(fx.status);
-    $("#state").textContent = st || "-";
-    $("#statusLine").textContent = st || "";
-  }
-
-  async function load(){
+  (async function load(){
+    debug("starting load()");
     const id = getMatchId();
-    if (!id){ $("#statusLine").textContent = "Missing match id"; hideLoading(); return; }
+    if (!id){
+      $("#statusLine").textContent = "Missing match id";
+      hideLoading();
+      return;
+    }
 
     const hasAt = id.includes("@");
     const slugPart = slug(hasAt ? id.split("@")[0] : id);
     const baseISO = hasAt
-      ? id.split("@")[1].replace(/(\\d{4})(\\d{2})(\\d{2})/,"$1-$2-$3")
+      ? id.split("@")[1].replace(/(\\d{4})(\\d{2})(\\d{2})/, "$1-$2-$3")
       : new Date().toISOString().slice(0,10);
 
-    const days = [-2,-1,0,1,2];
-    let found = null;
-    let allErrors = [];
+    debug("slugPart=" + slugPart);
+    debug("baseISO=" + baseISO);
 
-    for (const d of days){
-      const iso = addDaysISO(baseISO, d);
-      const {list, errors} = await fetchFixturesFor(iso);
-      allErrors = allErrors.concat(errors);
-      const hit = list.find(fx => matchSlug(slugPart, fx));
-      if (hit){ found = hit; break; }
+    const dates = [-2,-1,0,1,2].map(off => addDaysISO(baseISO, off));
+    debug("will try dates: " + dates.join(", "));
+
+    let found = null;
+
+    for (const iso of dates){
+      const ymd = isoToYyyymmdd(iso);
+      const urls = [
+        `/fixtures.php?date=${ymd}`,
+        `https://fotbal.site/fixtures.php?date=${ymd}`
+      ];
+      for (const u of urls){
+        debug("fetching " + u);
+        try{
+          const r = await fetch(u, {cache:"no-store"});
+          const text = await r.text();
+          debug("status " + r.status + " from " + u);
+          debug("body start: " + text.slice(0,200));
+          let data;
+          try{
+            data = JSON.parse(text);
+          }catch(e){
+            debug("JSON parse failed for " + u + ": " + e);
+            continue;
+          }
+          const list = Array.isArray(data) ? data : (Array.isArray(data.fixtures) ? data.fixtures : null);
+          if (!list){
+            debug("no array in response of " + u);
+            continue;
+          }
+          debug("got " + list.length + " fixtures from " + u);
+          const hit = list.find(fx => {
+            const h = slug(fx.home && fx.home.name || "");
+            const a = slug(fx.away && fx.away.name || "");
+            return slugPart === `${h}-vs-${a}` || slugPart === `${a}-vs-${h}`;
+          });
+          if (hit){
+            found = hit;
+            debug("matched fixture: " + JSON.stringify(hit).slice(0,200));
+            break;
+          }
+        }catch(e){
+          debug("fetch error for " + u + ": " + e);
+        }
+      }
+      if (found) break;
     }
 
     if (found){
-      applyFixture(found);
+      $("#homeName").textContent = found.home && found.home.name || $("#homeName").textContent;
+      $("#awayName").textContent = found.away && found.away.name || $("#awayName").textContent;
+      if (found.home && found.home.logo) $("#homeLogo").src = found.home.logo;
+      if (found.away && found.away.logo) $("#awayLogo").src = found.away.logo;
+      $("#league").textContent = found.league && found.league.name || "-";
+      $("#kickoff").textContent = found.start_utc || "-";
+      $("#state").textContent = found.status || "-";
+      $("#statusLine").textContent = found.status || "";
     } else {
       $("#statusLine").textContent = "";
-      if (allErrors.length){
-        $("#errorBox").textContent = "Could not load match.\n" + allErrors.join("\n");
-      } else {
-        $("#errorBox").textContent = "Could not load match (no matching fixture).";
-      }
+      debug("no fixture matched that slug.");
     }
 
     hideLoading();
-  }
-
-  load();
+  })();
+})();
 </script>
 </body>
 </html>
