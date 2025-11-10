@@ -3,7 +3,7 @@
 <head>
   <script>
     (function () {
-      // allow fotbal.site so it doesn't redirect away
+      // allow fotbal.site too
       var ok = ['kixonair.com', 'www.kixonair.com', 'fotbal.site', 'www.fotbal.site', '', 'localhost', '127.0.0.1'];
       try {
         if (!ok.includes(location.hostname)) location.replace('https://kixonair.com');
@@ -153,7 +153,7 @@
       font-weight:500;
     }
     .serverbar .sbtn:hover{
-      background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%);
+      background: linear-gradient(135deg, var (--accent-hover) 0%, var(--accent) 100%);
       transform: translateY(-2px);
     }
     .loading{
@@ -283,6 +283,7 @@
   const $ = id => document.getElementById(id);
   function hideLoading(){ try{ $('loadingOverlay').classList.add('hidden'); }catch{} if(__loadFailTimer){clearTimeout(__loadFailTimer);__loadFailTimer=null;} }
   function qs(name){ return new URLSearchParams(location.search).get(name) || ''; }
+  function getMatchId(){ return qs('id') || qs('m') || ''; } // <-- accept ?m= as well
   function slug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
   function capWords(s){ return String(s||'').split(/[-\s]+/).map(w => w? w[0].toUpperCase()+w.slice(1):'').join(' '); }
   function addDays(dateStr, delta){
@@ -317,7 +318,7 @@
   }
 
   (function prime(){
-    const id = qs('id');
+    const id = getMatchId();
     if (id && id.includes('@')){
       const slPart = id.split('@')[0];
       const toks = slPart.split('-vs-');
@@ -411,7 +412,7 @@
     $('loadingOverlay').classList.remove('hidden');
     __loadFailTimer = setTimeout(hideLoading, 3500);
 
-    const id  = qs('id');
+    const id  = getMatchId();
     if (!id){ $('statusLine').textContent='Missing match id'; hideLoading(); return; }
 
     async function serverResolve(){
