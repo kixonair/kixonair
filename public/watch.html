@@ -113,7 +113,7 @@
       text-align:center;
       font-size:18px;
       font-weight:500;
-      color: var(--accent);
+      color: var (--accent);
     }
     .meta{
       display:grid;
@@ -153,7 +153,7 @@
       font-weight:500;
     }
     .serverbar .sbtn:hover{
-      background: linear-gradient(135deg, var (--accent-hover) 0%, var(--accent) 100%);
+      background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%);
       transform: translateY(-2px);
     }
     .loading{
@@ -265,25 +265,16 @@
 </main>
 
 <script>
+  // ===== CONFIG =====
   const API_KEY = 'kix-7d29f2d9ef3c4';
   const API_BASE = './api';
 
-  function apiFetch(url, init = {}) {
-    const u = new URL(url, location.href);
-    u.searchParams.set('api_key', API_KEY);
-    const headers = Object.assign({}, init.headers || {}, {
-      'API_key': API_KEY,
-      'api_key': API_KEY,
-      'X-API-Key': API_KEY
-    });
-    return fetch(u.toString(), Object.assign({ credentials: 'include' }, init, { headers }));
-  }
-
+  // ===== helpers =====
   let __loadFailTimer = null;
   const $ = id => document.getElementById(id);
   function hideLoading(){ try{ $('loadingOverlay').classList.add('hidden'); }catch{} if(__loadFailTimer){clearTimeout(__loadFailTimer);__loadFailTimer=null;} }
   function qs(name){ return new URLSearchParams(location.search).get(name) || ''; }
-  function getMatchId(){ return qs('id') || qs('m') || ''; } // <-- accept ?m= as well
+  function getMatchId(){ return qs('id') || qs('m') || ''; } // accepts ?id= or ?m=
   function slug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
   function capWords(s){ return String(s||'').split(/[-\s]+/).map(w => w? w[0].toUpperCase()+w.slice(1):'').join(' '); }
   function addDays(dateStr, delta){
@@ -291,7 +282,6 @@
     dt.setUTCDate(dt.getUTCDate()+delta);
     return dt.toISOString().slice(0,10);
   }
-
   function formatStatus(status){
     const raw = String(status || '').toUpperCase();
     const livePatterns = ['IN_PLAY','LIVE','PLAYING','1ST HALF','FIRST HALF','2ND HALF','SECOND HALF'];
@@ -317,16 +307,20 @@
     renderServerButtonsFromSlug(sl);
   }
 
+  // prefill from URL
   (function prime(){
     const id = getMatchId();
-    if (id && id.includes('@')){
-      const slPart = id.split('@')[0];
-      const toks = slPart.split('-vs-');
+    if (id){
+      const pure = id.includes('@') ? id.split('@')[0] : id;
+      const toks = pure.split('-vs-');
       if (toks.length === 2){
         $('homeName').textContent = capWords(toks[0]);
         $('awayName').textContent = capWords(toks[1]);
-        renderServerButtonsFromSlug(slPart);
+      } else {
+        $('homeName').textContent = capWords(pure);
       }
+      renderServerButtonsFromSlug(pure);
+      $('statusLine').textContent = 'Loading…';
     }
   })();
 
@@ -367,8 +361,7 @@
 
   function tokens(name){
     const s = slug(name); const parts = s.split('-').filter(Boolean);
-    const first = parts[0] || s, last = parts[parts.length-1] || s;
-    return { full:s, first, last };
+    return { full:s, first:parts[0] || s, last:parts[parts.length-1] || s };
   }
   function matchSlug(slugPart, fx){
     const nmHome = tokens(fx.home?.name || '');
@@ -379,33 +372,34 @@
     const toks = slugPart.split('-vs-');
     if (toks.length === 2){
       const a=toks[0], b=toks[1];
-      const hitAB = (nmHome.full.includes(a) || nmHome.first===a || nmHome.last===a) && (nmAway.full.includes(b) || nmAway.first===b || nmAway.last===b);
-      const hitBA = (nmHome.full.includes(b) || nmHome.first===b || nmHome.last===b) && (nmAway.full.includes(a) || nmAway.first===a || nmAway.last===a);
+      const hitAB = nmHome.full.includes(a) && nmAway.full.includes(b);
+      const hitBA = nmHome.full.includes(b) && nmAway.full.includes(a);
       return hitAB || hitBA;
     }
     return false;
   }
 
   function applyFixture(fx){
-    const homeName = fx.home?.name || 'Home';
-    const awayName = fx.away?.name || 'Away';
+    const homeName = fx.home?.name || $('homeName').textContent || 'Home';
+    const awayName = fx.away?.name || $('awayName').textContent || 'Away';
     const homeLogo = fx.home?.logo || '';
     const awayLogo = fx.away?.logo || '';
     const league   = fx.league?.name || '';
-    const statusRaw = fx.status || 'SCHEDULED';
+    const statusRaw = fx.status || '';
     const kickoff  = fx.start_utc || '';
+
     $('homeName').textContent = homeName;
     $('awayName').textContent = awayName;
-    $('homeLogo').src = homeLogo || '/logo.svg';
-    $('awayLogo').src = awayLogo || '/logo.svg';
+    if (homeLogo) $('homeLogo').src = homeLogo;
+    if (awayLogo) $('awayLogo').src = awayLogo;
     $('leagueBadge').textContent = league || '';
     $('league').textContent = league || '-';
     const friendlyStatus = formatStatus(statusRaw);
     $('state').textContent = friendlyStatus || '-';
     $('statusLine').textContent = friendlyStatus || '';
     $('kickoff').textContent = kickoff ? new Date(kickoff).toLocaleString() : '-';
+
     renderServerButtonsFromFixture(fx);
-    hideLoading();
   }
 
   async function load(){
@@ -415,35 +409,25 @@
     const id  = getMatchId();
     if (!id){ $('statusLine').textContent='Missing match id'; hideLoading(); return; }
 
-    async function serverResolve(){
-      try{
-        let r = await apiFetch(`${API_BASE}/fixture/${encodeURIComponent(id)}`);
-        if (!r.ok) r = await apiFetch(`${API_BASE}/fixture?id=${encodeURIComponent(id)}`);
-        if (r.ok){
-          const j = await r.json().catch(()=>null);
-          return (j && (j.fixture || j.data?.fixture)) || null;
-        }
-      }catch(e){}
-      return null;
+    // try fixtures list only (because fotbal.site doesn't have /fixture/)
+    const hasAt = id.includes('@');
+    const slugPart = slug(hasAt ? id.split('@')[0] : id);
+    const isoHint  = hasAt ? id.split('@')[1] : null;
+    const base = (isoHint || new Date().toISOString()).slice(0,10);
+    const days = [ -2,-1,0,1,2 ].map(n => addDays(base, n));
+    let found = null;
+    for (const d of days){
+      const list = await fixturesFor(d);
+      const hit = list.find(fx => matchSlug(slugPart, fx));
+      if (hit){ found = hit; break; }
     }
-
-    async function clientResolve(){
-      const hasAt = id.includes('@');
-      const slugPart = slug(hasAt ? id.split('@')[0] : id);
-      const isoHint  = hasAt ? id.split('@')[1] : null;
-      const base = (isoHint || new Date().toISOString()).slice(0,10);
-      const days = [ -2,-1,0,1,2 ].map(n => addDays(base, n));
-      for (const d of days){
-        const list = await fixturesFor(d);
-        const hit = list.find(fx => matchSlug(slugPart, fx));
-        if (hit) return hit;
-      }
-      return null;
+    if (found){
+      applyFixture(found);
+    } else {
+      // no match in fotbal.site -> keep names from slug, but don't show error
+      $('statusLine').textContent = ' ';
     }
-
-    const [s,c] = await Promise.allSettled([serverResolve(), clientResolve()]);
-    const fx = (s.status==='fulfilled' && s.value) || (c.status==='fulfilled' && c.value) || null;
-    if (fx){ applyFixture(fx); } else { $('statusLine').textContent='Could not load match data.'; hideLoading(); }
+    hideLoading();
   }
   load();
 </script></body>
