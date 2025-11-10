@@ -410,84 +410,6 @@ var watchHref = WATCH_URL + '?id=' + encodeURIComponent(fixtureId);
     renderVisibility();
   }
 
-  
-  // === browser ESPN fallback via Cloudflare Worker ===
-  const ESPN_WORKER_BASE = "https://kixonair-espn-proxy.youmovies-cc.workers.dev/?url=";
-  const ESPN_SEGMENTS = [
-    'soccer/eng.1',
-    'soccer/esp.1',
-    'soccer/ita.1',
-    'soccer/ger.1',
-    'soccer/fra.1',
-    'soccer/uefa.champions',
-    'soccer',
-    'basketball/nba',
-    'football/nfl',
-    'hockey/nhl'
-  ];
-  const ESPN_META = {
-    'soccer/eng.1': { sport: 'Soccer', name: 'Premier League', code: 'PL' },
-    'soccer/esp.1': { sport: 'Soccer', name: 'La Liga', code: 'LL' },
-    'soccer/ita.1': { sport: 'Soccer', name: 'Serie A', code: 'SA' },
-    'soccer/ger.1': { sport: 'Soccer', name: 'Bundesliga', code: 'BL1' },
-    'soccer/fra.1': { sport: 'Soccer', name: 'Ligue 1', code: 'L1' },
-    'soccer/uefa.champions': { sport: 'Soccer', name: 'UEFA Champions League', code: 'UCL' },
-    'basketball/nba': { sport: 'NBA', name: 'NBA', code: 'NBA' },
-    'football/nfl': { sport: 'NFL', name: 'NFL', code: 'NFL' },
-    'hockey/nhl': { sport: 'NHL', name: 'NHL', code: 'NHL' },
-    'soccer': { sport: 'Soccer', name: 'Football', code: '' }
-  };
-  async function espnFetchBoard(seg, dateStr) {
-    const espnUrl = `https://site.api.espn.com/apis/site/v2/sports/${seg}/scoreboard?dates=${dateStr}`;
-    const url = ESPN_WORKER_BASE + encodeURIComponent(espnUrl);
-    const r = await fetch(url);
-    if (!r.ok) return { events: [] };
-    return r.json();
-  }
-  function espnMap(data, seg) {
-    const meta = ESPN_META[seg] || { sport: 'Soccer', name: 'Football', code: '' };
-    const out = [];
-    (data.events || []).forEach(ev => {
-      const iso = ev.date;
-      const comp = (ev.competitions && ev.competitions[0]) || {};
-      const teams = comp.competitors || [];
-      const home = teams.find(t => t.homeAway === 'home') || teams[0] || {};
-      const away = teams.find(t => t.homeAway === 'away') || teams[1] || {};
-      out.push({
-        sport: meta.sport,
-        league: {
-          name: (comp.league && comp.league.name) || meta.name,
-          code: (comp.league && comp.league.abbreviation) || meta.code || ''
-        },
-        start_utc: iso,
-        status: (comp.status && comp.status.type && comp.status.type.name) || 'STATUS_SCHEDULED',
-        home: {
-          name: (home.team && (home.team.shortDisplayName || home.team.displayName || home.team.name)) || '',
-          logo: (home.team && (home.team.logo || (home.team.logos && home.team.logos[0] && home.team.logos[0].href))) || ''
-        },
-        away: {
-          name: (away.team && (away.team.shortDisplayName || away.team.displayName || away.team.name)) || '',
-          logo: (away.team && (away.team.logo || (away.team.logos && away.team.logos[0] && away.team.logos[0].href))) || ''
-        }
-      });
-    });
-    return out;
-  }
-  async function browserFetchFixtures(dateStr){
-    const jobs = ESPN_SEGMENTS.map(seg =>
-      espnFetchBoard(seg, dateStr).then(d => espnMap(d, seg)).catch(() => [])
-    );
-    const all = await Promise.all(jobs);
-    const flat = all.flat();
-    flat.sort((a,b)=>{
-      if (!a.start_utc) return 1;
-      if (!b.start_utc) return -1;
-      return a.start_utc.localeCompare(b.start_utc);
-    });
-    return flat;
-  }
-
-
   async function load(dateStr){
     ['football','nba','nfl','nhl'].forEach(function(id){
       const el = document.getElementById(id);
@@ -498,27 +420,13 @@ var watchHref = WATCH_URL + '?id=' + encodeURIComponent(fixtureId);
       const qb = (dateStr > todayStr) ? (`&force=1&_=${Date.now()}`) : '';
       const r = await fetch('/api/fixtures?date=' + dateStr + qb);
       const j = await r.json();
-      let fixtures = j.fixtures || [];
-      if (!fixtures.length) {
-        fixtures = await browserFetchFixtures(dateStr);
-      }
-      ALL = fixtures;
+      ALL = j.fixtures || [];
       renderLists();
     }catch(e){
-      try{
-        const fixtures = await browserFetchFixtures(dateStr);
-        ALL = fixtures;
-        renderLists();
-      }catch(e2){
-        document.getElementById('counts').textContent = 'Could not load games. Try again shortly.';
-        ['football','nba','nfl','nhl'].forEach(function(id){
-          const el = document.getElementById(id);
-          el.innerHTML = ''; setEmpty(el);
-        });
-      }
+      document.getElementById('counts').textContent = 'Could not load games. Try again shortly.';
+      ['football','nba','nfl','nhl'].forEach(function(id){ setEmpty(document.getElementById(id)); });
     }
   }
-  
 
   // Load fixtures occurring within the next 48 hours.  This helper fetches
   // today’s and tomorrow’s fixtures from the backend and filters them
@@ -721,6 +629,66 @@ async function refreshStatuses(){
   setInterval(tick, 1000);
   tick();
 })();
+
+
+  const WORKER_API = "https://kixonair-espn-proxy.youmovies-cc.workers.dev/";
+
+  function ymd(ts) {
+    const d = new Date(ts);
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 10);
+  }
+
+  async function loadUpcoming() {
+    ['football','nba','nfl','nhl'].forEach(function(id){
+      const el = document.getElementById(id);
+      el.innerHTML = '';
+      for (let i=0;i<3;i++) el.appendChild(skeleton());
+    });
+    try {
+      const now = Date.now();
+      const todayStr = ymd(now);
+      const tomorrowStr = ymd(now + 86400000);
+
+      const [todayData, tomorrowData] = await Promise.all([
+        fetch(WORKER_API + "?fixtures=1&date=" + todayStr).then(r=>r.json()).catch(()=>{return {fixtures:[]}}),
+        fetch(WORKER_API + "?fixtures=1&date=" + tomorrowStr).then(r=>r.json()).catch(()=>{return {fixtures:[]}})
+      ]);
+
+      let combined = [];
+      if (todayData && todayData.fixtures) combined = combined.concat(todayData.fixtures);
+      if (tomorrowData && tomorrowData.fixtures) combined = combined.concat(tomorrowData.fixtures);
+
+      // keep next 48h (+ small past window)
+      const H48 = 48*60*60*1000;
+      const past = 6*60*60*1000;
+      combined = combined.filter(fx => {
+        const ts = Date.parse(fx.start_utc);
+        if (!isFinite(ts)) return false;
+        const diff = ts - now;
+        return diff < H48 && diff > -past;
+      });
+
+      ALL = combined;
+      renderLists();
+      const footballCount = combined.filter(fx => fx.sport === 'Soccer').length;
+      const nbaCount = combined.filter(fx => fx.sport === 'NBA').length;
+      const nflCount = combined.filter(fx => fx.sport === 'NFL').length;
+      const nhlCount = combined.filter(fx => fx.sport === 'NHL').length;
+      document.getElementById('counts').textContent =
+        'Loaded ' + footballCount + ' Football, ' + nbaCount + ' NBA, ' + nflCount + ' NFL, ' + nhlCount + ' NHL (via your worker)';
+    } catch(e) {
+      document.getElementById('counts').textContent = 'Could not load games from worker.';
+      ['football','nba','nfl','nhl'].forEach(function(id) {
+        const el = document.getElementById(id);
+        el.innerHTML = '<div class="empty">No games.</div>';
+      });
+    }
+  }
+
+  // auto load
+  loadUpcoming();
+  setInterval(loadUpcoming, 15*60*1000);
 
 </script></body>
 </html>
