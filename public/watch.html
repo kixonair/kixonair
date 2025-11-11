@@ -70,11 +70,14 @@
   </div>
 </div>
 
+<!-- popup with the good text -->
 <div id="server-tip" class="tip-overlay hidden">
   <div class="tip-box">
-    <div class="tip-title">Try the other servers</div>
-    <div class="tip-text">Sometimes one server is busy. If it doesn’t load right away, tap another one — you can try all 6.</div>
-    <button class="tip-btn" onclick="document.getElementById('server-tip').classList.add('hidden')">OK</button>
+    <div class="tip-title">Streams can be busy</div>
+    <div class="tip-text">
+      If one server doesn’t load or buffers, tap another one — you can try all 6 servers.
+    </div>
+    <button class="tip-btn" onclick="document.getElementById('server-tip').classList.add('hidden')">Got it</button>
   </div>
 </div>
 
@@ -146,14 +149,12 @@
     return 'Scheduled';
   }
 
-  // show minute only when actually live
   function displayMinute(fx){
     var st = String((fx && fx.status) || '').toUpperCase();
     var live = /(LIVE|IN_PLAY|PLAYING|Q1|Q2|Q3|Q4|OT|OVERTIME|HALF)/.test(st);
     if (!live) return '';
     var m = fx && fx.minute ? String(fx.minute).trim() : '';
     if (!m) return '';
-    // filter out schedule-like strings
     if (/(AM|PM|ET|GMT|EST)/i.test(m)) return '';
     if (/\d{1,2}\/\d{1,2}/.test(m)) return '';
     return m;
@@ -238,7 +239,6 @@
     var raw = qs('id') || qs('m') || '';
     var pure = raw.indexOf('@') !== -1 ? raw.split('@')[0] : raw;
 
-    // prefill names
     if (pure){
       var parts = pure.split('-vs-');
       if (parts.length === 2){
@@ -279,7 +279,6 @@
       startStatusPoll(foundDate, slugPart);
     }
 
-    // always show page
     $('kx-loader').classList.add('hidden');
     $('page').style.display = 'block';
     $('server-tip').classList.remove('hidden');
