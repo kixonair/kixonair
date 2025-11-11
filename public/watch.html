@@ -23,7 +23,7 @@
       font-family:'Segoe UI', Tahoma, sans-serif;
     }
 
-    /* simple loader */
+    /* loader */
     #kx-loader{
       position:fixed;
       inset:0;
@@ -75,16 +75,7 @@
     }
     .btn:hover{ background:#6366f1; color:#fff; }
 
-    .badge{
-      display:inline-block;
-      padding:4px 12px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.35);
-      background:rgba(15,23,42,.45);
-      font-size:12px;
-    }
-
-    /* hide the league badge pill */
+    /* hide league pill completely */
     #leagueBadge { display:none !important; }
 
     .teams{
@@ -99,10 +90,9 @@
       padding:16px;
       margin:20px 0 8px;
     }
-
     .side{ display:flex; flex-direction:column; align-items:center; gap:10px; }
     .side img{ width:80px; height:80px; object-fit:contain; }
-    .teamName{ font-size:20px; font-weight:600; white-space:normal; overflow-wrap:anywhere; text-align:center; }
+    .teamName{ font-size:20px; font-weight:600; text-align:center; }
 
     .h1{ font-size:32px; font-weight:800; color:#6366f1; }
 
@@ -138,7 +128,47 @@
       text-align:center;
     }
 
-    /* ✅ Improved mobile view */
+    /* popup */
+    .tip-overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(15,23,42,.55);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:200;
+    }
+    .tip-overlay.hidden{display:none;}
+    .tip-box{
+      background:#0f172a;
+      border:1px solid rgba(148,163,184,.5);
+      border-radius:16px;
+      padding:18px 18px 14px;
+      max-width:320px;
+      text-align:left;
+      box-shadow:0 12px 40px rgba(0,0,0,.35);
+    }
+    .tip-title{
+      font-weight:600;
+      margin-bottom:6px;
+    }
+    .tip-text{
+      font-size:13px;
+      color:#cbd5f5;
+      line-height:1.4;
+      margin-bottom:14px;
+    }
+    .tip-btn{
+      display:inline-block;
+      background:#6366f1;
+      border:none;
+      border-radius:999px;
+      padding:7px 16px;
+      color:#fff;
+      cursor:pointer;
+      font-weight:500;
+    }
+
     @media (max-width:520px){
       .wrap{padding:10px 10px 80px;}
       .headerbar{grid-template-columns:auto 1fr; gap:10px;}
@@ -146,8 +176,9 @@
       .teams .side img{width:58px; height:58px;}
       .teamName{font-size:15px;}
       .meta{grid-template-columns:1fr; gap:10px;}
-      .serverbar{flex-wrap:wrap; overflow-x:visible; justify-content:flex-start; gap:10px;}
+      .serverbar{flex-wrap:wrap; justify-content:flex-start; gap:10px;}
       .serverbar a{flex:0 0 calc(50% - 10px);}
+      .tip-box{margin:0 14px;}
     }
   </style>
 </head>
@@ -159,6 +190,17 @@
     <div class="kx-logo" aria-hidden="true"></div>
     <div class="kx-title">Kixonair</div>
     <div class="kx-sub">Loading match…</div>
+  </div>
+</div>
+
+<!-- popup -->
+<div id="server-tip" class="tip-overlay hidden" role="dialog" aria-modal="true">
+  <div class="tip-box">
+    <div class="tip-title">Heads up ⚽</div>
+    <div class="tip-text">
+      Streams can be busy. If one server doesn’t load or buffers, tap the next one — you can try all 6 servers.
+    </div>
+    <button class="tip-btn" onclick="document.getElementById('server-tip').classList.add('hidden')">Got it</button>
   </div>
 </div>
 
@@ -234,11 +276,11 @@
   }
 
   function renderServers(slugPart){
-    const bar=$('serverBar')||$('servers');
-    if(!bar)return;
+    const bar=$('serverBar');
+    if(!bar) return;
     const url='/stream_premium.html?id='+encodeURIComponent(slugPart)+'&k=2e53b34da32e5044e25f26baddab45';
-    const labels=['Server 1','Server 2','Server 3','Server 4','Server 5'];
-    bar.innerHTML=labels.map(l=>`<a href="${url}" target="_blank" rel="noopener">${l}</a>`).join('');
+    const labels=['Server 1','Server 2','Server 3','Server 4','Server 5','Server 6'];
+    bar.innerHTML = labels.map(l => `<a href="${url}" target="_blank" rel="noopener">${l}</a>`).join('');
   }
 
   function matchSlug(sl,fx){
@@ -258,10 +300,10 @@
         let data;
         try{data=JSON.parse(t);}catch{continue;}
         if(Array.isArray(data))return data;
-        if(data&&Array.isArray(data.fixtures))return data.fixtures;
+        if(data && Array.isArray(data.fixtures))return data.fixtures;
       }catch(e){}
     }
-    return[];
+    return [];
   }
 
   function applyFixtureStatus(fx){
@@ -287,7 +329,7 @@
     setInterval(async()=>{
       const list=await fixturesFor(baseISO);
       const hit=list.find(fx=>matchSlug(slugPart,fx));
-      if(hit)applyFixtureStatus(hit);
+      if(hit) applyFixtureStatus(hit);
     },25000);
   }
 
@@ -300,12 +342,14 @@
         $('homeName').textContent=capWords(parts[0]);
         $('awayName').textContent=capWords(parts[1]);
         renderServers(pure);
-      }else{
+      } else {
         $('homeName').textContent=capWords(pure);
         renderServers(pure);
       }
     }
-    const baseISO=raw.includes('@')?raw.split('@')[1].replace(/(\\d{4})(\\d{2})(\\d{2})/,'$1-$2-$3'):new Date().toISOString().slice(0,10);
+    const baseISO=raw.includes('@')
+      ? raw.split('@')[1].replace(/(\\d{4})(\\d{2})(\\d{2})/,'$1-$2-$3')
+      : new Date().toISOString().slice(0,10);
     const slugPart=slug(raw.includes('@')?raw.split('@')[0]:raw);
     const days=[-2,-1,0,1,2];
     let found=null;
@@ -314,14 +358,18 @@
       const iso=addDaysISO(baseISO,off);
       const list=await fixturesFor(iso);
       const hit=list.find(fx=>matchSlug(slugPart,fx));
-      if(hit){found=hit;foundDate=iso;break;}
+      if(hit){ found=hit; foundDate=iso; break; }
     }
     if(found){
       applyFixture(found);
       startStatusPoll(foundDate,slugPart);
     }
+
+    // show everything
     $('kx-loader').classList.add('hidden');
     $('page').style.display='block';
+    // show tip once
+    $('server-tip').classList.remove('hidden');
   }
 
   load();
