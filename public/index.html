@@ -402,9 +402,17 @@
         if (state) { state.textContent = 'SCHEDULED'; state.classList.remove('live','finished'); }
         if (dot) dot.classList.remove('live');
       } else {
-        if (state && state.textContent.toUpperCase() === 'LIVE') {
-          if (cd) cd.textContent = '';
-          if (dot) dot.classList.add('live');
+        if (state) {
+          const current = state.textContent.toUpperCase();
+          if (current === 'SCHEDULED') {
+            state.textContent = 'LIVE';
+            state.classList.add('live');
+            if (dot) dot.classList.add('live');
+            if (cd) cd.textContent = '';
+          } else if (current === 'LIVE') {
+            if (cd) cd.textContent = '';
+            if (dot) dot.classList.add('live');
+          }
         }
       }
     });

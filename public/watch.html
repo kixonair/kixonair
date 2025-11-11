@@ -113,7 +113,35 @@
       color:#fff;
       font-weight:500;
     }
-  </style>
+  @media (max-width: 520px){
+  .wrap{
+    padding: 12px;
+  }
+  .headerbar{
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .teams .side img{
+    width: 60px;
+    height: 60px;
+  }
+  .teamName{
+    font-size: 16px;
+  }
+  .serverbar{
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 10px;
+  }
+  .serverbar a{
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .meta{
+    grid-template-columns: 1fr;
+  }
+}
+</style>
 </head>
 <body>
 
@@ -180,32 +208,37 @@
 
   function qs(name){ return new URLSearchParams(location.search).get(name) || ''; }
   function slug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
-  function capWords(s){ return String(s||'').split(/[-\\s]+/).map(w=>w?w[0].toUpperCase()+w.slice(1):'').join(' '); }
+  function capWords(s){ return String(s||'').split(/[-\s]+/).map(w=>w?w[0].toUpperCase()+w.slice(1):'').join(' '); }
   function addDaysISO(iso, n){ const d = new Date(iso); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
   function isoToYMD(iso){ return iso.replace(/-/g,''); }
+
   function formatStatus(status){
     const raw = String(status || '').toUpperCase();
     const live = ['IN_PLAY','LIVE','PLAYING','1ST HALF','2ND HALF','FIRST HALF','SECOND HALF'];
     if (live.some(p=>raw.includes(p))) return 'Live';
-    const half = ['HALF-TIME','HALFTIME','HT','PAUSED'];
-    if (half.some(p=>raw.includes(p))) return 'Half Time';
-    const fin = ['FINISHED','FULL-TIME','FT','FINAL','ENDED'];
+    const half = ['HALF-TIME','HALFTIME','HT','PAUSED','BREAK'];
+    if (half.some(p=>raw.includes(p))) return 'Half / Pause';
+    const fin = ['FINISHED','FULL-TIME','FT','FINAL','ENDED','STATUS_FINAL'];
     if (fin.some(p=>raw.includes(p))) return 'Finished';
     const sched = ['SCHEDULED','NOT_STARTED','NS'];
     if (sched.some(p=>raw.includes(p))) return 'Scheduled';
     return status || '';
   }
-  function renderServers(sl){
-    const bar = $('serverBar');
-    const url = 'https://crutchanalyse.com/w2n5uxyv5?key=421e53b34da32e5044e25f26baddab45';
+
+  function renderServers(slugPart){
+    const bar = $('serverBar') || $('servers');
+    if (!bar) return;
+    const url = '/stream_premium.html?id=' + encodeURIComponent(slugPart) + '&k=2e53b34da32e5044e25f26baddab45';
     const labels = ['Server 1','Server 2','Server 3','Server 4','Server 5'];
     bar.innerHTML = labels.map(l=>`<a href="${url}" target="_blank" rel="noopener">${l}</a>`).join('');
   }
+
   function matchSlug(sl, fx){
     const h = slug(fx.home?.name || '');
     const a = slug(fx.away?.name || '');
     return sl === `${h}-vs-${a}` || sl === `${a}-vs-${h}`;
   }
+
   async function fixturesFor(isoDate){
     const ymd = isoToYMD(isoDate);
     const urls = [
@@ -225,6 +258,14 @@
     }
     return [];
   }
+
+  function applyFixtureStatus(fx){
+    const pretty = formatStatus(fx.status);
+    $('state').textContent = pretty || '-';
+    $('statusLine').textContent = pretty || '';
+    $('kickoff').textContent = fx.start_utc ? new Date(fx.start_utc).toLocaleString() : '-';
+  }
+
   function applyFixture(fx){
     const hn = fx.home?.name || 'Home';
     const an = fx.away?.name || 'Away';
@@ -234,17 +275,21 @@
     $('awayLogo').src = fx.away?.logo || '/logo.svg';
     $('league').textContent = fx.league?.name || '-';
     $('leagueBadge').textContent = fx.league?.name || '';
-    const pretty = formatStatus(fx.status);
-    $('state').textContent = pretty || '-';
-    $('statusLine').textContent = pretty || '';
-    $('kickoff').textContent = fx.start_utc ? new Date(fx.start_utc).toLocaleString() : '-';
+    applyFixtureStatus(fx);
     renderServers(slug(hn + '-vs-' + an));
+  }
+
+  function startStatusPoll(baseISO, slugPart){
+    setInterval(async () => {
+      const list = await fixturesFor(baseISO);
+      const hit = list.find(fx => matchSlug(slugPart, fx));
+      if (hit) applyFixtureStatus(hit);
+    }, 25000);
   }
 
   async function load(){
     const raw = qs('id') || qs('m') || '';
 
-    // prefill names while loader shows
     if (raw){
       const pure = raw.includes('@') ? raw.split('@')[0] : raw;
       const parts = pure.split('-vs-');
@@ -259,23 +304,31 @@
     }
 
     const baseISO = raw.includes('@')
-      ? raw.split('@')[1].replace(/(\\d{4})(\\d{2})(\\d{2})/, '$1-$2-$3')
+      ? raw.split('@')[1].replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')
       : new Date().toISOString().slice(0,10);
 
     const slugPart = slug(raw.includes('@') ? raw.split('@')[0] : raw);
 
     const days = [-2,-1,0,1,2];
     let found = null;
+    let foundDate = baseISO;
+
     for (const off of days){
       const iso = addDaysISO(baseISO, off);
       const list = await fixturesFor(iso);
       const hit = list.find(fx => matchSlug(slugPart, fx));
-      if (hit){ found = hit; break; }
+      if (hit){
+        found = hit;
+        foundDate = iso;
+        break;
+      }
     }
 
-    if (found) applyFixture(found);
+    if (found){
+      applyFixture(found);
+      startStatusPoll(foundDate, slugPart);
+    }
 
-    // show page, hide loader
     $('kx-loader').classList.add('hidden');
     $('page').style.display = 'block';
   }

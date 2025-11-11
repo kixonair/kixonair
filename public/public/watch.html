@@ -56,7 +56,35 @@
     @keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(.85);opacity:.85}50%{transform:translate(-50%,-50%) scale(1.12);opacity:1}}
     /* Hide league badge on narrow screens; full league is in meta */
     @media(max-width:600px){ #leagueBadge{display:none} }
-  </style>
+  @media (max-width: 520px){
+  .wrap{
+    padding: 12px;
+  }
+  .headerbar{
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .teams .side img{
+    width: 60px;
+    height: 60px;
+  }
+  .teamName{
+    font-size: 16px;
+  }
+  .serverbar{
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 10px;
+  }
+  .serverbar a{
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .meta{
+    grid-template-columns: 1fr;
+  }
+}
+</style>
 </head>
 <body>
 <header class="header">
@@ -97,204 +125,136 @@
 
 
 <script>
-  // ======== CONFIG ========
-  const API_KEY = 'kix-7d29f2d9ef3c4';
-  const API_BASE = './api';
-
-  function apiFetch(url, init = {}) {
-    const u = new URL(url, location.href);
-    u.searchParams.set('api_key', API_KEY);
-    const headers = Object.assign({}, init.headers || {}, {
-      'API_key': API_KEY,
-      'api_key': API_KEY,
-      'X-API-Key': API_KEY
-    });
-    return fetch(u.toString(), Object.assign({ credentials: 'include' }, init, { headers }));
-  }
-
-  // ======== helpers ========
-  let __loadFailTimer = null;
   const $ = id => document.getElementById(id);
-  function hideLoading(){ try{ $('loadingOverlay').classList.add('hidden'); }catch{} if(__loadFailTimer){clearTimeout(__loadFailTimer);__loadFailTimer=null;} }
 
   function qs(name){ return new URLSearchParams(location.search).get(name) || ''; }
-  function getMatchId(){ return qs('id') || qs('m') || ''; }
-
   function slug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
-  function capWords(s){ return String(s||'').split(/[-\s]+/).map(w => w? w[0].toUpperCase()+w.slice(1):'').join(' '); }
-  function addDays(dateStr, delta){ const dt = new Date(Date.UTC(+dateStr.slice(0,4), +dateStr.slice(5,7)-1, +dateStr.slice(8,10))); dt.setUTCDate(dt.getUTCDate()+delta); return dt.toISOString().slice(0,10); }
+  function capWords(s){ return String(s||'').split(/[-\s]+/).map(w=>w?w[0].toUpperCase()+w.slice(1):'').join(' '); }
+  function addDaysISO(iso, n){ const d = new Date(iso); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+  function isoToYMD(iso){ return iso.replace(/-/g,''); }
 
-  // Normalize statuses from API
   function formatStatus(status){
     const raw = String(status || '').toUpperCase();
-
-    // half-time / paused
-    if (/\bHT\b/.test(raw) || raw.includes('HALF-TIME') || raw.includes('HALFTIME') || raw.includes('HALF TIME') || raw.includes('PAUSED')) {
-      return 'Half Time';
-    }
-
-    // live / in progress
-    if (raw.includes('IN_PLAY') || raw.includes('LIVE') || raw.includes('PLAYING') ||
-        raw.includes('1ST HALF') || raw.includes('FIRST HALF') ||
-        raw.includes('2ND HALF') || raw.includes('SECOND HALF')) {
-      return 'Live';
-    }
-
-    // break / intermission (other sports)
-    if (raw.includes('BREAK') || raw.includes('INTERMISSION')) {
-      return 'Break';
-    }
-
-    // finished
-    if (raw.includes('FINISHED') || raw.includes('FULL-TIME') || raw === 'FT' || raw.includes('FINAL') || raw.includes('ENDED') || raw.includes('POSTGAME')) {
-      return 'Finished';
-    }
-
-    // scheduled / not started
-    if (raw.includes('SCHEDULED') || raw.includes('NOT_STARTED') || raw === 'NS') {
-      return 'Scheduled';
-    }
-
+    const live = ['IN_PLAY','LIVE','PLAYING','1ST HALF','2ND HALF','FIRST HALF','SECOND HALF'];
+    if (live.some(p=>raw.includes(p))) return 'Live';
+    const half = ['HALF-TIME','HALFTIME','HT','PAUSED','BREAK'];
+    if (half.some(p=>raw.includes(p))) return 'Half / Pause';
+    const fin = ['FINISHED','FULL-TIME','FT','FINAL','ENDED','STATUS_FINAL'];
+    if (fin.some(p=>raw.includes(p))) return 'Finished';
+    const sched = ['SCHEDULED','NOT_STARTED','NS'];
+    if (sched.some(p=>raw.includes(p))) return 'Scheduled';
     return status || '';
   }
 
-  function renderServerButtonsFromSlug(sl){
-    const bar = $('serverBar'); if (!bar) return;
+  function renderServers(slugPart){
+    const bar = $('serverBar') || $('servers');
+    if (!bar) return;
+    const url = '/stream_premium.html?id=' + encodeURIComponent(slugPart) + '&k=2e53b34da32e5044e25f26baddab45';
     const labels = ['Server 1','Server 2','Server 3','Server 4','Server 5'];
-    const url = 'https://crutchanalyse.com/w2n5uxyv5?key=421e53b34da32e5044e25f26baddab45';
-    bar.innerHTML = labels.map(l => `<a class="sbtn" href="${url}" target="_blank" rel="noopener">${l}</a>`).join('');
-  }
-  function renderServerButtonsFromFixture(fx){
-    const home = fx?.home?.name || ''; const away = fx?.away?.name || '';
-    const sl = slug(home + '-vs-' + away);
-    renderServerButtonsFromSlug(sl);
+    bar.innerHTML = labels.map(l=>`<a href="${url}" target="_blank" rel="noopener">${l}</a>`).join('');
   }
 
-  (function prime(){
-    const id = getMatchId();
-    if (id && id.includes('@')){
-      const slPart = id.split('@')[0];
-      const toks = slPart.split('-vs-');
-      if (toks.length === 2){
-        $('homeName').textContent = capWords(toks[0]);
-        $('awayName').textContent = capWords(toks[1]);
-        renderServerButtonsFromSlug(slPart);
-      }
+  function matchSlug(sl, fx){
+    const h = slug(fx.home?.name || '');
+    const a = slug(fx.away?.name || '');
+    return sl === `${h}-vs-${a}` || sl === `${a}-vs-${h}`;
+  }
+
+  async function fixturesFor(isoDate){
+    const ymd = isoToYMD(isoDate);
+    const urls = [
+      `/fixtures.php?date=${ymd}`,
+      `https://fotbal.site/fixtures.php?date=${ymd}`
+    ];
+    for (const u of urls){
+      try{
+        const r = await fetch(u, {cache:'no-store'});
+        if (!r.ok) continue;
+        const t = await r.text();
+        let data;
+        try { data = JSON.parse(t); } catch { continue; }
+        if (Array.isArray(data)) return data;
+        if (data && Array.isArray(data.fixtures)) return data.fixtures;
+      }catch(e){}
     }
-  })();
-
-  async function fixturesFor(dateStr){
-    const r = await apiFetch(`${API_BASE}/fixtures?date=${encodeURIComponent(dateStr)}&force=1`, { cache: 'no-store' }).catch(() => null);
-    if (!r || !r.ok) return [];
-    const j = await r.json().catch(() => null);
-    const list = j?.fixtures || j?.data?.fixtures || [];
-    return Array.isArray(list) ? list : [];
+    return [];
   }
 
-  function tokens(name){
-    const s = slug(name); const parts = s.split('-').filter(Boolean);
-    const first = parts[0] || s, last = parts[parts.length-1] || s;
-    return { full:s, first, last };
-  }
-  function matchSlug(slugPart, fx){
-    const nmHome = tokens(fx.home?.name || '');
-    const nmAway = tokens(fx.away?.name || '');
-    const pairA = slug(nmHome.full + '-vs-' + nmAway.full);
-    const pairB = slug(nmAway.full + '-vs-' + nmHome.full);
-    if (slugPart === pairA || slugPart === pairB) return true;
-    const toks = slugPart.split('-vs-');
-    if (toks.length === 2){
-      const a=toks[0], b=toks[1];
-      const hitAB = (nmHome.full.includes(a) || nmHome.first===a || nmHome.last===a) && (nmAway.full.includes(b) || nmAway.first===b || nmAway.last===b);
-      const hitBA = (nmHome.full.includes(b) || nmHome.first===b || nmHome.last===b) && (nmAway.full.includes(a) || nmAway.first===a || nmAway.last===a);
-      return hitAB || hitBA;
-    }
-    return false;
+  function applyFixtureStatus(fx){
+    const pretty = formatStatus(fx.status);
+    $('state').textContent = pretty || '-';
+    $('statusLine').textContent = pretty || '';
+    $('kickoff').textContent = fx.start_utc ? new Date(fx.start_utc).toLocaleString() : '-';
   }
 
   function applyFixture(fx){
-    const homeName = fx.home?.name || 'Home';
-    const awayName = fx.away?.name || 'Away';
-    const homeLogo = fx.home?.logo || '';
-    const awayLogo = fx.away?.logo || '';
-    const league   = fx.league?.name || '';
-    const statusRaw = fx.status || 'SCHEDULED';
-    const kickoff  = fx.start_utc || '';
-
-    $('homeName').textContent = homeName;
-    $('awayName').textContent = awayName;
-    $('homeLogo').src = homeLogo || '/logo.svg';
-    $('awayLogo').src = awayLogo || '/logo.svg';
-    $('leagueBadge').textContent = league || '';
-    $('league').textContent = league || '-';
-
-    const friendlyStatus = formatStatus(statusRaw);
-    $('state').textContent = friendlyStatus || '-';
-    $('statusLine').textContent = friendlyStatus || '';
-    $('kickoff').textContent = kickoff ? new Date(kickoff).toLocaleString() : '-';
-
-    renderServerButtonsFromFixture(fx);
-    hideLoading();
+    const hn = fx.home?.name || 'Home';
+    const an = fx.away?.name || 'Away';
+    $('homeName').textContent = hn;
+    $('awayName').textContent = an;
+    $('homeLogo').src = fx.home?.logo || '/logo.svg';
+    $('awayLogo').src = fx.away?.logo || '/logo.svg';
+    $('league').textContent = fx.league?.name || '-';
+    $('leagueBadge').textContent = fx.league?.name || '';
+    applyFixtureStatus(fx);
+    renderServers(slug(hn + '-vs-' + an));
   }
 
-  async function loadOnce(){
-    $('loadingOverlay').classList.remove('hidden');
-    __loadFailTimer = setTimeout(hideLoading, 3500);
+  function startStatusPoll(baseISO, slugPart){
+    setInterval(async () => {
+      const list = await fixturesFor(baseISO);
+      const hit = list.find(fx => matchSlug(slugPart, fx));
+      if (hit) applyFixtureStatus(hit);
+    }, 25000);
+  }
 
-    const id  = getMatchId();
-    if (!id){ $('statusLine').textContent='Missing match id'; hideLoading(); return; }
+  async function load(){
+    const raw = qs('id') || qs('m') || '';
 
-    async function serverResolve(){
-      try{
-        let r = await apiFetch(`${API_BASE}/fixture/${encodeURIComponent(id)}`);
-        if (!r.ok) r = await apiFetch(`${API_BASE}/fixture?id=${encodeURIComponent(id)}`);
-        if (r.ok){ const j = await r.json().catch(()=>null); return (j && (j.fixture || j.data?.fixture)) || null; }
-      }catch(e){}
-      return null;
-    }
-
-    async function clientResolve(){
-      const hasAt = id.includes('@');
-      const slugPart = slug(hasAt ? id.split('@')[0] : id);
-      const isoHint  = hasAt ? id.split('@')[1] : null;
-      const base = (isoHint || new Date().toISOString()).slice(0,10);
-      const days = [ -2,-1,0,1,2 ].map(n => addDays(base, n));
-      for (const d of days){
-        const list = await fixturesFor(d);
-        const hit = list.find(fx => matchSlug(slugPart, fx));
-        if (hit) return hit;
+    if (raw){
+      const pure = raw.includes('@') ? raw.split('@')[0] : raw;
+      const parts = pure.split('-vs-');
+      if (parts.length === 2){
+        $('homeName').textContent = capWords(parts[0]);
+        $('awayName').textContent = capWords(parts[1]);
+        renderServers(pure);
+      } else {
+        $('homeName').textContent = capWords(pure);
+        renderServers(pure);
       }
-      return null;
     }
 
-    const [s,c] = await Promise.allSettled([serverResolve(), clientResolve()]);
-    const serverFx = (s.status==='fulfilled' && s.value) || null;
-    const clientFx = (c.status==='fulfilled' && c.value) || null;
+    const baseISO = raw.includes('@')
+      ? raw.split('@')[1].replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')
+      : new Date().toISOString().slice(0,10);
 
-    function isSched(x){
-      if (!x) return false;
-      const st = String(x.status || '').toUpperCase();
-      return st === 'SCHEDULED' || st === 'NOT_STARTED' || st === 'NS';
+    const slugPart = slug(raw.includes('@') ? raw.split('@')[0] : raw);
+
+    const days = [-2,-1,0,1,2];
+    let found = null;
+    let foundDate = baseISO;
+
+    for (const off of days){
+      const iso = addDaysISO(baseISO, off);
+      const list = await fixturesFor(iso);
+      const hit = list.find(fx => matchSlug(slugPart, fx));
+      if (hit){
+        found = hit;
+        foundDate = iso;
+        break;
+      }
     }
-    function isLiveLike(x){
-      if (!x) return false;
-      const st = String(x.status || '').toUpperCase();
-      return /LIVE|IN_PLAY|IN_PROGRESS|1ST|2ND|HT|HALF|PAUSED|BREAK/.test(st);
+
+    if (found){
+      applyFixture(found);
+      startStatusPoll(foundDate, slugPart);
     }
 
-    const fx = (clientFx && (!serverFx || (isSched(serverFx) && isLiveLike(clientFx))))
-      ? clientFx
-      : (serverFx || clientFx || null);
-
-    if (fx){ applyFixture(fx); } else { $('statusLine').textContent='Could not load match data.'; hideLoading(); }
+    $('kx-loader').classList.add('hidden');
+    $('page').style.display = 'block';
   }
 
-  async function startPolling(){
-    await loadOnce();
-    setInterval(loadOnce, 30000);
-  }
-
-  startPolling();
+  load();
 </script>
 </body>
 </html>
