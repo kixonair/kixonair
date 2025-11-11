@@ -15,25 +15,40 @@
     .kx-title{font-weight:600;}.kx-sub{font-size:13px;color:#94a3b8;}
     #page{display:none;}
     .wrap{max-width:980px;margin:0 auto;padding:clamp(12px,3vw,22px);}
-    .headerbar{display:grid;grid-template-columns:auto 1fr auto;align-items:center;margin-bottom:16px;}
+    .headerbar{display:grid;grid-template-columns:auto 1fr;align-items:center;margin-bottom:16px;}
     .btn{display:inline-block;padding:8px 14px;border:1px solid #6366f1;border-radius:8px;color:#6366f1;text-decoration:none;font-weight:500;}
     .btn:hover{background:#6366f1;color:#fff;}
     #leagueBadge{display:none!important;}
-    .teams{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;align-items:center;justify-items:center;background:rgba(15,23,42,.45);border:1px solid rgba(148,163,184,.15);border-radius:16px;padding:16px;margin:20px 0 8px;}
+
+    .card{background:rgba(15,23,42,.45);border:1px solid rgba(148,163,184,.15);border-radius:16px;}
+    .teams{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;align-items:center;justify-items:center;padding:16px;}
     .side{display:flex;flex-direction:column;align-items:center;gap:10px;}
     .side img{width:80px;height:80px;object-fit:contain;}
     .teamName{font-size:20px;font-weight:600;text-align:center;}
     .h1{font-size:32px;font-weight:800;color:#6366f1;}
-    .meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;background:rgba(15,23,42,.45);border:1px solid rgba(148,163,184,.15);border-radius:16px;padding:14px;margin:18px 0;}
-    .serverbar{background:rgba(15,23,42,.45);border:1px solid rgba(148,163,184,.15);border-radius:16px;padding:14px;display:flex;gap:14px;flex-wrap:wrap;justify-content:center;}
+
+    .center{ text-align:center; color:#94a3b8; margin:10px 0 18px; }
+    #statusLine{font-weight:600;}
+    #minuteLine{font-size:14px; opacity:.95;}
+
+    .serverbar{margin-top:8px;background:rgba(15,23,42,.45);border:1px solid rgba(148,163,184,.15);border-radius:16px;padding:14px;display:flex;gap:14px;flex-wrap:wrap;justify-content:center;}
     .serverbar a{background:linear-gradient(135deg,#6366f1,#7c3aed);border-radius:12px;padding:10px 18px;text-decoration:none;color:#fff;font-weight:500;flex:0 0 calc(50% - 10px);text-align:center;}
+
+    /* popup */
     .tip-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:200;}
     .tip-overlay.hidden{display:none;}
     .tip-box{background:#0f172a;border:1px solid rgba(148,163,184,.5);border-radius:16px;padding:18px;max-width:320px;text-align:left;box-shadow:0 12px 40px rgba(0,0,0,.35);}
     .tip-title{font-weight:600;margin-bottom:6px;}
     .tip-text{font-size:13px;color:#cbd5f5;line-height:1.4;margin-bottom:14px;}
     .tip-btn{display:inline-block;background:#6366f1;border:none;border-radius:999px;padding:7px 16px;color:#fff;cursor:pointer;font-weight:500;}
-    @media(max-width:520px){.wrap{padding:10px 10px 80px;}.headerbar{grid-template-columns:auto 1fr;gap:10px;}.teams{gap:14px;}.teams .side img{width:58px;height:58px;}.teamName{font-size:15px;}.meta{grid-template-columns:1fr 1fr;gap:10px;}.serverbar a{flex:0 0 calc(50% - 10px);}.tip-box{margin:0 14px;}}
+
+    @media(max-width:520px){
+      .wrap{padding:10px 10px 80px;}
+      .teams .side img{width:58px;height:58px;}
+      .teamName{font-size:15px;}
+      .serverbar a{flex:0 0 calc(50% - 10px);}
+      .tip-box{margin:0 14px;}
+    }
   </style>
 </head>
 <body>
@@ -49,19 +64,20 @@
 
 <div id="page">
   <main class="wrap">
-    <div class="headerbar"><a class="btn" href="/">← Back</a><div></div><span id="leagueBadge" class="badge"></span></div>
-    <div class="teams">
-      <div class="side"><img id="homeLogo" src="/logo.svg"><div id="homeName" class="teamName"></div></div>
-      <div class="h1">VS</div>
-      <div class="side"><img id="awayLogo" src="/logo.svg"><div id="awayName" class="teamName"></div></div>
+    <div class="headerbar"><a class="btn" href="/">← Back</a></div>
+
+    <div class="card">
+      <div class="teams">
+        <div class="side"><img id="homeLogo" src="/logo.svg" alt=""><div id="homeName" class="teamName"></div></div>
+        <div class="h1">VS</div>
+        <div class="side"><img id="awayLogo" src="/logo.svg" alt=""><div id="awayName" class="teamName"></div></div>
+      </div>
+      <div class="center">
+        <div id="statusLine">-</div>
+        <div id="minuteLine"></div>
+      </div>
     </div>
-    <p id="statusLine" style="text-align:center;color:#94a3b8;"></p>
-    <div class="meta">
-      <div><div style="color:#94a3b8;font-size:12px">Kickoff</div><div id="kickoff">-</div></div>
-      <div><div style="color:#94a3b8;font-size:12px">Competition</div><div id="league">-</div></div>
-      <div><div style="color:#94a3b8;font-size:12px">Status</div><div id="state">-</div></div>
-      <div><div style="color:#94a3b8;font-size:12px">Minute</div><div id="minute">-</div></div>
-    </div>
+
     <div id="serverBar" class="serverbar"></div>
   </main>
 </div>
@@ -73,18 +89,122 @@ function slug(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').r
 function capWords(s){return String(s||'').split(/[-\\s]+/).map(w=>w?w[0].toUpperCase()+w.slice(1):'').join(' ');}
 function addDaysISO(iso,n){const d=new Date(iso);d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
 function isoToYMD(iso){return iso.replace(/-/g,'');}
-function formatStatus(s){const raw=String(s||'').toUpperCase();const live=['IN_PLAY','LIVE','PLAYING'];if(live.some(p=>raw.includes(p)))return'Live';const half=['HALF','PAUSED'];if(half.some(p=>raw.includes(p)))return'Half / Pause';const fin=['FINISHED','FINAL'];if(fin.some(p=>raw.includes(p)))return'Finished';const sched=['SCHEDULED','NOT_STARTED'];if(sched.some(p=>raw.includes(p)))return'Scheduled';return s||'';}
 
-function renderServers(sl){const bar=$('serverBar');if(!bar)return;const url='/stream_premium.html?id='+encodeURIComponent(sl)+'&k=2e53b34da32e5044e25f26baddab45';const labels=['Server 1','Server 2','Server 3','Server 4','Server 5','Server 6'];bar.innerHTML=labels.map(l=>`<a href="${url}" target="_blank" rel="noopener">${l}</a>`).join('');}
-function matchSlug(sl,fx){const h=slug(fx.home?.name||'');const a=slug(fx.away?.name||'');return sl===`${h}-vs-${a}`||sl===`${a}-vs-${h}`;}
-async function fixturesFor(isoDate){const ymd=isoToYMD(isoDate);const urls=[`https://fotbal.site/fixtures.php?date=${ymd}`];for(const u of urls){try{const r=await fetch(u,{cache:'no-store'});if(!r.ok)continue;const t=await r.text();const j=JSON.parse(t);if(j.fixtures)return j.fixtures;}catch(e){}}return[];}
+function formatStatus(s){
+  const raw=String(s||'').toUpperCase();
+  const live=['IN_PLAY','LIVE','PLAYING','1ST HALF','2ND HALF','FIRST HALF','SECOND HALF','Q1','Q2','Q3','Q4','OT'];
+  if(live.some(p=>raw.includes(p)))return'Live';
+  const half=['HALF-TIME','HALFTIME','HT','PAUSED','BREAK'];
+  if(half.some(p=>raw.includes(p)))return'Half / Pause';
+  const fin=['FINISHED','FULL-TIME','FT','FINAL','ENDED','STATUS_FINAL'];
+  if(fin.some(p=>raw.includes(p)))return'Finished';
+  const sched=['SCHEDULED','NOT_STARTED','NS','STATUS_SCHEDULED'];
+  if(sched.some(p=>raw.includes(p)))return'Scheduled';
+  return s||'';
+}
 
-function applyFixtureStatus(fx){const pretty=formatStatus(fx.status);$('state').textContent=pretty||'-';$('statusLine').textContent=pretty||'';$('kickoff').textContent=fx.start_utc?new Date(fx.start_utc).toLocaleString():'-';$('minute').textContent=fx.minute|| (pretty==='Live'?'–':'');}
-function applyFixture(fx){const hn=fx.home?.name||'Home';const an=fx.away?.name||'Away';$('homeName').textContent=hn;$('awayName').textContent=an;$('homeLogo').src=fx.home?.logo||'/logo.svg';$('awayLogo').src=fx.away?.logo||'/logo.svg';$('league').textContent=fx.league?.name||'-';applyFixtureStatus(fx);renderServers(slug(hn+'-vs-'+an));}
+// show “minute/period” ONLY when live/half; hide any date/time strings like “11/11 7:30 PM”
+function displayMinute(fx){
+  const st=String(fx.status||'').toUpperCase();
+  const isLive = /(IN_PLAY|LIVE|PLAYING|HALF|PAUSED|Q[1-4]|OT|OVERTIME)/.test(st);
+  if(!isLive) return '';
+  let m = String(fx.minute||'').trim();
+  if(!m) return '';
+  if (/(AM|PM|ET|EST|CET|GMT)/i.test(m) || /\d{1,2}\/\d{1,2}/.test(m)) return '';
+  return m;
+}
 
-function startStatusPoll(baseISO,slugPart){async function tick(){const list=await fixturesFor(baseISO);const hit=list.find(fx=>matchSlug(slugPart,fx));if(hit){applyFixtureStatus(hit);const st=String(hit.status||'').toUpperCase();if(st.includes('FINISH')||st.includes('FINAL'))return;}setTimeout(tick,25000);}tick();}
+function renderServers(sl){
+  const bar=$('serverBar'); if(!bar) return;
+  const url='/stream_premium.html?id='+encodeURIComponent(sl)+'&k=2e53b34da32e5044e25f26baddab45';
+  const labels=['Server 1','Server 2','Server 3','Server 4','Server 5','Server 6'];
+  bar.innerHTML=labels.map(l=>`<a href="${url}" target="_blank" rel="noopener">${l}</a>`).join('');
+}
 
-async function load(){const raw=qs('id')||qs('m')||'';if(raw){const pure=raw.includes('@')?raw.split('@')[0]:raw;const parts=pure.split('-vs-');if(parts.length===2){$('homeName').textContent=capWords(parts[0]);$('awayName').textContent=capWords(parts[1]);renderServers(pure);}else{$('homeName').textContent=capWords(pure);renderServers(pure);}}const baseISO=raw.includes('@')?raw.split('@')[1].replace(/(\\d{4})(\\d{2})(\\d{2})/,'$1-$2-$3'):new Date().toISOString().slice(0,10);const slugPart=slug(raw.includes('@')?raw.split('@')[0]:raw);const days=[-2,-1,0,1,2];let found=null;let foundDate=baseISO;for(const off of days){const iso=addDaysISO(baseISO,off);const list=await fixturesFor(iso);const hit=list.find(fx=>matchSlug(slugPart,fx));if(hit){found=hit;foundDate=iso;break;}}if(found){applyFixture(found);startStatusPoll(foundDate,slugPart);}$('kx-loader').classList.add('hidden');$('page').style.display='block';$('server-tip').classList.remove('hidden');}
+function matchSlug(sl,fx){
+  const h=slug(fx.home?.name||''); const a=slug(fx.away?.name||'');
+  return sl===`${h}-vs-${a}`||sl===`${a}-vs-${h}`;
+}
+
+async function fixturesFor(isoDate){
+  const ymd=isoToYMD(isoDate);
+  const urls=[`https://fotbal.site/fixtures.php?date=${ymd}`];
+  for(const u of urls){
+    try{
+      const r=await fetch(u,{cache:'no-store'});
+      if(!r.ok) continue;
+      const t=await r.text();
+      const j=JSON.parse(t);
+      if(j.fixtures) return j.fixtures;
+    }catch(e){}
+  }
+  return [];
+}
+
+function applyFixtureStatus(fx){
+  const pretty=formatStatus(fx.status);
+  $('statusLine').textContent=pretty||'-';
+  const m = displayMinute(fx);
+  $('minuteLine').textContent = m ? m : '';
+}
+
+function applyFixture(fx){
+  const hn=fx.home?.name||'Home';
+  const an=fx.away?.name||'Away';
+  $('homeName').textContent=hn;
+  $('awayName').textContent=an;
+  $('homeLogo').src=fx.home?.logo||'/logo.svg';
+  $('awayLogo').src=fx.away?.logo||'/logo.svg';
+  applyFixtureStatus(fx);
+  renderServers(slug(hn+'-vs-'+an));
+}
+
+function startStatusPoll(baseISO,slugPart){
+  async function tick(){
+    const list=await fixturesFor(baseISO);
+    const hit=list.find(fx=>matchSlug(slugPart,fx));
+    if(hit){
+      applyFixtureStatus(hit);
+      const st=String(hit.status||'').toUpperCase();
+      if(st.includes('FINISH')||st.includes('FINAL')) return; // stop
+    }
+    setTimeout(tick,25000);
+  }
+  tick();
+}
+
+async function load(){
+  const raw=qs('id')||qs('m')||'';
+  if(raw){
+    const pure=raw.includes('@')?raw.split('@')[0]:raw;
+    const parts=pure.split('-vs-');
+    if(parts.length===2){
+      $('homeName').textContent=capWords(parts[0]);
+      $('awayName').textContent=capWords(parts[1]);
+      renderServers(pure);
+    }else{
+      $('homeName').textContent=capWords(pure);
+      renderServers(pure);
+    }
+  }
+  const baseISO=raw.includes('@')?raw.split('@')[1].replace(/(\\d{4})(\\d{2})(\\d{2})/,'$1-$2-$3'):new Date().toISOString().slice(0,10);
+  const slugPart=slug(raw.includes('@')?raw.split('@')[0]:raw);
+  const days=[-2,-1,0,1,2];
+  let found=null, foundDate=baseISO;
+  for(const off of days){
+    const iso=addDaysISO(baseISO,off);
+    const list=await fixturesFor(iso);
+    const hit=list.find(fx=>matchSlug(slugPart,fx));
+    if(hit){found=hit;foundDate=iso;break;}
+  }
+  if(found){
+    applyFixture(found);
+    startStatusPoll(foundDate,slugPart);
+  }
+  $('kx-loader').classList.add('hidden');
+  $('page').style.display='block';
+  $('server-tip').classList.remove('hidden');
+}
 load();
 </script>
 </body>
