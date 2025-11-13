@@ -90,7 +90,7 @@
 <script>
   document.getElementById('yy').textContent = new Date().getFullYear();
 
-  // your Hostinger endpoint
+  // ✅ Your live PHP API endpoint
   const API_BASE = "https://fotbal.site/fixtures.php?date=";
   const WATCH_URL = "/watch.html";
   const OPEN_IN_NEW_TAB = true;
@@ -110,7 +110,7 @@
   let leagueKey = 'all';
   let ALL = [];
 
-  // leagues
+  // ---------------- Leagues menu ----------------
   function nameOf(fx){ return (fx.league && (fx.league.name || fx.league.code)) || ''; }
   function codeIs(fx, code){ return fx.league && (fx.league.code||'').toUpperCase() === code.toUpperCase(); }
 
@@ -146,7 +146,7 @@
     renderLists();
   });
 
-  // mobile menu
+  // ---------------- Filters ----------------
   const menuBtn = document.getElementById('menuBtn');
   const controlsEl = document.querySelector('.controls');
   const menuOverlay = document.getElementById('menuOverlay');
@@ -159,7 +159,6 @@
     menuOverlay.classList.remove('active');
   });
 
-  // favourites
   function getFavs(){ try{return JSON.parse(localStorage.getItem('favourites')||'[]');}catch{return[];} }
   function saveFavs(v){ try{localStorage.setItem('favourites', JSON.stringify(v));}catch{} }
   function isFav(sl){ return getFavs().includes(sl); }
@@ -178,7 +177,6 @@
     }
   });
 
-  // sport filter buttons
   pills.forEach(p => {
     p.addEventListener('click', () => {
       pills.forEach(x => x.classList.remove('active'));
@@ -194,7 +192,6 @@
     });
   }
 
-  // minor filter
   const MINOR_PAT = [/u23/i, /u21/i, /reserve/i, /friendly/i, /primavera/i, /academy/i];
   function isMinor(fx){
     const ln = ((fx.league && fx.league.name) || '').toLowerCase();
@@ -203,35 +200,24 @@
     return MINOR_PAT.some(r => r.test(ln) || r.test(hn) || r.test(an));
   }
 
-  // normalize sports from your PHP
+  // ---------------- Sport mapping fix ----------------
   function normalizeSport(fx) {
-    const out = Object.assign({}, fx);
-    // soccer from ESPN PHP would be "Soccer", leave it
-    if (out.sport === 'Soccer') return out;
+    const out = { ...fx };
+    const sport = String(out.sport || '').toUpperCase();
+    const code  = ((out.league && out.league.code) || '').toUpperCase();
+    const lname = (out.league && out.league.name ? out.league.name.toLowerCase() : '');
 
-    if (out.sport === 'BASKETBALL') {
-      out.sport = 'NBA';
-      return out;
-    }
-    if (out.sport === 'HOCKEY') {
-      out.sport = 'NHL';
-      return out;
-    }
-    if (out.sport === 'FOOTBALL') {
-      const lname = (out.league && out.league.name ? out.league.name.toLowerCase() : '');
-      if (lname.includes('national football league')) {
-        out.sport = 'NFL';
-      } else {
-        out.sport = 'Football';
-      }
+    if (sport === 'SOCCER') { out.sport = 'Football'; return out; }
+    if (sport === 'BASKETBALL') { out.sport = (code === 'NBA') ? 'NBA' : 'Basketball'; return out; }
+    if (sport === 'HOCKEY') { out.sport = (code === 'NHL') ? 'NHL' : 'Hockey'; return out; }
+    if (sport === 'FOOTBALL') {
+      out.sport = (code === 'NFL' || lname.includes('national football league')) ? 'NFL' : 'Football';
       return out;
     }
     return out;
   }
 
-  function imgTag(url, alt){
-    return url ? `<img class="badge" src="${url}" alt="${alt||''}" onerror="this.style.display='none'">` : '';
-  }
+  function imgTag(url, alt){ return url ? `<img class="badge" src="${url}" alt="${alt||''}" onerror="this.style.display='none'">` : ''; }
   function statusLabel(fx){
     const st = (fx.status || '').toUpperCase();
     if (/\bHT\b/.test(st) || /HALF/.test(st)) return 'HALF';
@@ -239,9 +225,7 @@
     if (/FINAL|FULL\s?TIME|FULLTIME|STATUS_FINAL/.test(st)) return 'FINISHED';
     return 'SCHEDULED';
   }
-  function compName(fx){
-    return (fx.league && (fx.league.name || fx.league.code)) || '';
-  }
+  function compName(fx){ return (fx.league && (fx.league.name || fx.league.code)) || ''; }
 
   function card(fx){
     const el = document.createElement('div');
@@ -252,7 +236,6 @@
     const s = slug((fx.home.name||'') + '-vs-' + (fx.away.name||''));
     el.dataset.slug = s;
     const watchHref = WATCH_URL + '?m=' + encodeURIComponent(s);
-
     el.innerHTML = `
       <div class="gc-head">
         <div class="left">
@@ -276,21 +259,15 @@
     return el;
   }
 
-  function skeleton(){
-    const d = document.createElement('div');
-    d.className = 'game-card skeleton';
-    return d;
-  }
-  function setEmpty(el){
-    el.innerHTML = '<div class="empty">No games.</div>';
-  }
+  function skeleton(){ const d=document.createElement('div'); d.className='game-card skeleton'; return d; }
+  function setEmpty(el){ el.innerHTML = '<div class="empty">No games.</div>'; }
 
   function renderLists(){
     const term = q.value.trim().toLowerCase();
     const league = LEAGUES.find(x => x.key === leagueKey) || LEAGUES[0];
     const majorOnly = document.getElementById('majorOnly').checked;
 
-    const footballAll = ALL.filter(fx => fx.sport === 'Soccer' || fx.sport === 'Football');
+    const footballAll = ALL.filter(fx => fx.sport === 'Football');
     const nba = ALL.filter(fx => fx.sport === 'NBA');
     const nfl = ALL.filter(fx => fx.sport === 'NFL');
     const nhl = ALL.filter(fx => fx.sport === 'NHL');
@@ -329,15 +306,8 @@
     renderVisibility();
   }
 
-  function toYMD(ts){
-    const d = new Date(ts);
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,'0');
-    const da = String(d.getDate()).padStart(2,'0');
-    return `${y}${m}${da}`;
-  }
-
-  async function loadUpcoming(){
+  // ---------------- Safe fetch (handles partial errors) ----------------
+  async function loadUpcoming() {
     ['football','nba','nfl','nhl'].forEach(id => {
       const el = document.getElementById(id);
       el.innerHTML = '';
@@ -345,21 +315,23 @@
     });
 
     const now = Date.now();
+    const toYMD = ts => {
+      const d = new Date(ts);
+      return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+    };
     const today = toYMD(now);
-    const tomorrow = toYMD(now + 86400000);
     const yesterday = toYMD(now - 86400000);
+    const tomorrow = toYMD(now + 86400000);
+    const urls = [yesterday, today, tomorrow].map(d => API_BASE + d);
 
     try {
-      const [r1, r2, r3] = await Promise.all([
-        fetch(API_BASE + yesterday),
-        fetch(API_BASE + today),
-        fetch(API_BASE + tomorrow)
-      ]);
-      const [j1, j2, j3] = await Promise.all([r1.json(), r2.json(), r3.json()]);
+      const settled = await Promise.allSettled(urls.map(u => fetch(u, { credentials:'same-origin' })));
+      const okResponses = settled.filter(r => r.status==='fulfilled' && r.value && r.value.ok).map(r => r.value);
+      const jsonSettled = await Promise.allSettled(okResponses.map(r => r.json().catch(()=>null)));
+      const payloads = jsonSettled.filter(r => r.status==='fulfilled' && r.value && typeof r.value==='object').map(r => r.value);
+
       let combined = [];
-      if (j1 && j1.fixtures) combined = combined.concat(j1.fixtures);
-      if (j2 && j2.fixtures) combined = combined.concat(j2.fixtures);
-      if (j3 && j3.fixtures) combined = combined.concat(j3.fixtures);
+      for (const j of payloads) { if (j && Array.isArray(j.fixtures)) combined = combined.concat(j.fixtures); }
 
       const H48 = 48*60*60*1000;
       const past = 6*60*60*1000;
@@ -370,20 +342,17 @@
         return diff < H48 && diff > -past;
       });
 
-      // 👇 normalize here
       ALL = filtered.map(normalizeSport);
-
-      // sort all by kickoff
       ALL.sort((a,b) => (a.start_utc||'').localeCompare(b.start_utc||''));
-
       renderLists();
     } catch (e) {
-      document.getElementById('counts').textContent = 'Could not load fixtures from fotbal.site';
+      console.error('Load error:', e);
+      document.getElementById('counts').textContent = 'Could not load fixtures.';
       ['football','nba','nfl','nhl'].forEach(id => setEmpty(document.getElementById(id)));
     }
   }
 
-  // keep countdowns alive
+  // ---------------- Countdown tick ----------------
   setInterval(() => {
     const now = Date.now();
     document.querySelectorAll('.game-card').forEach(el => {
