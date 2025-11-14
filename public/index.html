@@ -214,13 +214,26 @@ function normalizeSport(fx) {
 }
 
 function imgTag(url, alt){ return url ? `<img class="badge" src="${url}" alt="${alt||''}" onerror="this.style.display='none'">` : ''; }
+
+// 🔧 UPDATED: better status handling (LIVE vs HALF)
 function statusLabel(fx){
-  const st = (fx.status || '').toUpperCase();
-  if (/\bHT\b/.test(st) || /HALF/.test(st)) return 'HALF';
-  if (/LIVE|IN_PLAY|1ST|2ND|STATUS_IN_PROGRESS/.test(st)) return 'LIVE';
-  if (/FINAL|FULL\s?TIME|FULLTIME|STATUS_FINAL/.test(st)) return 'FINISHED';
+  const st = ((fx.status || '') + ' ' + (fx.minute || '')).toUpperCase();
+
+  // Real halftime only
+  if (/\bHT\b/.test(st) || /\bHALF[\s-]?TIME\b/.test(st)) return 'HALF';
+
+  // Live: first half, second half, ET, pens, generic in progress
+  if (/\bLIVE\b|\bIN_PLAY\b|\bIN PROGRESS\b|\b1ST\b|\b2ND\b|\bFIRST HALF\b|\bSECOND HALF\b|\bET\b|\bPEN\b|STATUS_IN_PROGRESS/.test(st)) {
+    return 'LIVE';
+  }
+
+  // Finished
+  if (/FINAL|FULL\s?TIME|FULLTIME|\bFT\b|\bAET\b|STATUS_FINAL/.test(st)) return 'FINISHED';
+
+  // Default: not started
   return 'SCHEDULED';
 }
+
 function compName(fx){ return (fx.league && (fx.league.name || fx.league.code)) || ''; }
 
 function card(fx){
