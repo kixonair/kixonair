@@ -212,6 +212,13 @@
       if (app){ app.classList.add('revealed'); }
     });
 
+    // === Fix iOS/Safari "Back" issue: force reload when coming from bfcache ===
+    window.addEventListener('pageshow', function (event) {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    });
+
     function pad2(n){ return (n<10?'0':'')+n; }
     function formatTime(s){
       const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=Math.floor(s%60);
