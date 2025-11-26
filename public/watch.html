@@ -112,13 +112,16 @@
 </div>
 
 <script>
+  // Utility to get element by id
   function $(id){ return document.getElementById(id); }
 
+  // Query string helper to get parameters
   function qs(name){
     var p = new URLSearchParams(window.location.search);
     return p.get(name) || '';
   }
 
+  // Convert a string into a URL-safe slug
   function slug(str){
     return String(str || '')
       .toLowerCase()
@@ -126,6 +129,7 @@
       .replace(/(^-|-$)/g,'');
   }
 
+  // Capitalize each word in a hyphenated or space-separated string
   function capWords(str){
     return String(str || '')
       .split(/[-\s]+/)
@@ -133,14 +137,17 @@
       .join(' ');
   }
 
+  // Add days to an ISO date string
   function addDaysISO(iso, n){
     var d = new Date(iso);
     d.setDate(d.getDate() + n);
     return d.toISOString().slice(0,10);
   }
 
+  // Convert an ISO date (YYYY-MM-DD) to compact YMD (YYYYMMDD)
   function isoToYMD(iso){ return iso.replace(/-/g,''); }
 
+  // Format fixture status text into human-friendly labels
   function formatStatus(raw){
     raw = String(raw || '').toUpperCase();
     if (/(LIVE|IN_PLAY|PLAYING|Q1|Q2|Q3|Q4|OT|OVERTIME|HALF)/.test(raw)) return 'Live';
@@ -149,6 +156,7 @@
     return 'Scheduled';
   }
 
+  // Determine whether to show the minute countdown/timer and format it
   function displayMinute(fx){
     var st = String((fx && fx.status) || '').toUpperCase();
     var live = /(LIVE|IN_PLAY|PLAYING|Q1|Q2|Q3|Q4|OT|OVERTIME|HALF)/.test(st);
@@ -160,6 +168,7 @@
     return m;
   }
 
+  // Render the server buttons based on a slug (team names)
   function renderServers(slugPart){
     var bar = $('serverBar');
     if (!bar) return;
@@ -172,25 +181,89 @@
     bar.innerHTML = html;
   }
 
+  // Compare slug to fixture data to find a match
   function matchSlug(sl, fx){
     var h = slug(fx && fx.home && fx.home.name);
     var a = slug(fx && fx.away && fx.away.name);
     return sl === (h + '-vs-' + a) || sl === (a + '-vs-' + h);
   }
 
+  /**
+   * Fixture caching helpers.
+   *
+   * The page may poll the remote server frequently (every 25 seconds) to update
+   * match status. To reduce network overhead—especially when many users open
+   * the same match—we cache responses per date in-memory and in
+   * `localStorage`. Cached entries expire after a short TTL (default: 60
+   * seconds) to ensure that live matches update regularly.
+   */
+
+  // In-memory cache keyed by date (YYYYMMDD)
+  var fixturesCache = {};
+
+  // Retrieve cached fixture list from localStorage if it hasn't expired.
+  function getFromCache(ymd) {
+    // Check in-memory cache first
+    if (fixturesCache[ymd] && (Date.now() - fixturesCache[ymd].timestamp < 60000)) {
+      return fixturesCache[ymd].data;
+    }
+    try {
+      var stored = localStorage.getItem('fixtures_' + ymd);
+      if (stored) {
+        var parsed = JSON.parse(stored);
+        if (Date.now() - parsed.timestamp < 60000) {
+          // Save to in-memory cache for faster subsequent access
+          fixturesCache[ymd] = { data: parsed.data, timestamp: parsed.timestamp };
+          return parsed.data;
+        }
+      }
+    } catch(e) {
+      // ignore JSON parse errors
+    }
+    return null;
+  }
+
+  // Store fixture list in both localStorage and in-memory cache
+  function saveToCache(ymd, data) {
+    var entry = { timestamp: Date.now(), data: data };
+    fixturesCache[ymd] = entry;
+    try {
+      localStorage.setItem('fixtures_' + ymd, JSON.stringify(entry));
+    } catch(e) {
+      // localStorage may be unavailable (e.g., privacy mode), ignore errors
+    }
+  }
+
+  /**
+   * Fetch fixtures for a given ISO date. Uses caching to avoid excessive
+   * requests to the remote API. If a cached response is available and fresh,
+   * it is returned immediately. Otherwise, the data is fetched from the
+   * server, cached, and returned.
+   *
+   * @param {string} isoDate - Date in YYYY-MM-DD format
+   * @returns {Promise<Array>} List of fixtures for that date
+   */
   async function fixturesFor(isoDate){
     var ymd = isoToYMD(isoDate);
+    var cached = getFromCache(ymd);
+    if (cached) {
+      return cached;
+    }
     var url = 'https://fotbal.site/fixtures.php?date=' + ymd;
     try{
       var r = await fetch(url, {cache:'no-store'});
       if (!r.ok) return [];
       var j = await r.json();
-      return j && j.fixtures ? j.fixtures : [];
+      var data = j && j.fixtures ? j.fixtures : [];
+      saveToCache(ymd, data);
+      return data;
     }catch(e){
-      return [];
+      // On network errors, fallback to stale cache if available
+      return cached || [];
     }
   }
 
+  // Update the displayed fixture status (e.g., Live / Finished / Scheduled)
   function applyFixtureStatus(fx){
     var statusText = formatStatus(fx && fx.status);
     $('statusLine').textContent = statusText || '-';
@@ -204,6 +277,7 @@
     }
   }
 
+  // Populate team names, logos, status, and server links based on fixture data
   function applyFixture(fx){
     var hn = fx && fx.home && fx.home.name ? fx.home.name : 'Home';
     var an = fx && fx.away && fx.away.name ? fx.away.name : 'Away';
@@ -215,6 +289,14 @@
     renderServers(slug(hn + '-vs-' + an));
   }
 
+  /**
+   * Start polling fixture status updates. This uses the cached fixtures list
+   * but periodically refreshes the status to reflect the latest minute and
+   * final outcome. The polling stops once a finished status is detected.
+   *
+   * @param {string} baseISO - Base date in ISO format
+   * @param {string} slugPart - Slug of home vs away
+   */
   function startStatusPoll(baseISO, slugPart){
     async function tick(){
       var list = await fixturesFor(baseISO);
@@ -235,6 +317,11 @@
     tick();
   }
 
+  /**
+   * Main entry point. Parses query parameters, attempts to preload fixture
+   * information from the past and next few days, and displays the match.
+   * Also starts the polling logic for live updates.
+   */
   async function load(){
     var raw = qs('id') || qs('m') || '';
     var pure = raw.indexOf('@') !== -1 ? raw.split('@')[0] : raw;
@@ -257,6 +344,7 @@
 
     var slugPart = slug(pure);
 
+    // Try to find the fixture within +/- 2 days for better matching
     var days = [-2,-1,0,1,2];
     var found = null;
     var foundDate = baseISO;
@@ -284,6 +372,7 @@
     $('server-tip').classList.remove('hidden');
   }
 
+  // Kick off the page load when the script is evaluated
   load();
 </script>
 </body>
